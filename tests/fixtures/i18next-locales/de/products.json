@@ -1,0 +1,21 @@
+{
+  "products": {
+    "title": "Produkte",
+    "description": "Entdecken Sie unsere vielfältige Produktpalette.",
+    "addToCart": "In den Warenkorb",
+    "outOfStock": "Nicht auf Lager",
+    "metaData": {
+      "category": "Kategorie",
+      "brand": "Marke",
+      "shippingTime": "Versandzeit",
+      "ecommerce": {
+        "bank": "Bank",
+        "bat": "Schläger"
+      },
+      "nature": {
+        "bank": "Bank",
+        "bat": "Fledermaus"
+      }
+    }
+  }
+}

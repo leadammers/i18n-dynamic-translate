@@ -1,0 +1,8 @@
+{
+  "hello": "Hello",
+  "world": "World",
+  "products": {
+    "title": "Products",
+    "description": "Explore our wide range of products."
+  }
+}
