@@ -168,7 +168,7 @@ To generate translations in `locales/de/translation.json` (or `locales/de.json` 
 }
 ```
 
-And use them in React with i18next:
+And use them in your UI, for example with React and react-i18next:
 
 ```tsx
 function ProductMeta({meta}) {
