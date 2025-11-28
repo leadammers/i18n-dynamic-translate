@@ -285,10 +285,13 @@ export class AutoTranslate {
 
     /**
      * Manually translate a key
-     * @param key - Translation key
-     * @param targetLocale - Target locale code
-     * @param options - Optional settings (namespace, parentKey)
-     * @param context - Optional context for translation
+     * @param key - Translation key to translate
+     * @param targetLocale - Target locale code (e.g., 'de', 'fr', 'es')
+     * @param options - Optional translation settings
+     * @param options.namespace - i18next namespace (affects file path, e.g., 'common', 'errors')
+     * @param options.parentKey - Nest translation under this key (e.g., 'product.meta')
+     * @param options.context - Additional context to improve translation accuracy (e.g., 'e-commerce', 'financial')
+     * @returns The translated string
      */
     async translateKey(
         key: string,
@@ -296,8 +299,8 @@ export class AutoTranslate {
         options?: {
             namespace?: string;
             parentKey?: string;
-        },
-        context?: string
+            context?: string;
+        }
     ): Promise<string> {
         // Input validation
         if (!key) {
@@ -312,7 +315,7 @@ export class AutoTranslate {
             throw new ConfigurationError('AutoTranslate instance has been disposed');
         }
 
-        const { namespace, parentKey } = options || {};
+        const { namespace, parentKey, context } = options || {};
 
         // Check cache first
         if (this.cache?.has(key, targetLocale, context)) {
@@ -352,21 +355,22 @@ export class AutoTranslate {
     }
 
     /**
-     * Translate an object's string values to the target locale
-     * Automatically flattens nested objects and creates translations in locale files
+     * Translate an object's string values to the target locale.
+     * Automatically flattens nested objects and creates translations in locale files.
      * @param obj - Object with string values to translate
      * @param targetLocale - Target locale code
-     * @param context - Optional context for translation
-     * @param options - Optional settings (namespace, parentKey)
-     */
+     * @param options - Optional translation settings
+     * @param options.namespace - i18next namespace (affects file path, e.g., 'common', 'errors')
+     * @param options.parentKey - Nest translation under this key (e.g., 'product.meta')
+     * @param options.context - Additional context to improve translation accuracy (e.g., 'e-commerce', 'financial')*/
     async translateObject(
         obj: Record<string, unknown>,
         targetLocale: string,
         options?: {
             namespace?: string;
             parentKey?: string;
-        },
-        context?: string
+            context?: string;
+        }
     ): Promise<Record<string, string>> {
         if (!obj || typeof obj !== 'object') {
             throw new ConfigurationError('Object must be a non-null object');
@@ -382,7 +386,7 @@ export class AutoTranslate {
         const translations: Record<string, string> = {};
 
         for (const [key] of Object.entries(flattened)) {
-            translations[key] = await this.translateKey(key, targetLocale, options, context);
+            translations[key] = await this.translateKey(key, targetLocale, options);
         }
 
         return translations;

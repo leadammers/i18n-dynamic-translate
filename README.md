@@ -152,7 +152,7 @@ const product = await fetchProduct();
 
 // Translate all keys in product.meta
 // context can be provided as optional parameter and will override global config for this call
-await autoTranslate.translateObject(product.meta, 'de', {parentKey: 'product.meta'}, 'e-commerce');
+await autoTranslate.translateObject(product.meta, 'de', {parentKey: 'product.meta', context: 'e-commerce'});
 ```
 
 To generate translations in `locales/de/translation.json` (or `locales/de.json` for node-i18n):
@@ -193,23 +193,51 @@ function ProductMeta({meta}) {
 
 ## API
 
-### `translateObject(obj, targetLocale, options?, context?)`
+### `translateObject(obj, targetLocale, options?)`
 
 Translates all keys in an object.
 
 ```typescript
 await autoTranslate.translateObject(obj, 'de', {
-    namespace: 'common',    // i18next namespace (affects file path)
-    parentKey: 'myKey',     // Nest under this key in the translation file
-}, 'e-commerce');           // Optional context for better translations
+    namespace: 'common',
+    parentKey: 'myKey',
+    context: 'e-commerce'
+});
 ```
 
-### `translateKey(key, targetLocale, options?, context?)`
+<details><summary><strong>Translation options explained</strong></summary>
+
+Both `translateKey()` and `translateObject()` accept an optional `options` parameter with the following properties:
+
+#### `namespace` (string, optional)
+
+- **i18next only** - Specifies which namespace to use
+- Affects the file path where translations are saved
+- Example: `{ namespace: 'common' }` saves to `locales/de/common.json`
+
+#### `parentKey` (string, optional)
+
+- Nests the translation under a specific key path
+- Useful for organizing related translations
+- Example: `{ parentKey: 'product.meta' }` creates nested structure
+
+#### `context` (string, optional)
+
+- Provides additional context to improve translation accuracy
+- Helps disambiguate words with multiple meanings
+- Example: `{ context: 'e-commerce' }` helps translate "bank" correctly
+
+</details>
+
+### `translateKey(key, targetLocale, options?)`
 
 Translates a single key.
 
 ```typescript
-await autoTranslate.translateKey('myKey', 'de', {parentKey: 'ui'}, 'button label');
+await autoTranslate.translateKey('myKey', 'de', {
+    parentKey: 'ui',
+    context: 'button label'
+});
 ```
 
 ### `clearCache()`
