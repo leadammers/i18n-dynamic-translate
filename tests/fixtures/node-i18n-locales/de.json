@@ -1,0 +1,16 @@
+{
+  "hello": "Hallo",
+  "world": "Welt",
+  "products": {
+    "title": "Produkte",
+    "description": "Entdecken Sie unsere vielfältige Produktpalette.",
+    "metaData": {
+      "ecommerce": {
+        "bat": "Schläger"
+      },
+      "nature": {
+        "bat": "Fledermaus"
+      }
+    }
+  }
+}

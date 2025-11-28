@@ -1,0 +1,9 @@
+{
+  "products": {
+    "metaData": {
+      "category": "Categoría",
+      "brand": "Marca",
+      "shippingTime": "Plazo de entrega"
+    }
+  }
+}
