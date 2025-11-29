@@ -14,20 +14,14 @@ import { AutoTranslate } from '@/index';
 
 import type { Resource } from 'i18next';
 
-export function loadLocaleResources(
-    localesPath: string,
-    locales: string[],
-    namespaces: string[]
-): Resource {
+export function loadLocaleResources(localesPath: string, locales: string[], namespaces: string[]): Resource {
     const resources: Resource = {};
 
     for (const locale of locales) {
         resources[locale] = {};
         for (const ns of namespaces) {
             const filePath = path.join(localesPath, locale, `${ns}.json`);
-            resources[locale][ns] = fs.existsSync(filePath)
-                ? JSON.parse(fs.readFileSync(filePath, 'utf-8'))
-                : {};
+            resources[locale][ns] = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf-8')) : {};
         }
     }
 
@@ -141,7 +135,7 @@ export async function fetchExistingTranslationsWithSpy({
 
     const results: string[] = [];
     for (const { key, parentKey, context, namespace } of translations) {
-        const result = await autoTranslate.translateKey(key, targetLocale, { parentKey, namespace }, context);
+        const result = await autoTranslate.translateKey(key, targetLocale, { parentKey, namespace, context });
         results.push(result);
     }
 

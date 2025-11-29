@@ -109,6 +109,9 @@ export interface TranslationService {
     /** Translate text from source to target language */
     translate(text: string, sourceLang: string, targetLang: string, context?: string): Promise<string>;
 
+    /** Translate a batch of texts from source to target language */
+    translateBatch(texts: string[], sourceLang: string, targetLang: string, context?: string): Promise<string[]>;
+
     /** Check if the service is available/configured */
     isAvailable(): boolean;
 }

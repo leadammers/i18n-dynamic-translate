@@ -81,6 +81,17 @@ export class LibreTranslateService implements TranslationService {
     }
 
     /**
+     * Translate a batch of texts
+     * @param texts
+     * @param sourceLang
+     * @param targetLang
+     */
+    async translateBatch(texts: string[], sourceLang: string, targetLang: string): Promise<string[]> {
+        // TODO: Implement batch translation if LibreTranslate supports it
+        return Promise.all(texts.map((text) => this.translate(text, sourceLang, targetLang)));
+    }
+
+    /**
      * Normalize language code for LibreTranslate (e.g., 'en-US' -> 'en')
      */
     private normalizeLangCode(lang: string): string {

@@ -39,6 +39,10 @@ export class DeepLService implements TranslationService {
 
     /**
      * Translate text using DeepL
+     * @param text Text to translate
+     * @param sourceLang Source language code
+     * @param targetLang Target language code
+     * @param context Optional context to improve translation accuracy
      */
     async translate(text: string, sourceLang: string, targetLang: string, context?: string): Promise<string> {
         if (!this.isAvailable()) {
@@ -46,25 +50,10 @@ export class DeepLService implements TranslationService {
         }
 
         try {
-            const params: Record<string, string> = {
-                auth_key: this.apiKey,
-                text,
-                source_lang: this.normalizeSourceLang(sourceLang),
-                target_lang: this.normalizeTargetLang(targetLang),
-            };
-
-            if (this.formality) {
-                params.formality = this.formality;
-            }
-
-            const contextValue = context ?? this.context;
-            if (contextValue) {
-                params.context = contextValue;
-            }
-
-            if (this.splitSentences) {
-                params.split_sentences = this.splitSentences;
-            }
+            const params = this.buildCommonParams(context);
+            params.append('source_lang', this.normalizeSourceLang(sourceLang));
+            params.append('target_lang', this.normalizeTargetLang(targetLang));
+            params.append('text', text);
 
             const response = await axios.post(this.apiUrl, null, {
                 params,
@@ -82,23 +71,51 @@ export class DeepLService implements TranslationService {
         } catch (error) {
             if (axios.isAxiosError(error)) {
                 const axiosError = error as AxiosError;
-                // Sanitize error message to avoid leaking API keys
-                const statusCode = axiosError.response?.status;
-                let message: string;
-                if (statusCode === 401 || statusCode === 403) {
-                    message = 'Authentication failed - check your API key';
-                } else if (statusCode === 429) {
-                    message = 'Rate limit exceeded';
-                } else if (statusCode === 456) {
-                    message = 'Quota exceeded';
-                } else if (axiosError.code === 'ECONNREFUSED' || axiosError.code === 'ENOTFOUND') {
-                    message = 'Unable to connect to DeepL API';
-                } else if (axiosError.code === 'ETIMEDOUT' || axiosError.code === 'ECONNABORTED') {
-                    message = 'Request timed out';
-                } else {
-                    message = `Request failed with status ${statusCode || 'unknown'}`;
-                }
-                throw new TranslationError(`DeepL API error: ${message}`, 'deepl', error);
+                this.handleApiError(axiosError);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Translate a batch of texts using DeepL
+     * @param texts Array of texts to translate
+     * @param sourceLang Source language code
+     * @param targetLang Target language code
+     * @param context Optional context to improve translation accuracy
+     */
+    async translateBatch(texts: string[], sourceLang: string, targetLang: string, context?: string): Promise<string[]> {
+        if (!this.isAvailable()) {
+            throw new TranslationError('DeepL API key not configured', 'deepl');
+        }
+
+        try {
+            const params = this.buildCommonParams(context);
+            params.append('source_lang', this.normalizeSourceLang(sourceLang));
+            params.append('target_lang', this.normalizeTargetLang(targetLang));
+
+            // Add each text as a separate parameter for batch translation
+            for (const text of texts) {
+                params.append('text', text);
+            }
+
+            const response = await axios.post(this.apiUrl, null, {
+                params,
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                timeout: 10000,
+            });
+
+            if (response.data && response.data.translations) {
+                return response.data.translations.map((t: any) => t.text);
+            }
+
+            throw new TranslationError('Invalid response from DeepL API', 'deepl');
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                const axiosError = error as AxiosError;
+                this.handleApiError(axiosError);
             }
             throw error;
         }
@@ -126,5 +143,54 @@ export class DeepLService implements TranslationService {
 
         const base = normalized.split('-')[0];
         return mappings[base] || normalized;
+    }
+
+    /**
+     * Build common parameters from DeepL configuration
+     * @param context Optional context to override the default context
+     */
+    private buildCommonParams(context?: string): URLSearchParams {
+        const params = new URLSearchParams();
+        params.append('auth_key', this.apiKey);
+
+        if (this.formality) {
+            params.append('formality', this.formality);
+        }
+
+        const contextValue = context ?? this.context;
+        if (contextValue) {
+            params.append('context', contextValue);
+        }
+
+        if (this.splitSentences) {
+            params.append('split_sentences', this.splitSentences);
+        }
+
+        return params;
+    }
+
+    /**
+     * Handle API errors and sanitize messages
+     * @param error Axios error object
+     * @throws TranslationError with sanitized message
+     */
+    private handleApiError(error: AxiosError): never {
+        // Sanitize error message to avoid leaking API keys
+        const statusCode = error.response?.status;
+        let message: string;
+        if (statusCode === 401 || statusCode === 403) {
+            message = 'Authentication failed - check your API key';
+        } else if (statusCode === 429) {
+            message = 'Rate limit exceeded';
+        } else if (statusCode === 456) {
+            message = 'Quota exceeded';
+        } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+            message = 'Unable to connect to DeepL API';
+        } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+            message = 'Request timed out';
+        } else {
+            message = `Request failed with status ${statusCode || 'unknown'}`;
+        }
+        throw new TranslationError(`DeepL API error: ${message}`, 'deepl', error);
     }
 }

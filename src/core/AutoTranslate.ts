@@ -331,7 +331,7 @@ export class AutoTranslate {
         if (existing) return existing;
 
         // Get source text
-        let sourceText = this.adapter.getTranslation(key, this.config.defaultLanguage, namespace);
+        let sourceText = this.adapter.getTranslation(targetKey, this.config.defaultLanguage, namespace);
 
         if (!sourceText) {
             sourceText = convertKeyToText(key);
@@ -382,11 +382,66 @@ export class AutoTranslate {
             throw new ConfigurationError('AutoTranslate instance has been disposed');
         }
 
-        const flattened = this.flattenObject(obj);
-        const translations: Record<string, string> = {};
+        const { namespace, parentKey, context } = options || {};
 
+        const flattened = this.flattenObject(obj);
+
+        const translations: Record<string, string> = {};
+        let keysToTranslate: string[] = [];
+
+        // check for existing translations or cache and collect keys to translate
         for (const [key] of Object.entries(flattened)) {
-            translations[key] = await this.translateKey(key, targetLocale, options);
+            if (this.cache?.has(key, targetLocale, context)) {
+                const cached = this.cache?.get(key, targetLocale, context);
+                if (!cached) continue;
+
+                translations[key] = cached;
+                continue;
+            }
+
+            const targetKey = parentKey ? `${parentKey}.${key}` : key;
+
+            const existing = this.adapter.getTranslation(targetKey, targetLocale, namespace);
+            if (existing) {
+                translations[key] = existing;
+                continue;
+            }
+
+            let sourceText = this.adapter.getTranslation(targetKey, this.config.defaultLanguage, namespace);
+            if (!sourceText) {
+                sourceText = convertKeyToText(key);
+            }
+
+            keysToTranslate.push(sourceText);
+        }
+
+        if (keysToTranslate.length !== 0) {
+            // translate missing keys in batch
+            const translatedValues = await this.translationService.translateBatch(
+                keysToTranslate,
+                this.config.defaultLanguage,
+                targetLocale,
+                context
+            );
+
+            // append translated values to translations and update backend/file/cache
+            let translationIndex = 0;
+            for (const [key] of Object.entries(flattened)) {
+                if (translations[key]) {
+                    continue; // already have translation from cache or existing
+                }
+
+                const translatedValue = translatedValues[translationIndex++];
+                translations[key] = translatedValue;
+
+                // Update backend and file
+                await this.updateTranslation(key, targetLocale, translatedValue, namespace, parentKey);
+
+                // Cache the translation
+                if (this.cache) {
+                    this.cache.set(key, targetLocale, translatedValue, context);
+                }
+            }
         }
 
         return translations;

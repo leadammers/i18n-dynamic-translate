@@ -4,10 +4,11 @@
  * Run with:
  *   DEEPL_API_KEY=your-key npm run test:deepl-e2e
  *
- * Or define the API keys in a .env.dev file at the project root.
+ * Or define the API keys in a .env.dev file at the project root and run with:
+ *  npm run test:deepl-e2e
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { vi, describe, it, expect, beforeAll, afterAll } from 'vitest';
 import i18next from 'i18next';
 import { I18n } from 'i18n';
 import * as fs from 'fs';
@@ -24,6 +25,7 @@ import {
     fetchExistingTranslationsWithSpy,
     TranslationFixture,
 } from './util';
+import axios from 'axios';
 
 // Load environment variables from .env file
 config({ path: path.join(__dirname, '../..', '.env.dev') });
@@ -99,6 +101,8 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
     });
 
     it('should translate API metadata to German', async () => {
+        const axiosSpy = vi.spyOn(axios, 'post');
+
         const { translations, savedData, savedTranslations } = await translateObjectAndReadFile({
             autoTranslate,
             sourceData: apiData.product.meta,
@@ -120,6 +124,11 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
             expect(savedTranslations[key]).toBeDefined();
             expect(savedTranslations[key]).not.toBe(apiData.product.meta[key as keyof typeof apiData.product.meta]);
         }
+
+        // Verify API was called with batch of 3 texts
+        expect(axiosSpy).toHaveBeenCalledTimes(1);
+        const params = axiosSpy.mock.calls[0][2]?.params as URLSearchParams;
+        expect(params.getAll('text')).toHaveLength(3);
 
         console.log('Saved translations (DE):', JSON.stringify(savedData, null, 2));
     }, 60000);
@@ -151,25 +160,17 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
     }, 60000);
 
     it('should translate differently depending on context', async () => {
-        const ecommerce = await autoTranslate.translateKey(
-            'bat',
-            'de',
-            {
-                namespace: 'products',
-                parentKey: 'products.metaData.ecommerce',
-            },
-            'sports equipment e-commerce'
-        );
+        const ecommerce = await autoTranslate.translateKey('bat', 'de', {
+            namespace: 'products',
+            parentKey: 'products.metaData.ecommerce',
+            context: 'sports equipment e-commerce',
+        });
 
-        const nature = await autoTranslate.translateKey(
-            'bat',
-            'de',
-            {
-                namespace: 'products',
-                parentKey: 'products.metaData.nature',
-            },
-            'nature animals'
-        );
+        const nature = await autoTranslate.translateKey('bat', 'de', {
+            namespace: 'products',
+            parentKey: 'products.metaData.nature',
+            context: 'nature animals',
+        });
 
         expect(ecommerce).toBeTruthy();
         expect(nature).toBeTruthy();

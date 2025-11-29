@@ -321,7 +321,7 @@ try {
 
 ## Roadmap
 
-- [ ] **Batch translation support** - Translate multiple keys in a single API call if supported by translation provider
+- [x] **Batch translation support** - Translate multiple keys in a single API call if supported by translation provider
 - [ ] **File format auto-detection** - Automatically detect JSON/YAML based on existing files
 - [ ] **LibreTranslate verification** - Full testing and validation
 - [ ] **Google Translate support** - Add Google Cloud Translation API integration
