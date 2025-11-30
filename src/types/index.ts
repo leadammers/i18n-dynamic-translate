@@ -17,6 +17,11 @@ export enum FileFormat {
     YAML = 'yaml',
 }
 
+export enum DeepLModelType {
+    LATENCY = 'latency_optimized',
+    QUALITY = 'prefer_quality_optimized',
+}
+
 /**
  * Main configuration for AutoTranslate
  */
@@ -79,7 +84,7 @@ export interface TranslationProviderConfig {
         formality?: 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less';
         context?: string;
         splitSentences?: '0' | '1' | 'nonewlines';
-        modelType?: 'latency' | 'quality';
+        modelType?: DeepLModelType;
     };
 }
 

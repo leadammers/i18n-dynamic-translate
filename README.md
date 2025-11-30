@@ -62,7 +62,7 @@ const autoTranslate = new AutoTranslate({
 <details><summary>All configuration options</summary>
 
 ```typescript
-import {AutoTranslate, Backend, TranslationProvider, FileFormat} from 'i18n-dynamic-translate';
+import {AutoTranslate, Backend, TranslationProvider, FileFormat, DeepLModelType} from 'i18n-dynamic-translate';
 
 const autoTranslate = new AutoTranslate({
     // ===== Required =====
@@ -99,7 +99,10 @@ const autoTranslate = new AutoTranslate({
             context: 'e-commerce',
 
             // How to split sentences
-            splitSentences: '1'                 // '0' | '1' | 'nonewlines'
+            splitSentences: '1',                // '0' | '1' | 'nonewlines'
+
+            // Specifies which DeepL model should be used for translation, default is latency
+            modelType: DeepLModelType.QUALITY,  // 'QUALITY' | 'LATENCY'
         }
     },
 

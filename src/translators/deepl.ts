@@ -4,7 +4,7 @@
  */
 
 import axios, { AxiosError } from 'axios';
-import { TranslationService, TranslationProviderConfig } from '@/types';
+import { DeepLModelType, TranslationProviderConfig, TranslationService } from '@/types';
 import { TranslationError } from '@/utils/errors';
 
 export class DeepLService implements TranslationService {
@@ -29,6 +29,7 @@ export class DeepLService implements TranslationService {
         this.formality = config.deeplOptions?.formality;
         this.context = config.deeplOptions?.context;
         this.splitSentences = config.deeplOptions?.splitSentences;
+        this.modelType = config.deeplOptions?.modelType || DeepLModelType.LATENCY;
     }
 
     /**

@@ -25,6 +25,7 @@ import {
     TranslationFixture,
 } from './util';
 import axios from 'axios';
+import { DeepLModelType } from '@/types';
 
 // Load environment variables from .env file
 config({ path: path.join(__dirname, '../..', '.env.dev') });
@@ -79,7 +80,7 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
             translationProvider: {
                 provider: TranslationProvider.DEEPL,
                 apiKey: DEEPL_API_KEY,
-                deeplOptions: { formality: 'prefer_more', context: 'e-commerce' },
+                deeplOptions: { formality: 'prefer_more', context: 'e-commerce', modelType: DeepLModelType.QUALITY },
             },
             autoSave: true,
             fileFormat: FileFormat.JSON,
