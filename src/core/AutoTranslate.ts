@@ -312,7 +312,7 @@ export class AutoTranslate {
                 throw new ConfigurationError('Namespace must be provided when using i18next backend');
             }
 
-            const filePath = getLocaleFilePath(this.config.localesPath, locale, namespace, this.config.fileFormat);
+            const filePath = await getLocaleFilePath(this.config.localesPath, locale, namespace, this.config.fileFormat);
 
             // Use file lock to prevent concurrent writes
             await this.fileLock.withLock(filePath, async () => {
