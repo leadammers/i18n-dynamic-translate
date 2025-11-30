@@ -3,75 +3,25 @@
  * Main orchestrator for automatic translation functionality
  */
 
-import { AutoTranslateConfig, BackendAdapter, TranslationService, TranslationCache } from '@/types';
+import { AutoTranslateConfig, Backend, BackendAdapter, TranslationCache, TranslationService } from '@/types';
 import { createBackendAdapter } from '@/adapters';
 import { createTranslationService } from '@/translators';
 import { MemoryCache } from '@/utils/cache';
 import { convertKeyToText } from '@/utils/keyConverter';
-import { getLocaleFilePath, appendTranslationToFile } from '@/utils/fileHandler';
+import { appendTranslationToFile, getLocaleFilePath } from '@/utils/fileHandler';
 import { ConfigurationError } from '@/utils/errors';
+import { Semaphore } from '@/utils/semaphore';
+import { FileLock } from '@/utils/fileLock';
 
 /**
- * Simple semaphore for concurrency control with FIFO ordering
+ * Pending key info for batch processing
  */
-class Semaphore {
-    private permits: number;
-    private waiting: Array<() => void> = [];
-
-    constructor(permits: number) {
-        this.permits = permits;
-    }
-
-    async acquire(): Promise<void> {
-        if (this.permits > 0) {
-            this.permits--;
-            return;
-        }
-
-        return new Promise<void>((resolve) => {
-            this.waiting.push(resolve);
-        });
-    }
-
-    release(): void {
-        // Process waiting queue first (FIFO) before incrementing permits
-        const next = this.waiting.shift();
-        if (next) {
-            // Don't increment permits - transfer directly to next waiter
-            next();
-        } else {
-            // No waiters, return permit to pool
-            this.permits++;
-        }
-    }
-}
-
-/**
- * File write lock to prevent concurrent writes to the same file
- */
-class FileLock {
-    private locks: Map<string, Promise<void>> = new Map();
-
-    async withLock<T>(filePath: string, fn: () => Promise<T>): Promise<T> {
-        // Wait for any existing lock on this file
-        while (this.locks.has(filePath)) {
-            await this.locks.get(filePath);
-        }
-
-        // Create a new lock
-        let releaseLock: () => void;
-        const lockPromise = new Promise<void>((resolve) => {
-            releaseLock = resolve;
-        });
-        this.locks.set(filePath, lockPromise);
-
-        try {
-            return await fn();
-        } finally {
-            this.locks.delete(filePath);
-            releaseLock!();
-        }
-    }
+interface PendingKey {
+    key: string;
+    locale: string;
+    namespace?: string;
+    sourceText: string;
+    callbacks: Array<{ resolve: () => void; reject: (error: Error) => void }>;
 }
 
 export class AutoTranslate {
@@ -84,6 +34,11 @@ export class AutoTranslate {
     private fileLock: FileLock;
     private disposed: boolean = false;
     private boundMissingKeyHandler: (key: string, locale: string, namespace?: string) => void;
+
+    // Batch processing state
+    private pendingBatch: Map<string, PendingKey> = new Map();
+    private batchTimer: ReturnType<typeof setTimeout> | null = null;
+    private batchDebounceMs: number = 50; // Collect keys for 50ms before batch translate
 
     constructor(config: AutoTranslateConfig) {
         this.validateConfig(config);
@@ -198,55 +153,142 @@ export class AutoTranslate {
     }
 
     /**
-     * Process a missing translation key
+     * Process a missing translation key using batched translation
+     * Keys are collected for a short debounce period then translated together
      */
     private async processMissingKey(key: string, locale: string, namespace?: string): Promise<void> {
-        // Acquire semaphore slot
-        await this.semaphore.acquire();
-
-        try {
-            // Check cache first
-            if (this.cache && this.cache.has(key, locale)) {
-                const cachedTranslation = this.cache.get(key, locale);
-                if (cachedTranslation) {
-                    await this.updateTranslation(key, locale, cachedTranslation, namespace);
-                    return;
-                }
+        // Check cache first
+        if (this.cache && this.cache.has(key, locale)) {
+            const cachedTranslation = this.cache.get(key, locale);
+            if (cachedTranslation) {
+                await this.updateTranslation(key, locale, cachedTranslation, namespace);
+                return;
             }
+        }
 
-            // Check if translation exists in backend
-            const existing = this.adapter.getTranslation(key, locale, namespace);
+        // Get source text (from default language or convert key)
+        let sourceText = this.adapter.getTranslation(key, this.config.defaultLanguage, namespace);
+        if (!sourceText) {
+            sourceText = convertKeyToText(key);
+        }
+
+        // Add to batch queue and wait for batch processing
+        return this.addToBatchQueue(key, locale, namespace, sourceText);
+    }
+
+    /**
+     * Add a key to the batch queue for translation
+     * Returns a promise that resolves when the batch is processed
+     */
+    private addToBatchQueue(
+        key: string,
+        locale: string,
+        namespace: string | undefined,
+        sourceText: string
+    ): Promise<void> {
+        const queueKey = `${locale}:${namespace || ''}:${key}`;
+
+        return new Promise((resolve, reject) => {
+            // If already in batch, just add our callback to the list
+            const existing = this.pendingBatch.get(queueKey);
             if (existing) {
+                existing.callbacks.push({ resolve, reject });
                 return;
             }
 
-            // Get source text (from default language or convert key)
-            let sourceText = this.adapter.getTranslation(key, this.config.defaultLanguage, namespace);
-
-            if (!sourceText) {
-                // Convert key to readable text
-                sourceText = convertKeyToText(key);
-            }
-
-            // Translate
-            const translation = await this.translationService.translate(
+            // Create new pending entry
+            this.pendingBatch.set(queueKey, {
+                key,
+                locale,
+                namespace,
                 sourceText,
-                this.config.defaultLanguage,
-                locale
-            );
+                callbacks: [{ resolve, reject }],
+            });
 
-            // Update translation
-            await this.updateTranslation(key, locale, translation, namespace);
-
-            // Cache the translation
-            if (this.cache) {
-                this.cache.set(key, locale, translation);
+            // Reset the debounce timer
+            if (this.batchTimer) {
+                clearTimeout(this.batchTimer);
             }
-        } catch (error) {
-            console.error(`AutoTranslate: Failed to translate key "${key}" to ${locale}:`, error);
-        } finally {
-            this.semaphore.release();
+
+            this.batchTimer = setTimeout(() => {
+                this.processBatch();
+            }, this.batchDebounceMs);
+        });
+    }
+
+    /**
+     * Process all pending keys in a single batch
+     */
+    private async processBatch(): Promise<void> {
+        if (this.pendingBatch.size === 0) return;
+
+        // Take snapshot of current batch and clear it
+        const batch = new Map(this.pendingBatch);
+        this.pendingBatch.clear();
+        this.batchTimer = null;
+
+        // Group by locale for efficient batch translation
+        const byLocale = new Map<string, PendingKey[]>();
+        for (const pending of batch.values()) {
+            const localeCode = pending.locale;
+            if (!byLocale.has(localeCode)) {
+                byLocale.set(localeCode, []);
+            }
+            byLocale.get(localeCode)!.push(pending);
         }
+
+        // Process each locale group
+        const localePromises = Array.from(byLocale.entries()).map(async ([locale, keys]) => {
+            await this.semaphore.acquire();
+
+            try {
+                const sourceTexts = keys.map((k) => k.sourceText);
+
+                // Single batch API call for all keys in this locale
+                const translations = await this.translationService.translateBatch(
+                    sourceTexts,
+                    this.config.defaultLanguage,
+                    locale
+                );
+
+                // Update all translations in parallel
+                const updatePromises = keys.map(async (pending, index) => {
+                    const translation = translations[index];
+
+                    try {
+                        await this.updateTranslation(pending.key, pending.locale, translation, pending.namespace);
+
+                        if (this.cache) {
+                            this.cache.set(pending.key, pending.locale, translation);
+                        }
+
+                        // Resolve all callbacks for this key
+                        for (const cb of pending.callbacks) {
+                            cb.resolve();
+                        }
+                    } catch (error) {
+                        // Reject all callbacks for this key
+                        for (const cb of pending.callbacks) {
+                            cb.reject(error as Error);
+                        }
+                    }
+                });
+
+                await Promise.all(updatePromises);
+            } catch (error) {
+                // Reject all pending keys for this locale
+                for (const pending of keys) {
+                    for (const cb of pending.callbacks) {
+                        cb.reject(error as Error);
+                    }
+                }
+                console.error(`AutoTranslate: Batch translation failed for locale ${locale}:`, error);
+            } finally {
+                this.semaphore.release();
+            }
+        });
+
+        await Promise.all(localePromises);
     }
 
     /**
@@ -266,7 +308,7 @@ export class AutoTranslate {
         if (this.config.autoSave) {
             // check if namespace is provided when using i18next backend
             const ns = namespace || this.config.defaultNamespace;
-            if (!ns && this.config.backend === 'i18next') {
+            if (!ns && this.config.backend === Backend.I18NEXT) {
                 throw new ConfigurationError('Namespace must be provided when using i18next backend');
             }
 
@@ -319,7 +361,7 @@ export class AutoTranslate {
 
         // Check cache first
         if (this.cache?.has(key, targetLocale, context)) {
-            const cached = this.cache?.get(key, targetLocale, context);
+            const cached = this.cache.get(key, targetLocale, context);
             if (cached) return cached;
         }
 
@@ -362,7 +404,8 @@ export class AutoTranslate {
      * @param options - Optional translation settings
      * @param options.namespace - i18next namespace (affects file path, e.g., 'common', 'errors')
      * @param options.parentKey - Nest translation under this key (e.g., 'product.meta')
-     * @param options.context - Additional context to improve translation accuracy (e.g., 'e-commerce', 'financial')*/
+     * @param options.context - Additional context to improve translation accuracy (e.g., 'e-commerce', 'financial')
+     */
     async translateObject(
         obj: Record<string, unknown>,
         targetLocale: string,
@@ -383,66 +426,63 @@ export class AutoTranslate {
         }
 
         const { namespace, parentKey, context } = options || {};
-
         const flattened = this.flattenObject(obj);
-
         const translations: Record<string, string> = {};
-        let keysToTranslate: string[] = [];
 
-        // check for existing translations or cache and collect keys to translate
+        // Collect keys that need translation, with their source text
+        const pendingTranslations: Array<{ key: string; sourceText: string }> = [];
+
         for (const [key] of Object.entries(flattened)) {
+            // Check cache first
             if (this.cache?.has(key, targetLocale, context)) {
-                const cached = this.cache?.get(key, targetLocale, context);
-                if (!cached) continue;
-
-                translations[key] = cached;
-                continue;
+                const cached = this.cache.get(key, targetLocale, context);
+                if (cached) {
+                    translations[key] = cached;
+                    continue;
+                }
             }
 
+            // Check if translation already exists in backend
             const targetKey = parentKey ? `${parentKey}.${key}` : key;
-
             const existing = this.adapter.getTranslation(targetKey, targetLocale, namespace);
             if (existing) {
                 translations[key] = existing;
                 continue;
             }
 
-            let sourceText = this.adapter.getTranslation(targetKey, this.config.defaultLanguage, namespace);
-            if (!sourceText) {
-                sourceText = convertKeyToText(key);
-            }
+            // Get source text: try backend first, fall back to flattened value
+            const sourceText =
+                this.adapter.getTranslation(targetKey, this.config.defaultLanguage, namespace) || convertKeyToText(key);
 
-            keysToTranslate.push(sourceText);
+            pendingTranslations.push({ key, sourceText });
         }
 
-        if (keysToTranslate.length !== 0) {
-            // translate missing keys in batch
-            const translatedValues = await this.translationService.translateBatch(
-                keysToTranslate,
-                this.config.defaultLanguage,
-                targetLocale,
-                context
-            );
+        // Nothing to translate - return early
+        if (pendingTranslations.length === 0) return translations;
 
-            // append translated values to translations and update backend/file/cache
-            let translationIndex = 0;
-            for (const [key] of Object.entries(flattened)) {
-                if (translations[key]) {
-                    continue; // already have translation from cache or existing
-                }
+        // Translate all pending keys in a single batch
+        const sourceTexts = pendingTranslations.map((item) => item.sourceText);
+        const translatedValues = await this.translationService.translateBatch(
+            sourceTexts,
+            this.config.defaultLanguage,
+            targetLocale,
+            context
+        );
 
-                const translatedValue = translatedValues[translationIndex++];
-                translations[key] = translatedValue;
+        // Build update tasks for parallel execution
+        const updateTasks = pendingTranslations.map(({ key }, index) => {
+            const translatedValue = translatedValues[index];
+            translations[key] = translatedValue;
 
-                // Update backend and file
-                await this.updateTranslation(key, targetLocale, translatedValue, namespace, parentKey);
-
-                // Cache the translation
-                if (this.cache) {
-                    this.cache.set(key, targetLocale, translatedValue, context);
-                }
+            if (this.cache) {
+                this.cache.set(key, targetLocale, translatedValue, context);
             }
-        }
+
+            return this.updateTranslation(key, targetLocale, translatedValue, namespace, parentKey);
+        });
+
+        // Run all file updates in parallel (FileLock handles concurrency per file)
+        await Promise.all(updateTasks);
 
         return translations;
     }
@@ -500,6 +540,44 @@ export class AutoTranslate {
     }
 
     /**
+     * Wait for all pending translations to complete.
+     * Useful for testing or ensuring translations are ready before proceeding.
+     * @param maxWaitMs - Maximum time to wait in milliseconds (default: 30000)
+     * @returns Promise that resolves when all pending translations are done
+     * @throws Error if timeout is exceeded
+     */
+    async waitForPendingTranslations(maxWaitMs: number = 30000): Promise<void> {
+        const startTime = Date.now();
+        const checkInterval = this.batchDebounceMs + 10;
+
+        while (true) {
+            // Check for timeout
+            if (Date.now() - startTime > maxWaitMs) {
+                throw new Error(
+                    `waitForPendingTranslations timed out after ${maxWaitMs}ms. ` +
+                        `Remaining: ${this.processingQueue.size} in queue, ${this.pendingBatch.size} in batch.`
+                );
+            }
+
+            // Wait for all items in processingQueue (active translations)
+            const pending = Array.from(this.processingQueue.values());
+            if (pending.length > 0) {
+                await Promise.allSettled(pending);
+            }
+
+            // If there's a pending batch timer or items, wait for processing
+            if (this.batchTimer !== null || this.pendingBatch.size > 0) {
+                // Small delay to let the batch timer fire
+                await new Promise((resolve) => setTimeout(resolve, checkInterval));
+                continue; // Check again
+            }
+
+            // No more pending work
+            break;
+        }
+    }
+
+    /**
      * Dispose of resources and cleanup
      * After calling this, the instance should not be used
      */
@@ -509,6 +587,20 @@ export class AutoTranslate {
         }
 
         this.disposed = true;
+
+        // Clear batch timer
+        if (this.batchTimer) {
+            clearTimeout(this.batchTimer);
+            this.batchTimer = null;
+        }
+
+        // Reject any pending batch items
+        for (const pending of this.pendingBatch.values()) {
+            for (const cb of pending.callbacks) {
+                cb.reject(new Error('AutoTranslate instance disposed'));
+            }
+        }
+        this.pendingBatch.clear();
 
         // Clear the processing queue
         this.processingQueue.clear();
