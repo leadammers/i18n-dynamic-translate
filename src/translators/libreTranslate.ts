@@ -26,7 +26,7 @@ export class LibreTranslateService implements TranslationService {
     /**
      * Translate text using LibreTranslate
      */
-    async translate(text: string, sourceLang: string, targetLang: string): Promise<string> {
+    async translate(text: string, sourceLang: string, targetLang: string, context?: string): Promise<string> {
         if (!this.isAvailable()) {
             throw new TranslationError('LibreTranslate API URL not configured', 'libretranslate');
         }
@@ -86,9 +86,10 @@ export class LibreTranslateService implements TranslationService {
      * @param sourceLang
      * @param targetLang
      */
-    async translateBatch(texts: string[], sourceLang: string, targetLang: string): Promise<string[]> {
+    async translateBatch(texts: string[], sourceLang: string, targetLang: string, context?: string): Promise<string[]> {
         // TODO: Implement batch translation if LibreTranslate supports it
-        return Promise.all(texts.map((text) => this.translate(text, sourceLang, targetLang)));
+        if (texts.length === 0) return [];
+        return Promise.all(texts.map((text) => this.translate(text, sourceLang, targetLang, context)));
     }
 
     /**

@@ -57,6 +57,14 @@ export async function readLocaleFile(filePath: string, format?: FileFormat): Pro
 }
 
 /**
+ * Ensure parent directory exists, creating it recursively if needed
+ */
+async function ensureDirectoryExists(filePath: string): Promise<void> {
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+}
+
+/**
  * Write locale file (JSON or YAML)
  */
 export async function writeLocaleFile(
@@ -73,6 +81,9 @@ export async function writeLocaleFile(
         } else {
             content = JSON.stringify(data, null, 2) + '\n';
         }
+
+        // Ensure parent directory exists before writing
+        await ensureDirectoryExists(filePath);
 
         await fs.writeFile(filePath, content, 'utf-8');
 

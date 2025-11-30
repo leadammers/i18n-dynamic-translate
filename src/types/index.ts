@@ -25,7 +25,7 @@ export interface AutoTranslateConfig {
     backend: Backend;
 
     /** Instance of the i18n backend (i18next or node-i18n instance) */
-    i18nInstance: unknown;
+    i18nInstance: unknown; // Use 'unknown' to avoid direct dependency
 
     /** Path to locale files directory */
     localesPath: string;
@@ -79,6 +79,7 @@ export interface TranslationProviderConfig {
         formality?: 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less';
         context?: string;
         splitSentences?: '0' | '1' | 'nonewlines';
+        modelType?: 'latency' | 'quality';
     };
 }
 
