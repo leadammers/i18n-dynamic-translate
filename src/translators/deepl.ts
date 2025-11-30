@@ -13,6 +13,7 @@ export class DeepLService implements TranslationService {
     private formality?: string;
     private context?: string;
     private splitSentences?: string;
+    private modelType?: string;
 
     constructor(config: TranslationProviderConfig) {
         if (!config.apiKey) {
@@ -50,15 +51,18 @@ export class DeepLService implements TranslationService {
         }
 
         try {
-            const params = this.buildCommonParams(context);
-            params.append('source_lang', this.normalizeSourceLang(sourceLang));
-            params.append('target_lang', this.normalizeTargetLang(targetLang));
-            params.append('text', text);
+            const commonData = this.buildRequestBody(context);
+            const payload: Record<string, any> = {
+                source_lang: this.normalizeSourceLang(sourceLang),
+                target_lang: this.normalizeTargetLang(targetLang),
+                text: [text],
+                ...commonData,
+            };
 
-            const response = await axios.post(this.apiUrl, null, {
-                params,
+            const response = await axios.post(this.apiUrl, payload, {
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    Authorization: `DeepL-Auth-Key ${this.apiKey}`,
+                    'Content-Type': 'application/json',
                 },
                 timeout: 10000,
             });
@@ -89,20 +93,21 @@ export class DeepLService implements TranslationService {
             throw new TranslationError('DeepL API key not configured', 'deepl');
         }
 
+        if (texts.length === 0) return [];
+
         try {
-            const params = this.buildCommonParams(context);
-            params.append('source_lang', this.normalizeSourceLang(sourceLang));
-            params.append('target_lang', this.normalizeTargetLang(targetLang));
+            const commonData = this.buildRequestBody(context);
+            const payload: Record<string, any> = {
+                source_lang: this.normalizeSourceLang(sourceLang),
+                target_lang: this.normalizeTargetLang(targetLang),
+                text: texts,
+                ...commonData,
+            };
 
-            // Add each text as a separate parameter for batch translation
-            for (const text of texts) {
-                params.append('text', text);
-            }
-
-            const response = await axios.post(this.apiUrl, null, {
-                params,
+            const response = await axios.post(this.apiUrl, payload, {
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    Authorization: `DeepL-Auth-Key ${this.apiKey}`,
+                    'Content-Type': 'application/json',
                 },
                 timeout: 10000,
             });
@@ -146,27 +151,32 @@ export class DeepLService implements TranslationService {
     }
 
     /**
-     * Build common parameters from DeepL configuration
+     * Build common payload from DeepL configuration
      * @param context Optional context to override the default context
      */
-    private buildCommonParams(context?: string): URLSearchParams {
-        const params = new URLSearchParams();
-        params.append('auth_key', this.apiKey);
+    private buildRequestBody(context?: string): Record<string, any> {
+        const payload: Record<string, any> = {};
+
+        if (this.modelType === 'latency') {
+            payload.model_type = 'latency_optimized';
+        } else if (this.modelType === 'quality') {
+            payload.model_type = 'prefer_quality_optimized';
+        }
 
         if (this.formality) {
-            params.append('formality', this.formality);
+            payload.formality = this.formality;
         }
 
         const contextValue = context ?? this.context;
         if (contextValue) {
-            params.append('context', contextValue);
+            payload.context = contextValue;
         }
 
         if (this.splitSentences) {
-            params.append('split_sentences', this.splitSentences);
+            payload.split_sentences = this.splitSentences;
         }
 
-        return params;
+        return payload;
     }
 
     /**
