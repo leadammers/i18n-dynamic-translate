@@ -137,6 +137,43 @@ set for your use-case
 
 </details>
 
+### Automatic Translation of Missing Keys
+
+Once configured, DynamicTranslate automatically intercepts missing translation keys at runtime. When your app requests a
+translation that doesn't exist, it's translated and saved automatically:
+
+```typescript
+// Setup (once at app startup)
+const autoTranslate = new AutoTranslate({
+    backend: Backend.I18NEXT,
+    i18nInstance: i18next,
+    localesPath: './locales',
+    defaultLanguage: 'en',
+    translationProvider: {
+        provider: TranslationProvider.DEEPL,
+        apiKey: process.env.DEEPL_API_KEY,
+    },
+});
+
+// Later in your app - this key doesn't exist yet
+t('welcomeMessage'); // i18next fires missing key handler
+
+// DynamicTranslate automatically:
+// 1. Detects the missing key
+// 2. Translates "welcome message" to the current locale (if present in default language, otherwise uses the key itself)
+// 3. Saves it to your locale file
+// 4. Adds it to i18next's runtime store
+```
+
+This is useful for catching missing translations during development, as well as dynamic scenarios where keys may not be
+pre-defined or automatically populating locale files over time when you already have source content in your default
+language.
+
+> **Configuration notes**
+> - **i18next**: Set `saveMissing: true` to trigger the missing key handler, but i18next won't write files itself
+> - **node-i18n**: Set `updateFiles: false` to prevent node-i18n from writing files - DynamicTranslate handles all file
+    writes via `autoSave: true`
+
 ### Translating API Metadata
 
 Translate object keys for use as labels in the UI:
@@ -316,8 +353,10 @@ try {
 
 - **API Key Errors**: Ensure your API key is set in your environment and has sufficient quota.
 - **File Permissions**: Verify that your application has write access to the locale files.
+- **Conflicting i18n settings**: Ensure `saveMissing` (i18next) or `updateFiles` (node-i18n) are set correctly.
 - **Invalid locale codes**: Use standard locale codes (e.g., 'en', 'de', 'fr', 'es').
 - **Rate Limits**: Be aware of rate limits imposed by translation providers, adjust `maxConcurrency` as needed.
+- **Unsupported Languages**: Check if your translation provider supports the target language.
 
 ## Roadmap
 
