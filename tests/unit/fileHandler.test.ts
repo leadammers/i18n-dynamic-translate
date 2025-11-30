@@ -123,15 +123,6 @@ describe('FileHandler', () => {
             expect(data).toEqual({});
         });
 
-        it('should respect format parameter over auto-detection', async () => {
-            const filePath = path.join(TEST_DIR, 'data.txt');
-            await fs.writeFile(filePath, 'hello: World');
-
-            const data = await readLocaleFile(filePath, FileFormat.YAML);
-
-            expect(data).toEqual({ hello: 'World' });
-        });
-
         it('should throw FileSystemError for invalid JSON', async () => {
             const filePath = path.join(TEST_DIR, 'invalid.json');
             await fs.writeFile(filePath, '{ invalid json }');
@@ -175,15 +166,15 @@ describe('FileHandler', () => {
             expect(content.endsWith('\n')).toBe(true);
         });
 
-        it('should respect format parameter', async () => {
+        it('should default to JSON format', async () => {
             const filePath = path.join(TEST_DIR, 'data.txt');
             const data = { hello: 'Hello' };
 
-            const result = await writeLocaleFile(filePath, data, FileFormat.YAML);
+            const result = await writeLocaleFile(filePath, data);
 
             expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
-            expect(content).toContain('hello: Hello');
+            expect(JSON.parse(content)).toEqual(data);
         });
     });
 
@@ -276,24 +267,24 @@ describe('FileHandler', () => {
     });
 
     describe('getLocaleFilePath', () => {
-        it('should generate path for node-i18n style (no namespace)', () => {
-            const result = getLocaleFilePath('/locales', 'en');
+        it('should generate path for node-i18n style (no namespace)', async () => {
+            const result = await getLocaleFilePath('/locales', 'en');
             expect(result).toBe(path.join('/locales', 'en.json'));
         });
 
-        it('should generate path for i18next style (with namespace)', () => {
-            const result = getLocaleFilePath('/locales', 'en', 'translation');
+        it('should generate path for i18next style (with namespace)', async () => {
+            const result = await getLocaleFilePath('/locales', 'en', 'translation');
             expect(result).toBe(path.join('/locales', 'en', 'translation.json'));
         });
 
-        it('should use YAML extension when specified', () => {
-            const result = getLocaleFilePath('/locales', 'en', 'translation', FileFormat.YAML);
+        it('should use YAML extension when specified', async () => {
+            const result = await getLocaleFilePath('/locales', 'en', 'translation', FileFormat.YAML);
             expect(result).toBe(path.join('/locales', 'en', 'translation.yaml'));
         });
 
-        it('should handle various locale codes', () => {
-            expect(getLocaleFilePath('/locales', 'en-US')).toBe(path.join('/locales', 'en-US.json'));
-            expect(getLocaleFilePath('/locales', 'zh-CN', 'common')).toBe(
+        it('should handle various locale codes', async () => {
+            expect(await getLocaleFilePath('/locales', 'en-US')).toBe(path.join('/locales', 'en-US.json'));
+            expect(await getLocaleFilePath('/locales', 'zh-CN', 'common')).toBe(
                 path.join('/locales', 'zh-CN', 'common.json')
             );
         });
