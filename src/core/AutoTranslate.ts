@@ -230,11 +230,10 @@ export class AutoTranslate {
         // Group by locale for efficient batch translation
         const byLocale = new Map<string, PendingKey[]>();
         for (const pending of batch.values()) {
-            const localeCode = pending.locale;
-            if (!byLocale.has(localeCode)) {
-                byLocale.set(localeCode, []);
+            if (!byLocale.has(pending.locale)) {
+                byLocale.set(pending.locale, []);
             }
-            byLocale.get(localeCode)!.push(pending);
+            byLocale.get(pending.locale)!.push(pending);
         }
 
         // Process each locale group
@@ -302,7 +301,8 @@ export class AutoTranslate {
         parentKey?: string
     ): Promise<void> {
         // Update in backend
-        this.adapter.setTranslation(key, locale, value, namespace);
+        const targetKey = parentKey ? `${parentKey}.${key}` : key;
+        this.adapter.setTranslation(targetKey, locale, value, namespace);
 
         // Save to file if autoSave is enabled
         if (this.config.autoSave) {
@@ -549,8 +549,10 @@ export class AutoTranslate {
     async waitForPendingTranslations(maxWaitMs: number = 30000): Promise<void> {
         const startTime = Date.now();
         const checkInterval = this.batchDebounceMs + 10;
+        const isProcessing = () =>
+            this.processingQueue.size > 0 || this.pendingBatch.size > 0 || this.batchTimer !== null;
 
-        while (true) {
+        while (isProcessing()) {
             // Check for timeout
             if (Date.now() - startTime > maxWaitMs) {
                 throw new Error(
@@ -569,11 +571,7 @@ export class AutoTranslate {
             if (this.batchTimer !== null || this.pendingBatch.size > 0) {
                 // Small delay to let the batch timer fire
                 await new Promise((resolve) => setTimeout(resolve, checkInterval));
-                continue; // Check again
             }
-
-            // No more pending work
-            break;
         }
     }
 
