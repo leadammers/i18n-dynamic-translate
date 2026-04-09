@@ -113,14 +113,13 @@ describe('NodeI18nAdapter', () => {
             expect(result).toBe('Hallo');
         });
 
-        it('should temporarily change and restore locale', () => {
+        it('should not mutate global locale when reading translations', () => {
             mockNodeI18n.getLocale.mockReturnValue('en');
 
             adapter.getTranslation('hello', 'de');
 
-            // Should set locale to target, then restore
-            expect(mockNodeI18n.setLocale).toHaveBeenCalledWith('de');
-            expect(mockNodeI18n.setLocale).toHaveBeenCalledWith('en');
+            // getCatalog accepts locale directly, no need to switch global state
+            expect(mockNodeI18n.setLocale).not.toHaveBeenCalled();
         });
 
         it('should return null when getCatalog throws', () => {

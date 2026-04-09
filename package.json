@@ -4,8 +4,22 @@
   "description": "Automatic translation library for i18next and Node.js i18n with support for DeepL and LibreTranslate.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:deepl-e2e": "vitest run tests/e2e/deepl.test.ts",
@@ -37,6 +51,7 @@
     "i18n": "^0.15.3",
     "i18next": "^26.0.0",
     "prettier": "^3.8.1",
+    "tsc-alias": "^1.8.16",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"
   },

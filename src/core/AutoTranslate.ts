@@ -132,7 +132,11 @@ export class AutoTranslate {
         }
 
         // Create new processing promise
-        const processingPromise = this.processMissingKeyAsync(key, locale, namespace, queueKey);
+        const processingPromise = this.processMissingKeyAsync(key, locale, namespace, queueKey).catch(
+            (error) => {
+                console.error(`AutoTranslate: Error processing missing key "${key}" for locale "${locale}":`, error);
+            }
+        );
         this.processingQueue.set(queueKey, processingPromise);
     }
 

@@ -156,10 +156,8 @@ export class DeepLService implements TranslationService {
     private buildRequestBody(context?: string): Record<string, any> {
         const payload: Record<string, any> = {};
 
-        if (this.modelType === 'latency') {
-            payload.model_type = 'latency_optimized';
-        } else if (this.modelType === 'quality') {
-            payload.model_type = 'prefer_quality_optimized';
+        if (this.modelType) {
+            payload.model_type = this.modelType;
         }
 
         if (this.formality) {
