@@ -36,9 +36,10 @@ describe('keyConverter', () => {
             expect(convertKeyToText('settings.account.emailAddress')).toBe('Email Address');
         });
 
-        it('should handle consecutive capitals', () => {
-            expect(convertKeyToText('XMLParser')).toBe('Xml Parser');
-            expect(convertKeyToText('HTMLElement')).toBe('Html Element');
+        it('should preserve acronyms in consecutive capitals', () => {
+            expect(convertKeyToText('XMLParser')).toBe('XML Parser');
+            expect(convertKeyToText('HTMLElement')).toBe('HTML Element');
+            expect(convertKeyToText('apiURL')).toBe('Api URL');
         });
 
         it('should handle empty or invalid input', () => {
