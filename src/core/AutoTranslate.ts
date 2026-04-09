@@ -3,15 +3,14 @@
  * Main orchestrator for automatic translation functionality
  */
 
-import { AutoTranslateConfig, Backend, BackendAdapter, TranslationCache, TranslationService } from '@/types';
+import { AutoTranslateConfig, Backend, BackendAdapter, StorageAdapter, TranslationCache, TranslationService } from '@/types';
 import { createBackendAdapter } from '@/adapters';
 import { createTranslationService } from '@/translators';
 import { MemoryCache } from '@/utils/cache';
 import { convertKeyToText } from '@/utils/keyConverter';
-import { appendTranslationToFile, getLocaleFilePath } from '@/utils/fileHandler';
 import { ConfigurationError } from '@/utils/errors';
 import { Semaphore } from '@/utils/semaphore';
-import { FileLock } from '@/utils/fileLock';
+import { FileStorageAdapter } from '@/storage/FileStorageAdapter';
 
 /**
  * Pending key info for batch processing
@@ -31,7 +30,7 @@ export class AutoTranslate {
     private cache?: TranslationCache;
     private processingQueue: Map<string, Promise<void>>;
     private semaphore: Semaphore;
-    private fileLock: FileLock;
+    private storageAdapter: StorageAdapter;
     private disposed: boolean = false;
     private boundMissingKeyHandler: (key: string, locale: string, namespace?: string) => void;
 
@@ -45,7 +44,12 @@ export class AutoTranslate {
         this.config = this.normalizeConfig(config);
         this.processingQueue = new Map();
         this.semaphore = new Semaphore(this.config.maxConcurrency || 5);
-        this.fileLock = new FileLock();
+
+        // Initialize storage adapter
+        this.storageAdapter = config.storageAdapter || new FileStorageAdapter({
+            localesPath: config.localesPath,
+            fileFormat: config.fileFormat,
+        });
 
         // Initialize cache if enabled
         if (this.config.enableCache) {
@@ -104,6 +108,7 @@ export class AutoTranslate {
             enableCache: config.enableCache ?? true,
             maxConcurrency: config.maxConcurrency ?? 5,
             defaultNamespace: config.defaultNamespace || 'translation',
+            mode: config.mode || 'development',
         };
     }
 
@@ -119,6 +124,14 @@ export class AutoTranslate {
         // Skip if same as default language
         if (locale === this.config.defaultLanguage) {
             return;
+        }
+
+        // In production mode, only auto-translate within allowed namespaces
+        if (this.config.mode === 'production') {
+            const allowed = this.config.allowedNamespaces;
+            if (!allowed || !allowed.includes(namespace || '')) {
+                return;
+            }
         }
 
         // Create unique queue key
@@ -295,7 +308,7 @@ export class AutoTranslate {
     }
 
     /**
-     * Update translation in backend and file
+     * Update translation in backend and storage
      */
     private async updateTranslation(
         key: string,
@@ -308,23 +321,11 @@ export class AutoTranslate {
         const targetKey = parentKey ? `${parentKey}.${key}` : key;
         this.adapter.setTranslation(targetKey, locale, value, namespace);
 
-        // Save to file if autoSave is enabled
+        // Persist to storage if autoSave is enabled
         if (this.config.autoSave) {
-            // check if namespace is provided when using i18next backend
-            const ns = namespace || this.config.defaultNamespace;
-            if (!ns && this.config.backend === Backend.I18NEXT) {
-                throw new ConfigurationError('Namespace must be provided when using i18next backend');
-            }
-
-            const filePath = await getLocaleFilePath(this.config.localesPath, locale, namespace, this.config.fileFormat);
-
-            // Use file lock to prevent concurrent writes
-            await this.fileLock.withLock(filePath, async () => {
-                try {
-                    await appendTranslationToFile(filePath, key, value, this.config.fileFormat, parentKey);
-                } catch (error) {
-                    console.error(`AutoTranslate: Failed to save translation to file ${filePath}:`, error);
-                }
+            await this.storageAdapter.save(locale, key, value, {
+                namespace,
+                parentKey,
             });
         }
     }
@@ -474,20 +475,43 @@ export class AutoTranslate {
             context
         );
 
-        // Build update tasks for parallel execution
-        const updateTasks = pendingTranslations.map(({ key }, index) => {
-            const translatedValue = translatedValues[index];
+        // Update backend for all translated keys
+        for (let i = 0; i < pendingTranslations.length; i++) {
+            const { key } = pendingTranslations[i];
+            const translatedValue = translatedValues[i];
             translations[key] = translatedValue;
 
             if (this.cache) {
                 this.cache.set(key, targetLocale, translatedValue, context);
             }
 
-            return this.updateTranslation(key, targetLocale, translatedValue, namespace, parentKey);
-        });
+            const targetKey = parentKey ? `${parentKey}.${key}` : key;
+            this.adapter.setTranslation(targetKey, targetLocale, translatedValue, namespace);
+        }
 
-        // Run all file updates in parallel (FileLock handles concurrency per file)
-        await Promise.all(updateTasks);
+        // Persist to storage
+        if (this.config.autoSave) {
+            if (this.storageAdapter.saveBatch) {
+                await this.storageAdapter.saveBatch(
+                    pendingTranslations.map(({ key }, i) => ({
+                        locale: targetLocale,
+                        key,
+                        value: translatedValues[i],
+                        namespace,
+                        parentKey,
+                    }))
+                );
+            } else {
+                await Promise.all(
+                    pendingTranslations.map(({ key }, i) =>
+                        this.storageAdapter.save(targetLocale, key, translatedValues[i], {
+                            namespace,
+                            parentKey,
+                        })
+                    )
+                );
+            }
+        }
 
         return translations;
     }
@@ -581,15 +605,26 @@ export class AutoTranslate {
     }
 
     /**
-     * Dispose of resources and cleanup
-     * After calling this, the instance should not be used
+     * Dispose of resources and cleanup.
+     * Waits for in-flight translations to complete before cleaning up.
+     * After calling this, the instance should not be used.
      */
-    dispose(): void {
+    async dispose(): Promise<void> {
         if (this.disposed) {
             return;
         }
 
         this.disposed = true;
+
+        // Wait for in-flight translations to finish
+        try {
+            const pending = Array.from(this.processingQueue.values());
+            if (pending.length > 0) {
+                await Promise.allSettled(pending);
+            }
+        } catch {
+            // Best-effort — don't let cleanup failures prevent disposal
+        }
 
         // Clear batch timer
         if (this.batchTimer) {
@@ -597,7 +632,7 @@ export class AutoTranslate {
             this.batchTimer = null;
         }
 
-        // Reject any pending batch items
+        // Reject any remaining pending batch items
         for (const pending of this.pendingBatch.values()) {
             for (const cb of pending.callbacks) {
                 cb.reject(new Error('AutoTranslate instance disposed'));

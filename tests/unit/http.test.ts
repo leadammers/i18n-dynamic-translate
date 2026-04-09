@@ -82,8 +82,8 @@ describe('http.post', () => {
             new Response('Not Found', { status: 404 }),
         );
 
-        await expect(http.post('https://api.example.com/data', {})).rejects.toThrow(HttpError);
-        await expect(http.post('https://api.example.com/data', {})).rejects.toMatchObject({
+        await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toThrow(HttpError);
+        await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toMatchObject({
             status: 404,
             message: 'Request failed with status 404',
         });
@@ -92,8 +92,8 @@ describe('http.post', () => {
     it('should throw HttpError with code ECONNREFUSED for TypeError', async () => {
         vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
 
-        await expect(http.post('https://api.example.com/data', {})).rejects.toThrow(HttpError);
-        await expect(http.post('https://api.example.com/data', {})).rejects.toMatchObject({
+        await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toThrow(HttpError);
+        await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toMatchObject({
             code: 'ECONNREFUSED',
             message: 'Network error',
         });
@@ -102,8 +102,8 @@ describe('http.post', () => {
     it('should throw HttpError with code ETIMEDOUT for AbortError', async () => {
         vi.spyOn(globalThis, 'fetch').mockRejectedValue(new DOMException('Aborted', 'AbortError'));
 
-        await expect(http.post('https://api.example.com/data', {})).rejects.toThrow(HttpError);
-        await expect(http.post('https://api.example.com/data', {})).rejects.toMatchObject({
+        await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toThrow(HttpError);
+        await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toMatchObject({
             code: 'ETIMEDOUT',
             message: 'Request timed out',
         });
@@ -113,6 +113,61 @@ describe('http.post', () => {
         const customError = new RangeError('unexpected');
         vi.spyOn(globalThis, 'fetch').mockRejectedValue(customError);
 
-        await expect(http.post('https://api.example.com/data', {})).rejects.toThrow(customError);
+        await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toThrow(customError);
+    });
+
+    it('should retry on retryable status codes and succeed', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(new Response('', { status: 429 }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+        const response = await http.post('https://api.example.com/data', {}, { retries: 1 });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+        expect(response.data).toEqual({ ok: true });
+    });
+
+    it('should retry on network errors and succeed', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch')
+            .mockRejectedValueOnce(new TypeError('fetch failed'))
+            .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+        const response = await http.post('https://api.example.com/data', {}, { retries: 1 });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+        expect(response.data).toEqual({ ok: true });
+    });
+
+    it('should not retry on non-retryable status codes', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch')
+            .mockResolvedValue(new Response('Unauthorized', { status: 401 }));
+
+        await expect(http.post('https://api.example.com/data', {}, { retries: 2 })).rejects.toMatchObject({
+            status: 401,
+        });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should exhaust retries and throw last error', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch')
+            .mockResolvedValue(new Response('', { status: 503 }));
+
+        await expect(http.post('https://api.example.com/data', {}, { retries: 2 })).rejects.toMatchObject({
+            status: 503,
+        });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
+    });
+
+    it('should default to 2 retries', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch')
+            .mockResolvedValue(new Response('', { status: 500 }));
+
+        await expect(http.post('https://api.example.com/data', {})).rejects.toMatchObject({
+            status: 500,
+        });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(3); // 1 initial + 2 default retries
     });
 });

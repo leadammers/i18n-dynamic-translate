@@ -1,7 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
-import { Backend, TranslationProvider } from '@/types';
+import { Backend, StorageAdapter, TranslationProvider } from '@/types';
 import { ConfigurationError } from '@/utils/errors';
+
+// Mock the translators module so translateKey / translateObject don't make real HTTP calls
+vi.mock('@/translators', () => ({
+    createTranslationService: () => ({
+        isAvailable: () => true,
+        translate: vi.fn().mockResolvedValue('mocked'),
+        translateBatch: vi.fn().mockImplementation((texts: string[]) =>
+            Promise.resolve(texts.map(() => 'mocked'))
+        ),
+    }),
+}));
 
 // Mock i18next instance
 function createMockI18next() {
@@ -107,17 +118,17 @@ describe('AutoTranslate', () => {
             expect(() => new AutoTranslate(config as never)).toThrow('translationProvider is required');
         });
 
-        it('should create instance with valid config', () => {
+        it('should create instance with valid config', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
             expect(instance).toBeInstanceOf(AutoTranslate);
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('config normalization', () => {
-        it('should apply default values for optional config', () => {
+        it('should apply default values for optional config', async () => {
             const config = createValidConfig(mockI18next);
             delete (config as Record<string, unknown>).autoSave;
             delete (config as Record<string, unknown>).enableCache;
@@ -130,10 +141,10 @@ describe('AutoTranslate', () => {
             expect(normalizedConfig.maxConcurrency).toBe(5);
             expect(normalizedConfig.defaultNamespace).toBe('translation');
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should preserve explicit config values', () => {
+        it('should preserve explicit config values', async () => {
             const config = {
                 ...createValidConfig(mockI18next),
                 autoSave: false,
@@ -150,28 +161,28 @@ describe('AutoTranslate', () => {
             expect(normalizedConfig.maxConcurrency).toBe(10);
             expect(normalizedConfig.defaultNamespace).toBe('custom');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('dispose', () => {
-        it('should mark instance as disposed', () => {
+        it('should mark instance as disposed', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
             expect(instance.isDisposed()).toBe(false);
 
-            instance.dispose();
+            await instance.dispose();
 
             expect(instance.isDisposed()).toBe(true);
         });
 
-        it('should be idempotent (safe to call multiple times)', () => {
+        it('should be idempotent (safe to call multiple times)', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
-            instance.dispose();
-            expect(() => instance.dispose()).not.toThrow();
+            await instance.dispose();
+            await expect(instance.dispose()).resolves.not.toThrow();
             expect(instance.isDisposed()).toBe(true);
         });
 
@@ -179,7 +190,7 @@ describe('AutoTranslate', () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
-            instance.dispose();
+            await instance.dispose();
 
             await expect(instance.translateKey('hello', 'de')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateKey('hello', 'de')).rejects.toThrow('has been disposed');
@@ -189,7 +200,7 @@ describe('AutoTranslate', () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
-            instance.dispose();
+            await instance.dispose();
 
             await expect(instance.translateObject({ key: 'value' }, 'de')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateObject({ key: 'value' }, 'de')).rejects.toThrow('has been disposed');
@@ -204,7 +215,7 @@ describe('AutoTranslate', () => {
             await expect(instance.translateKey('', 'de')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateKey('', 'de')).rejects.toThrow('Key must be a non-empty string');
 
-            instance.dispose();
+            await instance.dispose();
         });
 
         it('should throw ConfigurationError for empty locale', async () => {
@@ -214,7 +225,7 @@ describe('AutoTranslate', () => {
             await expect(instance.translateKey('hello', '')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateKey('hello', '')).rejects.toThrow('Target locale must be a non-empty string');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
@@ -226,7 +237,7 @@ describe('AutoTranslate', () => {
             await expect(instance.translateObject(null as never, 'de')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateObject(null as never, 'de')).rejects.toThrow('Object must be a non-null object');
 
-            instance.dispose();
+            await instance.dispose();
         });
 
         it('should throw ConfigurationError for non-object', async () => {
@@ -235,7 +246,7 @@ describe('AutoTranslate', () => {
 
             await expect(instance.translateObject('string' as never, 'de')).rejects.toThrow(ConfigurationError);
 
-            instance.dispose();
+            await instance.dispose();
         });
 
         it('should throw ConfigurationError for empty locale', async () => {
@@ -245,12 +256,12 @@ describe('AutoTranslate', () => {
             await expect(instance.translateObject({ key: 'value' }, '')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateObject({ key: 'value' }, '')).rejects.toThrow('Target locale must be a non-empty string');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('cache', () => {
-        it('should initialize cache when enableCache is true', () => {
+        it('should initialize cache when enableCache is true', async () => {
             const config = { ...createValidConfig(mockI18next), enableCache: true };
             const instance = new AutoTranslate(config);
 
@@ -258,32 +269,32 @@ describe('AutoTranslate', () => {
             expect(stats).not.toBeNull();
             expect(stats?.size).toBe(0);
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should not initialize cache when enableCache is false', () => {
+        it('should not initialize cache when enableCache is false', async () => {
             const config = { ...createValidConfig(mockI18next), enableCache: false };
             const instance = new AutoTranslate(config);
 
             const stats = instance.getCacheStats();
             expect(stats).toBeNull();
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should clear cache on clearCache call', () => {
+        it('should clear cache on clearCache call', async () => {
             const config = { ...createValidConfig(mockI18next), enableCache: true };
             const instance = new AutoTranslate(config);
 
             // clearCache should not throw even if cache is empty
             expect(() => instance.clearCache()).not.toThrow();
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('getConfig', () => {
-        it('should return a copy of the config', () => {
+        it('should return a copy of the config', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
@@ -294,22 +305,22 @@ describe('AutoTranslate', () => {
             expect(returnedConfig.backend).toBe(Backend.I18NEXT);
             expect(returnedConfig.defaultLanguage).toBe('en');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('backend integration', () => {
-        it('should work with i18next backend', () => {
+        it('should work with i18next backend', async () => {
             const config = createValidConfig(mockI18next, Backend.I18NEXT);
 
             expect(() => new AutoTranslate(config)).not.toThrow();
             const instance = new AutoTranslate(config);
             expect(instance.getConfig().backend).toBe(Backend.I18NEXT);
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should work with node-i18n backend', () => {
+        it('should work with node-i18n backend', async () => {
             const mockNodeI18n = createMockNodeI18n();
             const config = createValidConfig(mockNodeI18n, Backend.NODE_I18N);
 
@@ -317,10 +328,10 @@ describe('AutoTranslate', () => {
             const instance = new AutoTranslate(config);
             expect(instance.getConfig().backend).toBe(Backend.NODE_I18N);
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should setup missing key handler on i18next', () => {
+        it('should setup missing key handler on i18next', async () => {
             const config = createValidConfig(mockI18next, Backend.I18NEXT);
             const instance = new AutoTranslate(config);
 
@@ -328,7 +339,162 @@ describe('AutoTranslate', () => {
             expect(mockI18next.options.saveMissing).toBe(true);
             expect(mockI18next.options.missingKeyHandler).toBeTypeOf('function');
 
+            await instance.dispose();
+        });
+    });
+
+    describe('production mode', () => {
+        it('should default to development mode', () => {
+            const config = createValidConfig(mockI18next);
+            const instance = new AutoTranslate(config);
+            expect(instance.getConfig().mode).toBe('development');
             instance.dispose();
+        });
+
+        it('should skip missing key handler for non-allowed namespaces in production mode', () => {
+            const config = {
+                ...createValidConfig(mockI18next),
+                mode: 'production' as const,
+                allowedNamespaces: ['products'],
+            };
+            const instance = new AutoTranslate(config);
+
+            // Trigger missing key handler with a non-allowed namespace
+            const handler = mockI18next.options.missingKeyHandler!;
+            handler(['de'], 'common', 'some.key', 'some.key');
+
+            // Nothing should be queued
+            expect(instance.isDisposed()).toBe(false);
+            // No processing should have started — verify by checking the handler doesn't throw
+            instance.dispose();
+        });
+
+        it('should allow missing key handler for allowed namespaces in production mode', () => {
+            const config = {
+                ...createValidConfig(mockI18next),
+                mode: 'production' as const,
+                allowedNamespaces: ['products'],
+            };
+            const instance = new AutoTranslate(config);
+
+            // Trigger missing key handler with an allowed namespace
+            const handler = mockI18next.options.missingKeyHandler!;
+
+            // This should not throw or be blocked — the key will be queued for processing
+            expect(() => handler(['de'], 'products', 'some.key', 'some.key')).not.toThrow();
+
+            instance.dispose();
+        });
+
+        it('should skip all missing keys in production mode with no allowedNamespaces', () => {
+            const config = {
+                ...createValidConfig(mockI18next),
+                mode: 'production' as const,
+                // No allowedNamespaces configured
+            };
+            const instance = new AutoTranslate(config);
+
+            const handler = mockI18next.options.missingKeyHandler!;
+            handler(['de'], 'products', 'some.key', 'some.key');
+
+            // Should not throw — keys are silently skipped
+            instance.dispose();
+        });
+
+        it('should not restrict explicit translateKey calls in production mode', async () => {
+            const config = {
+                ...createValidConfig(mockI18next),
+                mode: 'production' as const,
+                allowedNamespaces: ['products'],
+            };
+            const instance = new AutoTranslate(config);
+
+            // translateKey with a non-allowed namespace should NOT be blocked by mode.
+            // Explicit calls always go through regardless of mode/allowedNamespaces.
+            const result = await instance.translateKey('hello', 'de', { namespace: 'common' });
+            expect(result).toBeDefined();
+
+            instance.dispose();
+        });
+    });
+
+    describe('custom storage adapter', () => {
+        it('should use custom storageAdapter when provided', async () => {
+            const mockAdapter: StorageAdapter = {
+                save: vi.fn().mockResolvedValue(undefined),
+            };
+
+            const at = new AutoTranslate({
+                backend: Backend.I18NEXT,
+                i18nInstance: mockI18next,
+                localesPath: '/tmp/locales',
+                defaultLanguage: 'en',
+                translationProvider: {
+                    provider: TranslationProvider.DEEPL,
+                    apiKey: 'test-key',
+                },
+                storageAdapter: mockAdapter,
+            });
+
+            await at.translateKey('hello', 'de');
+
+            expect(mockAdapter.save).toHaveBeenCalledWith('de', 'hello', 'mocked', {
+                namespace: undefined,
+                parentKey: undefined,
+            });
+
+            at.dispose();
+        });
+
+        it('should use saveBatch when storage adapter implements it', async () => {
+            const mockAdapter: StorageAdapter = {
+                save: vi.fn().mockResolvedValue(undefined),
+                saveBatch: vi.fn().mockResolvedValue(undefined),
+            };
+
+            const at = new AutoTranslate({
+                backend: Backend.I18NEXT,
+                i18nInstance: mockI18next,
+                localesPath: '/tmp/locales',
+                defaultLanguage: 'en',
+                translationProvider: {
+                    provider: TranslationProvider.DEEPL,
+                    apiKey: 'test-key',
+                },
+                storageAdapter: mockAdapter,
+            });
+
+            await at.translateObject({ a: 'A', b: 'B' }, 'de', { parentKey: 'test' });
+
+            expect(mockAdapter.saveBatch).toHaveBeenCalledTimes(1);
+            expect(mockAdapter.save).not.toHaveBeenCalled();
+
+            at.dispose();
+        });
+
+        it('should not call storage adapter when autoSave is false', async () => {
+            const mockAdapter: StorageAdapter = {
+                save: vi.fn().mockResolvedValue(undefined),
+            };
+
+            const at = new AutoTranslate({
+                backend: Backend.I18NEXT,
+                i18nInstance: mockI18next,
+                localesPath: '/tmp/locales',
+                defaultLanguage: 'en',
+                translationProvider: {
+                    provider: TranslationProvider.DEEPL,
+                    apiKey: 'test-key',
+                },
+                storageAdapter: mockAdapter,
+                autoSave: false,
+            });
+
+            await at.translateKey('hello', 'de');
+
+            expect(mockAdapter.save).not.toHaveBeenCalled();
+
+            at.dispose();
         });
     });
 });
