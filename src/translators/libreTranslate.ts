@@ -3,9 +3,9 @@
  * Free and open-source translation API
  */
 
-import axios, { AxiosError } from 'axios';
 import { TranslationService, TranslationProviderConfig } from '@/types';
 import { TranslationError } from '@/utils/errors';
+import { http, isHttpError } from '@/utils/http';
 
 export class LibreTranslateService implements TranslationService {
     private apiUrl: string;
@@ -43,7 +43,7 @@ export class LibreTranslateService implements TranslationService {
                 payload.api_key = this.apiKey;
             }
 
-            const response = await axios.post(this.apiUrl, payload, {
+            const response = await http.post<{ translatedText: string }>(this.apiUrl, payload, {
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -56,10 +56,9 @@ export class LibreTranslateService implements TranslationService {
 
             throw new TranslationError('Invalid response from LibreTranslate API', 'libretranslate');
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                const axiosError = error as AxiosError;
+            if (isHttpError(error)) {
                 // Sanitize error message to avoid leaking API keys or URLs
-                const statusCode = axiosError.response?.status;
+                const statusCode = error.status;
                 let message: string;
                 if (statusCode === 401 || statusCode === 403) {
                     message = 'Authentication failed - check your API key';
@@ -67,9 +66,9 @@ export class LibreTranslateService implements TranslationService {
                     message = 'Rate limit exceeded';
                 } else if (statusCode === 400) {
                     message = 'Invalid request - check language codes';
-                } else if (axiosError.code === 'ECONNREFUSED' || axiosError.code === 'ENOTFOUND') {
+                } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
                     message = 'Unable to connect to LibreTranslate API';
-                } else if (axiosError.code === 'ETIMEDOUT' || axiosError.code === 'ECONNABORTED') {
+                } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
                     message = 'Request timed out';
                 } else {
                     message = `Request failed with status ${statusCode || 'unknown'}`;

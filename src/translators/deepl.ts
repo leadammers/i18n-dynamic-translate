@@ -3,9 +3,9 @@
  * Professional translation API with high quality
  */
 
-import axios, { AxiosError } from 'axios';
 import { DeepLModelType, TranslationProviderConfig, TranslationService } from '@/types';
 import { TranslationError } from '@/utils/errors';
+import { http, isHttpError, HttpError } from '@/utils/http';
 
 export class DeepLService implements TranslationService {
     private apiKey: string;
@@ -60,7 +60,7 @@ export class DeepLService implements TranslationService {
                 ...commonData,
             };
 
-            const response = await axios.post(this.apiUrl, payload, {
+            const response = await http.post<{ translations: { text: string }[] }>(this.apiUrl, payload, {
                 headers: {
                     Authorization: `DeepL-Auth-Key ${this.apiKey}`,
                     'Content-Type': 'application/json',
@@ -74,9 +74,8 @@ export class DeepLService implements TranslationService {
 
             throw new TranslationError('Invalid response from DeepL API', 'deepl');
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                const axiosError = error as AxiosError;
-                this.handleApiError(axiosError);
+            if (isHttpError(error)) {
+                this.handleApiError(error);
             }
             throw error;
         }
@@ -105,7 +104,7 @@ export class DeepLService implements TranslationService {
                 ...commonData,
             };
 
-            const response = await axios.post(this.apiUrl, payload, {
+            const response = await http.post<{ translations: { text: string }[] }>(this.apiUrl, payload, {
                 headers: {
                     Authorization: `DeepL-Auth-Key ${this.apiKey}`,
                     'Content-Type': 'application/json',
@@ -114,14 +113,13 @@ export class DeepLService implements TranslationService {
             });
 
             if (response.data && response.data.translations) {
-                return response.data.translations.map((t: any) => t.text);
+                return response.data.translations.map((t: { text: string }) => t.text);
             }
 
             throw new TranslationError('Invalid response from DeepL API', 'deepl');
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                const axiosError = error as AxiosError;
-                this.handleApiError(axiosError);
+            if (isHttpError(error)) {
+                this.handleApiError(error);
             }
             throw error;
         }
@@ -182,12 +180,12 @@ export class DeepLService implements TranslationService {
 
     /**
      * Handle API errors and sanitize messages
-     * @param error Axios error object
+     * @param error HTTP error object
      * @throws TranslationError with sanitized message
      */
-    private handleApiError(error: AxiosError): never {
+    private handleApiError(error: HttpError): never {
         // Sanitize error message to avoid leaking API keys
-        const statusCode = error.response?.status;
+        const statusCode = error.status;
         let message: string;
         if (statusCode === 401 || statusCode === 403) {
             message = 'Authentication failed - check your API key';

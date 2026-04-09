@@ -7,7 +7,7 @@
  * Or define the API keys in a .env.dev file at the project root
  */
 
-import { vi, describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { vi, describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import i18next from 'i18next';
 import { I18n } from 'i18n';
 import * as fs from 'fs';
@@ -24,7 +24,7 @@ import {
     fetchExistingTranslationsWithSpy,
     TranslationFixture,
 } from './util';
-import axios from 'axios';
+import { http } from '@/utils/http';
 import { DeepLModelType } from '@/types';
 
 // Load environment variables from .env file
@@ -100,8 +100,10 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
         }
     });
 
+    afterEach(() => vi.restoreAllMocks());
+
     it('should translate API metadata to German', async () => {
-        const axiosSpy = vi.spyOn(axios, 'post');
+        const httpSpy = vi.spyOn(http, 'post');
 
         const { translations, savedData, savedTranslations } = await translateObjectAndReadFile({
             autoTranslate,
@@ -126,8 +128,8 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
         }
 
         // Verify API was called with batch of 3 texts
-        expect(axiosSpy).toHaveBeenCalledTimes(1);
-        const data = axiosSpy.mock.calls[0][1] as Record<string, any>;
+        expect(httpSpy).toHaveBeenCalledTimes(1);
+        const data = httpSpy.mock.calls[0][1] as Record<string, any>;
         expect(data.text).toHaveLength(3);
 
         console.log('Saved translations (DE):', JSON.stringify(savedData, null, 2));
@@ -182,7 +184,7 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
 
     it('should return existing translations without calling the API', async () => {
         const fixtures = batTranslations.map((t) => ({ ...t, namespace: 'products' }));
-        const { fixtureData, results, axiosSpy } = await fetchExistingTranslationsWithSpy({
+        const { fixtureData, results, httpSpy } = await fetchExistingTranslationsWithSpy({
             autoTranslate,
             localeFilePath: path.join(I18NEXT_LOCALES_PATH, 'de', 'products.json'),
             translations: fixtures,
@@ -201,8 +203,8 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
         }
 
         // Verify API was not called
-        expect(axiosSpy).not.toHaveBeenCalled();
-        axiosSpy.mockRestore();
+        expect(httpSpy).not.toHaveBeenCalled();
+        httpSpy.mockRestore();
     });
 });
 
@@ -257,8 +259,10 @@ describe.skipIf(!hasApi)('E2E: i18next - Automatic missing key translation', () 
         }
     });
 
+    afterEach(() => vi.restoreAllMocks());
+
     it('should automatically translate when i18next encounters a missing key', async () => {
-        const axiosSpy = vi.spyOn(axios, 'post');
+        const httpSpy = vi.spyOn(http, 'post');
         await i18nextInstance.changeLanguage('de');
 
         // Request a translation for a key that doesn't exist
@@ -278,14 +282,14 @@ describe.skipIf(!hasApi)('E2E: i18next - Automatic missing key translation', () 
         expect(savedData['welcomeMessage']).not.toBe('welcome message');
 
         // Verify API was called (should be only 1 call due to batching)
-        expect(axiosSpy).toHaveBeenCalledTimes(1);
+        expect(httpSpy).toHaveBeenCalledTimes(1);
 
         console.log(`Auto-translated 2 missing keys in ${duration}ms:`, savedData['welcomeMessage']);
-        axiosSpy.mockRestore();
+        httpSpy.mockRestore();
     }, 30000);
 
     it('should not call API for subsequent requests of the same missing key', async () => {
-        const axiosSpy = vi.spyOn(axios, 'post');
+        const httpSpy = vi.spyOn(http, 'post');
         await i18nextInstance.changeLanguage('de');
 
         // Request the same key that was translated in previous test
@@ -296,9 +300,9 @@ describe.skipIf(!hasApi)('E2E: i18next - Automatic missing key translation', () 
         await autoTranslate.waitForPendingTranslations();
 
         // API should not be called - translation already exists
-        expect(axiosSpy).not.toHaveBeenCalled();
+        expect(httpSpy).not.toHaveBeenCalled();
 
-        axiosSpy.mockRestore();
+        httpSpy.mockRestore();
     }, 30000);
 });
 
@@ -345,6 +349,8 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         }
     });
 
+    afterEach(() => vi.restoreAllMocks());
+
     it('should translate a single key to German', async () => {
         const translation = await autoTranslate.translateKey('category', 'de', {
             parentKey: 'products.meta',
@@ -376,7 +382,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
     }, 60000);
 
     it('should return existing translations without calling the API', async () => {
-        const { fixtureData, results, axiosSpy } = await fetchExistingTranslationsWithSpy({
+        const { fixtureData, results, httpSpy } = await fetchExistingTranslationsWithSpy({
             autoTranslate,
             localeFilePath: path.join(NODE_I18N_LOCALES_PATH, 'de.json'),
             translations: batTranslations,
@@ -398,8 +404,8 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         }
 
         // Verify API was not called
-        expect(axiosSpy).not.toHaveBeenCalled();
-        axiosSpy.mockRestore();
+        expect(httpSpy).not.toHaveBeenCalled();
+        httpSpy.mockRestore();
     });
 });
 
@@ -445,8 +451,10 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         }
     });
 
+    afterEach(() => vi.restoreAllMocks());
+
     it('should automatically translate when node-i18n encounters a missing key', async () => {
-        const axiosSpy = vi.spyOn(axios, 'post');
+        const httpSpy = vi.spyOn(http, 'post');
 
         // Set locale to German
         i18n.setLocale('de');
@@ -468,18 +476,18 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         expect(savedData['thankYou']).not.toBe('thankYou');
 
         // Verify API was called (should be only 1 call due to batching)
-        expect(axiosSpy).toHaveBeenCalledTimes(1);
+        expect(httpSpy).toHaveBeenCalledTimes(1);
 
         console.log(
             `node-i18n: Auto-translated 2 missing keys in ${duration}ms:`,
             savedData['helloWorld'],
             savedData['thankYou']
         );
-        axiosSpy.mockRestore();
+        httpSpy.mockRestore();
     }, 30000);
 
     it('should automatically translate when user changes language', async () => {
-        const axiosSpy = vi.spyOn(axios, 'post');
+        const httpSpy = vi.spyOn(http, 'post');
 
         // Start in English (default)
         i18n.setLocale('en');
@@ -500,7 +508,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         expect(savedData['welcomeBack']).not.toBe('welcomeBack');
 
         console.log(`node-i18n: Language switch translation in ${duration}ms:`, savedData['welcomeBack']);
-        axiosSpy.mockRestore();
+        httpSpy.mockRestore();
 
         // Clean up
         delete savedData['welcomeBack'];
@@ -508,7 +516,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
     }, 30000);
 
     it('should not call API for subsequent requests of the same missing key', async () => {
-        const axiosSpy = vi.spyOn(axios, 'post');
+        const httpSpy = vi.spyOn(http, 'post');
 
         i18n.setLocale('de');
 
@@ -519,8 +527,8 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         await autoTranslate.waitForPendingTranslations();
 
         // API should not be called - translations already exist
-        expect(axiosSpy).not.toHaveBeenCalled();
+        expect(httpSpy).not.toHaveBeenCalled();
 
-        axiosSpy.mockRestore();
+        httpSpy.mockRestore();
     }, 30000);
 });
