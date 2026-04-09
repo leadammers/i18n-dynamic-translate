@@ -26,6 +26,7 @@ export {
     StorageAdapter,
     StorageSaveEntry,
     FileOperationResult,
+    AutoTranslateMode,
 } from '@/types';
 
 // Storage
