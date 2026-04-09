@@ -1,7 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
-import { Backend, TranslationProvider } from '@/types';
+import { Backend, StorageAdapter, TranslationProvider } from '@/types';
 import { ConfigurationError } from '@/utils/errors';
+
+// Mock the translators module so translateKey / translateObject don't make real HTTP calls
+vi.mock('@/translators', () => ({
+    createTranslationService: () => ({
+        isAvailable: () => true,
+        translate: vi.fn().mockResolvedValue('mocked'),
+        translateBatch: vi.fn().mockImplementation((texts: string[]) =>
+            Promise.resolve(texts.map(() => 'mocked'))
+        ),
+    }),
+}));
 
 // Mock i18next instance
 function createMockI18next() {
@@ -329,6 +340,86 @@ describe('AutoTranslate', () => {
             expect(mockI18next.options.missingKeyHandler).toBeTypeOf('function');
 
             instance.dispose();
+        });
+    });
+
+    describe('custom storage adapter', () => {
+        it('should use custom storageAdapter when provided', async () => {
+            const mockAdapter: StorageAdapter = {
+                save: vi.fn().mockResolvedValue(undefined),
+            };
+
+            const at = new AutoTranslate({
+                backend: Backend.I18NEXT,
+                i18nInstance: mockI18next,
+                localesPath: '/tmp/locales',
+                defaultLanguage: 'en',
+                translationProvider: {
+                    provider: TranslationProvider.DEEPL,
+                    apiKey: 'test-key',
+                },
+                storageAdapter: mockAdapter,
+            });
+
+            await at.translateKey('hello', 'de');
+
+            expect(mockAdapter.save).toHaveBeenCalledWith('de', 'hello', 'mocked', {
+                namespace: undefined,
+                parentKey: undefined,
+            });
+
+            at.dispose();
+        });
+
+        it('should use saveBatch when storage adapter implements it', async () => {
+            const mockAdapter: StorageAdapter = {
+                save: vi.fn().mockResolvedValue(undefined),
+                saveBatch: vi.fn().mockResolvedValue(undefined),
+            };
+
+            const at = new AutoTranslate({
+                backend: Backend.I18NEXT,
+                i18nInstance: mockI18next,
+                localesPath: '/tmp/locales',
+                defaultLanguage: 'en',
+                translationProvider: {
+                    provider: TranslationProvider.DEEPL,
+                    apiKey: 'test-key',
+                },
+                storageAdapter: mockAdapter,
+            });
+
+            await at.translateObject({ a: 'A', b: 'B' }, 'de', { parentKey: 'test' });
+
+            expect(mockAdapter.saveBatch).toHaveBeenCalledTimes(1);
+            expect(mockAdapter.save).not.toHaveBeenCalled();
+
+            at.dispose();
+        });
+
+        it('should not call storage adapter when autoSave is false', async () => {
+            const mockAdapter: StorageAdapter = {
+                save: vi.fn().mockResolvedValue(undefined),
+            };
+
+            const at = new AutoTranslate({
+                backend: Backend.I18NEXT,
+                i18nInstance: mockI18next,
+                localesPath: '/tmp/locales',
+                defaultLanguage: 'en',
+                translationProvider: {
+                    provider: TranslationProvider.DEEPL,
+                    apiKey: 'test-key',
+                },
+                storageAdapter: mockAdapter,
+                autoSave: false,
+            });
+
+            await at.translateKey('hello', 'de');
+
+            expect(mockAdapter.save).not.toHaveBeenCalled();
+
+            at.dispose();
         });
     });
 });
