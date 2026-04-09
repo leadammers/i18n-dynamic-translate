@@ -42,18 +42,18 @@ export class FileStorageAdapter implements StorageAdapter {
         );
 
         await this.fileLock.withLock(filePath, async () => {
-            const result = await appendTranslationToFile(
-                filePath,
-                key,
-                value,
-                this.fileFormat,
-                options?.parentKey
-            );
-
-            if (!result.success) {
+            try {
+                await appendTranslationToFile(
+                    filePath,
+                    key,
+                    value,
+                    this.fileFormat,
+                    options?.parentKey
+                );
+            } catch (error) {
                 console.error(
                     `FileStorageAdapter: Failed to save translation to ${filePath}:`,
-                    result.error
+                    error
                 );
             }
         });
@@ -94,11 +94,12 @@ export class FileStorageAdapter implements StorageAdapter {
                     setNestedValue(data, fullKey, entry.value);
                 }
 
-                const result = await writeLocaleFile(filePath, data);
-                if (!result.success) {
+                try {
+                    await writeLocaleFile(filePath, data);
+                } catch (error) {
                     console.error(
                         `FileStorageAdapter: Failed to write batch to ${filePath}:`,
-                        result.error
+                        error
                     );
                 }
             })

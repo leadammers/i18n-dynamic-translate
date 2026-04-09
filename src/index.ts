@@ -32,24 +32,6 @@ export {
 // Storage
 export { FileStorageAdapter } from '@/storage/FileStorageAdapter';
 
-// Export utilities
-export {
-    convertKeyToText,
-    convertKeyToSentence,
-    isNestedKey,
-    getLastSegment,
-    getParentPath,
-} from '@/utils/keyConverter';
-
-export {
-    readLocaleFile,
-    writeLocaleFile,
-    appendTranslationToFile,
-    getLocaleFilePath,
-    setNestedValue,
-    getNestedValue,
-} from '@/utils/fileHandler';
-
 // Export errors
 export {
     AutoTranslateError,
