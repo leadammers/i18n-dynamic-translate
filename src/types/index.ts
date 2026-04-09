@@ -67,19 +67,8 @@ export interface AutoTranslateConfig {
     /** Maximum cache entries (default: 1000) */
     maxCacheSize?: number;
 
-    /**
-     * Operating mode. Default: 'development'.
-     * - 'development': auto-translate all missing keys across all namespaces
-     * - 'production': only auto-translate missing keys within allowedNamespaces
-     */
-    mode?: AutoTranslateMode;
-
-    /**
-     * Namespaces (or parentKey prefixes for node-i18n) that are allowed to be
-     * auto-translated in production mode. Ignored in development mode.
-     * Missing keys outside these namespaces are silently skipped.
-     */
-    allowedNamespaces?: string[];
+    /** Custom storage adapter. Defaults to FileStorageAdapter when autoSave is true. */
+    storageAdapter?: StorageAdapter;
 }
 
 /**
@@ -177,4 +166,33 @@ export interface FileOperationResult {
  */
 export interface LocaleData {
     [key: string]: string | LocaleData;
+}
+
+/**
+ * Entry for batch storage operations
+ */
+export interface StorageSaveEntry {
+    locale: string;
+    key: string;
+    value: string;
+    namespace?: string;
+    parentKey?: string;
+}
+
+/**
+ * Storage adapter interface for persisting translations.
+ * Write-only — reading translations is handled by the i18n backend adapters.
+ */
+export interface StorageAdapter {
+    /** Save a single translation to storage */
+    save(locale: string, key: string, value: string, options?: {
+        namespace?: string;
+        parentKey?: string;
+    }): Promise<void>;
+
+    /**
+     * Save multiple translations at once.
+     * Optional — when not implemented, AutoTranslate calls save() in a loop.
+     */
+    saveBatch?(entries: StorageSaveEntry[]): Promise<void>;
 }
