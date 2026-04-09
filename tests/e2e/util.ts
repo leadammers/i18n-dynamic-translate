@@ -5,7 +5,7 @@
 import { vi, type MockInstance } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import axios from 'axios';
+import { http } from '@/utils/http';
 import { AutoTranslate } from '@/index';
 
 // ============================================================================
@@ -121,7 +121,7 @@ export interface ExistingTranslationsParams {
 export interface ExistingTranslationsResult {
     fixtureData: Record<string, unknown>;
     results: string[];
-    axiosSpy: MockInstance;
+    httpSpy: MockInstance;
 }
 
 export async function fetchExistingTranslationsWithSpy({
@@ -131,7 +131,7 @@ export async function fetchExistingTranslationsWithSpy({
     targetLocale,
 }: ExistingTranslationsParams): Promise<ExistingTranslationsResult> {
     const fixtureData = readJsonFile(localeFilePath);
-    const axiosSpy = vi.spyOn(axios, 'post');
+    const httpSpy = vi.spyOn(http, 'post');
 
     const results: string[] = [];
     for (const { key, parentKey, context, namespace } of translations) {
@@ -139,5 +139,5 @@ export async function fetchExistingTranslationsWithSpy({
         results.push(result);
     }
 
-    return { fixtureData, results, axiosSpy };
+    return { fixtureData, results, httpSpy };
 }
