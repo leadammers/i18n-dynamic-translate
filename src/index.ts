@@ -15,6 +15,7 @@ export {
     Backend,
     TranslationProvider,
     FileFormat,
+    DeepLModelType,
     TranslationProviderConfig,
     BackendAdapter,
     TranslationService,
@@ -22,7 +23,14 @@ export {
     TranslationCache,
     CacheEntry,
     LocaleData,
+    StorageAdapter,
+    StorageSaveEntry,
+    FileOperationResult,
+    AutoTranslateMode,
 } from '@/types';
+
+// Storage
+export { FileStorageAdapter } from '@/storage/FileStorageAdapter';
 
 // Export utilities
 export {
