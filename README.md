@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/i18n-dynamic-translate.svg)](https://www.npmjs.com/package/i18n-dynamic-translate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0+-blue.svg)](https://www.typescriptlang.org/)
 
 **DynamicTranslate** automatically translates missing i18n keys in your application without manual work. Perfect for
 translating dynamic content like API metadata or dynamic product attributes where the keys are not known beforehand
@@ -29,7 +29,7 @@ directly to your locale files.
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js 18+
 - An i18next or node-i18n instance already configured
 - DeepL API key (free tier available at [deepl.com](https://www.deepl.com/pro-api)) or a self-hosted LibreTranslate
   instance
@@ -131,6 +131,26 @@ const autoTranslate = new AutoTranslate({
 
     // Maximum number of cached entries (default: 1000)
     maxCacheSize: 1000,
+
+    // Operating mode (default: 'development')
+    // 'development' — auto-translate all missing keys
+    // 'production' — only auto-translate within allowedNamespaces
+    mode: 'production',
+
+    // Namespaces allowed for auto-translation in production mode
+    allowedNamespaces: ['products.metaData', 'api.labels'],
+
+    // Custom key-to-text conversion function (overrides built-in converter)
+    keyToText: (key) => key.replace(/_/g, ' '),
+
+    // Error callback for the automatic missing-key handler (default: console.error)
+    onError: (error, key, locale) => {
+        myLogger.warn(`Translation failed for ${key} (${locale}):`, error);
+    },
+
+    // Custom storage adapter (default: FileStorageAdapter)
+    // Implement the StorageAdapter interface for database/Redis/etc.
+    // storageAdapter: new MyDatabaseAdapter(),
 });
 ```
 
@@ -231,6 +251,45 @@ function ProductMeta({meta}) {
 // Renders: "Spediteur: DHL Express"
 ```
 
+### Production Mode
+
+In production, you typically only want auto-translation for specific namespaces (e.g., dynamic API metadata), not all missing keys. Use `mode: 'production'` with `allowedNamespaces`:
+
+```typescript
+const autoTranslate = new AutoTranslate({
+    // ...
+    mode: 'production',
+    allowedNamespaces: ['products.metaData'],
+});
+```
+
+In production mode:
+- The **automatic missing-key handler** only processes keys within `allowedNamespaces` — all others are silently skipped
+- **Explicit calls** (`translateKey()`, `translateObject()`) are never restricted and work for any namespace
+
+### Custom Storage
+
+By default, translations are saved to locale files. You can provide a custom `StorageAdapter` to persist to a database, Redis, or any other backend:
+
+```typescript
+import { AutoTranslate, StorageAdapter } from 'i18n-dynamic-translate';
+
+const myAdapter: StorageAdapter = {
+    async save(locale, key, value, options) {
+        await db.upsert('translations', { locale, key, value, ...options });
+    },
+    // Optional: optimize bulk writes
+    async saveBatch(entries) {
+        await db.bulkUpsert('translations', entries);
+    },
+};
+
+const autoTranslate = new AutoTranslate({
+    // ...
+    storageAdapter: myAdapter,
+});
+```
+
 ## API
 
 ### `translateObject(obj, targetLocale, options?)`
@@ -317,10 +376,10 @@ if (!autoTranslate.isDisposed()) {
 
 ### `dispose()`
 
-Clean up resources when done. This stops cache cleanup timers and restores original i18n handlers.
+Clean up resources when done. Waits for in-flight translations to complete, then stops cache cleanup timers and restores original i18n handlers.
 
 ```typescript
-autoTranslate.dispose();
+await autoTranslate.dispose();
 ```
 
 ## Error Handling
@@ -365,6 +424,9 @@ try {
 
 - [x] **Batch translation support** - Translate multiple keys in a single API call if supported by translation provider
 - [x] **File format auto-detection** - Automatically detect JSON/YAML based on existing files
+- [x] **Storage abstraction** - Pluggable `StorageAdapter` interface for custom persistence backends
+- [x] **Production mode** - Namespace allowlist for safe production deployment
+- [x] **HTTP retry** - Automatic retry with exponential backoff for transient API failures
 - [ ] **LibreTranslate verification** - Full testing and validation
 - [ ] **Google Translate support** - Add Google Cloud Translation API integration
 - [ ] **Azure Translator support** - Add Microsoft Azure Translation API integration
