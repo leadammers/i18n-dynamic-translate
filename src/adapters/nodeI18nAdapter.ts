@@ -63,8 +63,9 @@ export class NodeI18nAdapter implements BackendAdapter {
             const locale = this.i18n!.getLocale();
             const translation = original__(phrase, ...args);
 
-            // If translation equals the phrase, it's likely missing
-            // (node-i18n returns the phrase when translation is not found)
+            // node-i18n returns the phrase itself when a translation is not found.
+            // Limitation: if a translation intentionally equals its key (e.g. "OK" -> "OK"),
+            // this will produce a false positive and trigger an unnecessary API call.
             if (translation === phrase && this.missingKeyCallback) {
                 // Handle async callback with proper error handling
                 Promise.resolve(this.missingKeyCallback(phrase, locale)).catch((error) => {
@@ -102,12 +103,7 @@ export class NodeI18nAdapter implements BackendAdapter {
             return null;
         }
 
-        const currentLocale = this.i18n.getLocale();
-
         try {
-            // Temporarily set locale
-            this.i18n.setLocale(locale);
-
             const catalog = this.i18n.getCatalog(locale);
             if (!catalog) return null;
 
@@ -130,15 +126,6 @@ export class NodeI18nAdapter implements BackendAdapter {
             return typeof translation === 'string' ? translation : null;
         } catch {
             return null;
-        } finally {
-            // Always restore locale, even on error
-            // Note: If setLocale fails here, the locale state may be inconsistent,
-            // but we log the error instead of silently ignoring it
-            try {
-                this.i18n.setLocale(currentLocale);
-            } catch (restoreError) {
-                console.error('AutoTranslate: Failed to restore locale after getTranslation:', restoreError);
-            }
         }
     }
 
