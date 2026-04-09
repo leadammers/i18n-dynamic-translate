@@ -40,12 +40,11 @@
   ],
   "author": "Lea Dammers",
   "license": "MIT",
-  "dependencies": {
-    "js-yaml": "^4.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/i18n": "^0.13.12",
     "@types/js-yaml": "^4.0.9",
+    "js-yaml": "^4.1.0",
     "@types/node": "^20.19.39",
     "dotenv": "^17.4.1",
     "i18n": "^0.15.3",
@@ -57,13 +56,17 @@
   },
   "peerDependencies": {
     "i18n": "^0.15.0",
-    "i18next": ">=23.0.0"
+    "i18next": ">=23.0.0",
+    "js-yaml": "^4.1.0"
   },
   "peerDependenciesMeta": {
     "i18n": {
       "optional": true
     },
     "i18next": {
+      "optional": true
+    },
+    "js-yaml": {
       "optional": true
     }
   }

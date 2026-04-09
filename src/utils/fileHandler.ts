@@ -5,8 +5,16 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as yaml from 'js-yaml';
 import { FileFormat, LocaleData, FileOperationResult } from '@/types';
+
+let yaml: typeof import('js-yaml') | undefined;
+
+async function getYaml(): Promise<typeof import('js-yaml')> {
+    if (!yaml) {
+        yaml = await import('js-yaml');
+    }
+    return yaml;
+}
 import { FileSystemError } from '@/utils/errors';
 
 /**
@@ -46,7 +54,8 @@ export async function readLocaleFile(filePath: string): Promise<LocaleData> {
         const fileFormat = detectFileFormat(filePath);
 
         if (fileFormat === FileFormat.YAML) {
-            const data = yaml.load(content);
+            const yamlLib = await getYaml();
+            const data = yamlLib.load(content);
             return (data as LocaleData) || {};
         } else {
             return JSON.parse(content || '{}');
@@ -73,7 +82,8 @@ export async function writeLocaleFile(filePath: string, data: LocaleData): Promi
         let content: string;
 
         if (fileFormat === FileFormat.YAML) {
-            content = yaml.dump(data, { indent: 2, lineWidth: -1 });
+            const yamlLib = await getYaml();
+            content = yamlLib.dump(data, { indent: 2, lineWidth: -1 });
         } else {
             content = JSON.stringify(data, null, 2) + '\n';
         }
