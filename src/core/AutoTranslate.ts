@@ -603,15 +603,26 @@ export class AutoTranslate {
     }
 
     /**
-     * Dispose of resources and cleanup
-     * After calling this, the instance should not be used
+     * Dispose of resources and cleanup.
+     * Waits for in-flight translations to complete before cleaning up.
+     * After calling this, the instance should not be used.
      */
-    dispose(): void {
+    async dispose(): Promise<void> {
         if (this.disposed) {
             return;
         }
 
         this.disposed = true;
+
+        // Wait for in-flight translations to finish
+        try {
+            const pending = Array.from(this.processingQueue.values());
+            if (pending.length > 0) {
+                await Promise.allSettled(pending);
+            }
+        } catch {
+            // Best-effort — don't let cleanup failures prevent disposal
+        }
 
         // Clear batch timer
         if (this.batchTimer) {
@@ -619,7 +630,7 @@ export class AutoTranslate {
             this.batchTimer = null;
         }
 
-        // Reject any pending batch items
+        // Reject any remaining pending batch items
         for (const pending of this.pendingBatch.values()) {
             for (const cb of pending.callbacks) {
                 cb.reject(new Error('AutoTranslate instance disposed'));

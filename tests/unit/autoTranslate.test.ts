@@ -118,17 +118,17 @@ describe('AutoTranslate', () => {
             expect(() => new AutoTranslate(config as never)).toThrow('translationProvider is required');
         });
 
-        it('should create instance with valid config', () => {
+        it('should create instance with valid config', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
             expect(instance).toBeInstanceOf(AutoTranslate);
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('config normalization', () => {
-        it('should apply default values for optional config', () => {
+        it('should apply default values for optional config', async () => {
             const config = createValidConfig(mockI18next);
             delete (config as Record<string, unknown>).autoSave;
             delete (config as Record<string, unknown>).enableCache;
@@ -141,10 +141,10 @@ describe('AutoTranslate', () => {
             expect(normalizedConfig.maxConcurrency).toBe(5);
             expect(normalizedConfig.defaultNamespace).toBe('translation');
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should preserve explicit config values', () => {
+        it('should preserve explicit config values', async () => {
             const config = {
                 ...createValidConfig(mockI18next),
                 autoSave: false,
@@ -161,28 +161,28 @@ describe('AutoTranslate', () => {
             expect(normalizedConfig.maxConcurrency).toBe(10);
             expect(normalizedConfig.defaultNamespace).toBe('custom');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('dispose', () => {
-        it('should mark instance as disposed', () => {
+        it('should mark instance as disposed', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
             expect(instance.isDisposed()).toBe(false);
 
-            instance.dispose();
+            await instance.dispose();
 
             expect(instance.isDisposed()).toBe(true);
         });
 
-        it('should be idempotent (safe to call multiple times)', () => {
+        it('should be idempotent (safe to call multiple times)', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
-            instance.dispose();
-            expect(() => instance.dispose()).not.toThrow();
+            await instance.dispose();
+            await expect(instance.dispose()).resolves.not.toThrow();
             expect(instance.isDisposed()).toBe(true);
         });
 
@@ -190,7 +190,7 @@ describe('AutoTranslate', () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
-            instance.dispose();
+            await instance.dispose();
 
             await expect(instance.translateKey('hello', 'de')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateKey('hello', 'de')).rejects.toThrow('has been disposed');
@@ -200,7 +200,7 @@ describe('AutoTranslate', () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
-            instance.dispose();
+            await instance.dispose();
 
             await expect(instance.translateObject({ key: 'value' }, 'de')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateObject({ key: 'value' }, 'de')).rejects.toThrow('has been disposed');
@@ -215,7 +215,7 @@ describe('AutoTranslate', () => {
             await expect(instance.translateKey('', 'de')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateKey('', 'de')).rejects.toThrow('Key must be a non-empty string');
 
-            instance.dispose();
+            await instance.dispose();
         });
 
         it('should throw ConfigurationError for empty locale', async () => {
@@ -225,7 +225,7 @@ describe('AutoTranslate', () => {
             await expect(instance.translateKey('hello', '')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateKey('hello', '')).rejects.toThrow('Target locale must be a non-empty string');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
@@ -237,7 +237,7 @@ describe('AutoTranslate', () => {
             await expect(instance.translateObject(null as never, 'de')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateObject(null as never, 'de')).rejects.toThrow('Object must be a non-null object');
 
-            instance.dispose();
+            await instance.dispose();
         });
 
         it('should throw ConfigurationError for non-object', async () => {
@@ -246,7 +246,7 @@ describe('AutoTranslate', () => {
 
             await expect(instance.translateObject('string' as never, 'de')).rejects.toThrow(ConfigurationError);
 
-            instance.dispose();
+            await instance.dispose();
         });
 
         it('should throw ConfigurationError for empty locale', async () => {
@@ -256,12 +256,12 @@ describe('AutoTranslate', () => {
             await expect(instance.translateObject({ key: 'value' }, '')).rejects.toThrow(ConfigurationError);
             await expect(instance.translateObject({ key: 'value' }, '')).rejects.toThrow('Target locale must be a non-empty string');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('cache', () => {
-        it('should initialize cache when enableCache is true', () => {
+        it('should initialize cache when enableCache is true', async () => {
             const config = { ...createValidConfig(mockI18next), enableCache: true };
             const instance = new AutoTranslate(config);
 
@@ -269,32 +269,32 @@ describe('AutoTranslate', () => {
             expect(stats).not.toBeNull();
             expect(stats?.size).toBe(0);
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should not initialize cache when enableCache is false', () => {
+        it('should not initialize cache when enableCache is false', async () => {
             const config = { ...createValidConfig(mockI18next), enableCache: false };
             const instance = new AutoTranslate(config);
 
             const stats = instance.getCacheStats();
             expect(stats).toBeNull();
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should clear cache on clearCache call', () => {
+        it('should clear cache on clearCache call', async () => {
             const config = { ...createValidConfig(mockI18next), enableCache: true };
             const instance = new AutoTranslate(config);
 
             // clearCache should not throw even if cache is empty
             expect(() => instance.clearCache()).not.toThrow();
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('getConfig', () => {
-        it('should return a copy of the config', () => {
+        it('should return a copy of the config', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
 
@@ -305,22 +305,22 @@ describe('AutoTranslate', () => {
             expect(returnedConfig.backend).toBe(Backend.I18NEXT);
             expect(returnedConfig.defaultLanguage).toBe('en');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
     describe('backend integration', () => {
-        it('should work with i18next backend', () => {
+        it('should work with i18next backend', async () => {
             const config = createValidConfig(mockI18next, Backend.I18NEXT);
 
             expect(() => new AutoTranslate(config)).not.toThrow();
             const instance = new AutoTranslate(config);
             expect(instance.getConfig().backend).toBe(Backend.I18NEXT);
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should work with node-i18n backend', () => {
+        it('should work with node-i18n backend', async () => {
             const mockNodeI18n = createMockNodeI18n();
             const config = createValidConfig(mockNodeI18n, Backend.NODE_I18N);
 
@@ -328,10 +328,10 @@ describe('AutoTranslate', () => {
             const instance = new AutoTranslate(config);
             expect(instance.getConfig().backend).toBe(Backend.NODE_I18N);
 
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should setup missing key handler on i18next', () => {
+        it('should setup missing key handler on i18next', async () => {
             const config = createValidConfig(mockI18next, Backend.I18NEXT);
             const instance = new AutoTranslate(config);
 
@@ -339,7 +339,7 @@ describe('AutoTranslate', () => {
             expect(mockI18next.options.saveMissing).toBe(true);
             expect(mockI18next.options.missingKeyHandler).toBeTypeOf('function');
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 
