@@ -35,10 +35,15 @@ export function convertKeyToText(key: string): string {
         .trim()
         .replace(/\s+/g, ' ');
 
-    // Capitalize first letter of each word
+    // Capitalize first letter of each word, preserving all-uppercase acronyms
     result = result
         .split(' ')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .map((word) => {
+            if (word === word.toUpperCase() && word.length > 1) {
+                return word; // Preserve acronyms like "API", "URL", "XML"
+            }
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        })
         .join(' ');
 
     return result;

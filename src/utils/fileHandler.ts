@@ -5,8 +5,16 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as yaml from 'js-yaml';
 import { FileFormat, LocaleData, FileOperationResult } from '@/types';
+
+let yaml: typeof import('js-yaml') | undefined;
+
+async function getYaml(): Promise<typeof import('js-yaml')> {
+    if (!yaml) {
+        yaml = await import('js-yaml');
+    }
+    return yaml;
+}
 import { FileSystemError } from '@/utils/errors';
 
 /**
@@ -46,7 +54,8 @@ export async function readLocaleFile(filePath: string): Promise<LocaleData> {
         const fileFormat = detectFileFormat(filePath);
 
         if (fileFormat === FileFormat.YAML) {
-            const data = yaml.load(content);
+            const yamlLib = await getYaml();
+            const data = yamlLib.load(content);
             return (data as LocaleData) || {};
         } else {
             return JSON.parse(content || '{}');
@@ -67,13 +76,14 @@ async function ensureDirectoryExists(filePath: string): Promise<void> {
 /**
  * Write locale file (JSON or YAML)
  */
-export async function writeLocaleFile(filePath: string, data: LocaleData): Promise<FileOperationResult> {
+export async function writeLocaleFile(filePath: string, data: LocaleData): Promise<void> {
     try {
         const fileFormat = detectFileFormat(filePath);
         let content: string;
 
         if (fileFormat === FileFormat.YAML) {
-            content = yaml.dump(data, { indent: 2, lineWidth: -1 });
+            const yamlLib = await getYaml();
+            content = yamlLib.dump(data, { indent: 2, lineWidth: -1 });
         } else {
             content = JSON.stringify(data, null, 2) + '\n';
         }
@@ -82,13 +92,8 @@ export async function writeLocaleFile(filePath: string, data: LocaleData): Promi
         await ensureDirectoryExists(filePath);
 
         await fs.writeFile(filePath, content, 'utf-8');
-
-        return { success: true };
     } catch (error) {
-        return {
-            success: false,
-            error: new FileSystemError(`Failed to write locale file: ${filePath}`, filePath, error as Error),
-        };
+        throw new FileSystemError(`Failed to write locale file: ${filePath}`, filePath, error as Error);
     }
 }
 
@@ -180,16 +185,9 @@ export async function appendTranslationToFile(
     value: string,
     format?: FileFormat,
     parentKey?: string
-): Promise<FileOperationResult> {
-    try {
-        const data = await readLocaleFile(filePath);
-        const fullKey = parentKey ? `${parentKey}.${key}` : key;
-        setNestedValue(data, fullKey, value);
-        return await writeLocaleFile(filePath, data);
-    } catch (error) {
-        return {
-            success: false,
-            error: error as Error,
-        };
-    }
+): Promise<void> {
+    const data = await readLocaleFile(filePath);
+    const fullKey = parentKey ? `${parentKey}.${key}` : key;
+    setNestedValue(data, fullKey, value);
+    await writeLocaleFile(filePath, data);
 }

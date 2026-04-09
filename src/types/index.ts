@@ -83,6 +83,14 @@ export interface AutoTranslateConfig {
      * Missing keys outside these namespaces are silently skipped.
      */
     allowedNamespaces?: string[];
+
+    /**
+     * Custom function to convert translation keys to human-readable text
+     * for the translation API. Overrides the built-in camelCase/snake_case converter.
+     * @param key - The translation key (last segment only, not the full path)
+     * @returns Human-readable text to send to the translation provider
+     */
+    keyToText?: (key: string) => string;
 }
 
 /**

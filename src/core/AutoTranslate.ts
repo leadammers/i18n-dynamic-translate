@@ -44,6 +44,7 @@ export class AutoTranslate {
         this.config = this.normalizeConfig(config);
         this.processingQueue = new Map();
         this.semaphore = new Semaphore(this.config.maxConcurrency || 5);
+
         // Initialize storage adapter
         this.storageAdapter = config.storageAdapter || new FileStorageAdapter({
             localesPath: config.localesPath,
@@ -185,7 +186,7 @@ export class AutoTranslate {
         // Get source text (from default language or convert key)
         let sourceText = this.adapter.getTranslation(key, this.config.defaultLanguage, namespace);
         if (!sourceText) {
-            sourceText = convertKeyToText(key);
+            sourceText = this.config.keyToText ? this.config.keyToText(key) : convertKeyToText(key);
         }
 
         // Add to batch queue and wait for batch processing
@@ -380,7 +381,7 @@ export class AutoTranslate {
         let sourceText = this.adapter.getTranslation(targetKey, this.config.defaultLanguage, namespace);
 
         if (!sourceText) {
-            sourceText = convertKeyToText(key);
+            sourceText = this.config.keyToText ? this.config.keyToText(key) : convertKeyToText(key);
         }
 
         // Translate
@@ -455,8 +456,9 @@ export class AutoTranslate {
             }
 
             // Get source text: try backend first, fall back to flattened value
+            const keyToText = this.config.keyToText || convertKeyToText;
             const sourceText =
-                this.adapter.getTranslation(targetKey, this.config.defaultLanguage, namespace) || convertKeyToText(key);
+                this.adapter.getTranslation(targetKey, this.config.defaultLanguage, namespace) || keyToText(key);
 
             pendingTranslations.push({ key, sourceText });
         }

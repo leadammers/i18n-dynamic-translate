@@ -136,9 +136,8 @@ describe('FileHandler', () => {
             const filePath = path.join(TEST_DIR, 'output.json');
             const data = { hello: 'Hello', world: 'World' };
 
-            const result = await writeLocaleFile(filePath, data);
+            await writeLocaleFile(filePath, data);
 
-            expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
             expect(JSON.parse(content)).toEqual(data);
         });
@@ -147,9 +146,8 @@ describe('FileHandler', () => {
             const filePath = path.join(TEST_DIR, 'output.yaml');
             const data = { hello: 'Hello', world: 'World' };
 
-            const result = await writeLocaleFile(filePath, data);
+            await writeLocaleFile(filePath, data);
 
-            expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
             expect(content).toContain('hello: Hello');
             expect(content).toContain('world: World');
@@ -170,9 +168,8 @@ describe('FileHandler', () => {
             const filePath = path.join(TEST_DIR, 'data.txt');
             const data = { hello: 'Hello' };
 
-            const result = await writeLocaleFile(filePath, data);
+            await writeLocaleFile(filePath, data);
 
-            expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
             expect(JSON.parse(content)).toEqual(data);
         });
@@ -294,9 +291,8 @@ describe('FileHandler', () => {
         it('should append to new file', async () => {
             const filePath = path.join(TEST_DIR, 'new.json');
 
-            const result = await appendTranslationToFile(filePath, 'hello', 'Hello');
+            await appendTranslationToFile(filePath, 'hello', 'Hello');
 
-            expect(result.success).toBe(true);
             const data = await readLocaleFile(filePath);
             expect(data).toEqual({ hello: 'Hello' });
         });
@@ -305,9 +301,8 @@ describe('FileHandler', () => {
             const filePath = path.join(TEST_DIR, 'existing.json');
             await fs.writeFile(filePath, JSON.stringify({ world: 'World' }));
 
-            const result = await appendTranslationToFile(filePath, 'hello', 'Hello');
+            await appendTranslationToFile(filePath, 'hello', 'Hello');
 
-            expect(result.success).toBe(true);
             const data = await readLocaleFile(filePath);
             expect(data).toEqual({ hello: 'Hello', world: 'World' });
         });
@@ -334,9 +329,8 @@ describe('FileHandler', () => {
         it('should work with YAML files', async () => {
             const filePath = path.join(TEST_DIR, 'test.yaml');
 
-            const result = await appendTranslationToFile(filePath, 'greeting', 'Hello', FileFormat.YAML);
+            await appendTranslationToFile(filePath, 'greeting', 'Hello', FileFormat.YAML);
 
-            expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
             expect(content).toContain('greeting: Hello');
         });
