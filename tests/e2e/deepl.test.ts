@@ -87,8 +87,8 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
         });
     });
 
-    afterAll(() => {
-        autoTranslate?.dispose();
+    afterAll(async () => {
+        await autoTranslate?.dispose();
         // Clean up test-generated keys
         for (const lang of ['de', 'es']) {
             const filePath = path.join(I18NEXT_LOCALES_PATH, lang, 'products.json');
@@ -247,8 +247,8 @@ describe.skipIf(!hasApi)('E2E: i18next - Automatic missing key translation', () 
         });
     });
 
-    afterAll(() => {
-        autoTranslate?.dispose();
+    afterAll(async () => {
+        await autoTranslate?.dispose();
         // Clean up test-generated keys
         const filePath = path.join(I18NEXT_LOCALES_PATH, 'de', 'translation.json');
         if (fs.existsSync(filePath)) {
@@ -336,8 +336,8 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         });
     });
 
-    afterAll(() => {
-        autoTranslate?.dispose();
+    afterAll(async () => {
+        await autoTranslate?.dispose();
         // Clean up test-generated keys
         for (const lang of ['de', 'es']) {
             const filePath = path.join(NODE_I18N_LOCALES_PATH, `${lang}.json`);
@@ -439,8 +439,8 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         });
     });
 
-    afterAll(() => {
-        autoTranslate?.dispose();
+    afterAll(async () => {
+        await autoTranslate?.dispose();
         // Clean up test-generated keys
         const filePath = path.join(NODE_I18N_LOCALES_PATH, 'de.json');
         if (fs.existsSync(filePath)) {
