@@ -37,6 +37,7 @@ export class AutoTranslate {
     // Batch processing state
     private pendingBatch: Map<string, PendingKey> = new Map();
     private batchTimer: ReturnType<typeof setTimeout> | null = null;
+    private activeBatchPromise: Promise<void> | null = null;
     private batchDebounceMs: number = 50; // Collect keys for 50ms before batch translate
 
     constructor(config: AutoTranslateConfig) {
@@ -107,8 +108,8 @@ export class AutoTranslate {
             autoSave: config.autoSave ?? true,
             enableCache: config.enableCache ?? true,
             maxConcurrency: config.maxConcurrency ?? 5,
-            defaultNamespace: config.defaultNamespace || 'translation',
-            mode: config.mode || 'development',
+            defaultNamespace: config.defaultNamespace ?? 'translation',
+            mode: config.mode ?? 'development',
         };
     }
 
@@ -145,10 +146,11 @@ export class AutoTranslate {
         }
 
         // Create new processing promise
+        const onError = this.config.onError || ((err, k, l) => {
+            console.error(`AutoTranslate: Error processing missing key "${k}" for locale "${l}":`, err);
+        });
         const processingPromise = this.processMissingKeyAsync(key, locale, namespace, queueKey).catch(
-            (error) => {
-                console.error(`AutoTranslate: Error processing missing key "${key}" for locale "${locale}":`, error);
-            }
+            (error) => onError(error as Error, key, locale)
         );
         this.processingQueue.set(queueKey, processingPromise);
     }
@@ -228,7 +230,9 @@ export class AutoTranslate {
             }
 
             this.batchTimer = setTimeout(() => {
-                this.processBatch();
+                this.activeBatchPromise = this.processBatch().finally(() => {
+                    this.activeBatchPromise = null;
+                });
             }, this.batchDebounceMs);
         });
     }
@@ -237,7 +241,7 @@ export class AutoTranslate {
      * Process all pending keys in a single batch
      */
     private async processBatch(): Promise<void> {
-        if (this.pendingBatch.size === 0) return;
+        if (this.disposed || this.pendingBatch.size === 0) return;
 
         // Take snapshot of current batch and clear it
         const batch = new Map(this.pendingBatch);
@@ -616,20 +620,23 @@ export class AutoTranslate {
 
         this.disposed = true;
 
-        // Wait for in-flight translations to finish
-        try {
-            const pending = Array.from(this.processingQueue.values());
-            if (pending.length > 0) {
-                await Promise.allSettled(pending);
-            }
-        } catch {
-            // Best-effort — don't let cleanup failures prevent disposal
-        }
-
-        // Clear batch timer
+        // Clear batch timer first to prevent new batches from starting
         if (this.batchTimer) {
             clearTimeout(this.batchTimer);
             this.batchTimer = null;
+        }
+
+        // Wait for in-flight translations and active batch to finish
+        try {
+            const promises: Promise<void>[] = Array.from(this.processingQueue.values());
+            if (this.activeBatchPromise) {
+                promises.push(this.activeBatchPromise);
+            }
+            if (promises.length > 0) {
+                await Promise.allSettled(promises);
+            }
+        } catch {
+            // Best-effort — don't let cleanup failures prevent disposal
         }
 
         // Reject any remaining pending batch items

@@ -133,27 +133,6 @@ export class I18nextAdapter implements BackendAdapter {
     }
 
     /**
-     * Get current language
-     */
-    getCurrentLanguage(): string {
-        return this.i18next?.language || this.config?.defaultLanguage || 'en';
-    }
-
-    /**
-     * Get available languages
-     */
-    getLanguages(): string[] {
-        return this.i18next?.languages || [this.config?.defaultLanguage || 'en'];
-    }
-
-    /**
-     * Get namespaces
-     */
-    getNamespaces(): string[] {
-        return this.i18next?.options.ns || ['translation'];
-    }
-
-    /**
      * Restore original handlers and clean up resources
      */
     destroy(): void {

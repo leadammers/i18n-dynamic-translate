@@ -178,20 +178,6 @@ export class NodeI18nAdapter implements BackendAdapter {
     }
 
     /**
-     * Get current locale
-     */
-    getCurrentLocale(): string {
-        return this.i18n?.getLocale() || this.config?.defaultLanguage || 'en';
-    }
-
-    /**
-     * Get available locales
-     */
-    getLocales(): string[] {
-        return this.i18n?.getLocales() || [this.config?.defaultLanguage || 'en'];
-    }
-
-    /**
      * Restore original handlers and clean up resources
      */
     destroy(): void {

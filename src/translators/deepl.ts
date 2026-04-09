@@ -7,6 +7,16 @@ import { DeepLModelType, TranslationProviderConfig, TranslationService } from '@
 import { TranslationError } from '@/utils/errors';
 import { http, isHttpError, HttpError } from '@/utils/http';
 
+interface DeepLRequestPayload {
+    source_lang: string;
+    target_lang: string;
+    text: string[];
+    model_type?: string;
+    formality?: string;
+    context?: string;
+    split_sentences?: string;
+}
+
 export class DeepLService implements TranslationService {
     private apiKey: string;
     private apiUrl: string;
@@ -52,12 +62,11 @@ export class DeepLService implements TranslationService {
         }
 
         try {
-            const commonData = this.buildRequestBody(context);
-            const payload: Record<string, any> = {
+            const payload: DeepLRequestPayload = {
                 source_lang: this.normalizeSourceLang(sourceLang),
                 target_lang: this.normalizeTargetLang(targetLang),
                 text: [text],
-                ...commonData,
+                ...this.buildRequestBody(context),
             };
 
             const response = await http.post<{ translations: { text: string }[] }>(this.apiUrl, payload, {
@@ -96,12 +105,11 @@ export class DeepLService implements TranslationService {
         if (texts.length === 0) return [];
 
         try {
-            const commonData = this.buildRequestBody(context);
-            const payload: Record<string, any> = {
+            const payload: DeepLRequestPayload = {
                 source_lang: this.normalizeSourceLang(sourceLang),
                 target_lang: this.normalizeTargetLang(targetLang),
                 text: texts,
-                ...commonData,
+                ...this.buildRequestBody(context),
             };
 
             const response = await http.post<{ translations: { text: string }[] }>(this.apiUrl, payload, {
@@ -139,22 +147,26 @@ export class DeepLService implements TranslationService {
     private normalizeTargetLang(lang: string): string {
         const normalized = lang.toUpperCase();
 
-        // DeepL specific mappings
-        const mappings: Record<string, string> = {
+        // If the language already includes a regional variant (e.g., EN-GB), use it as-is
+        if (normalized.includes('-')) {
+            return normalized;
+        }
+
+        // Default mappings for bare language codes that DeepL requires a region for
+        const defaultRegion: Record<string, string> = {
             EN: 'EN-US',
             PT: 'PT-PT',
         };
 
-        const base = normalized.split('-')[0];
-        return mappings[base] || normalized;
+        return defaultRegion[normalized] || normalized;
     }
 
     /**
      * Build common payload from DeepL configuration
      * @param context Optional context to override the default context
      */
-    private buildRequestBody(context?: string): Record<string, any> {
-        const payload: Record<string, any> = {};
+    private buildRequestBody(context?: string): Partial<DeepLRequestPayload> {
+        const payload: Partial<DeepLRequestPayload> = {};
 
         if (this.modelType) {
             payload.model_type = this.modelType;

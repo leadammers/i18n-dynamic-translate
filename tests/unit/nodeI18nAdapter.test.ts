@@ -215,37 +215,6 @@ describe('NodeI18nAdapter', () => {
         });
     });
 
-    describe('getCurrentLocale', () => {
-        it('should return current locale from i18n', () => {
-            adapter.initialize(mockNodeI18n, mockConfig);
-            mockNodeI18n.getLocale.mockReturnValue('de');
-
-            expect(adapter.getCurrentLocale()).toBe('de');
-        });
-
-        it('should return defaultLanguage if locale is not set', () => {
-            mockNodeI18n.getLocale.mockReturnValue(null as unknown as string);
-            adapter.initialize(mockNodeI18n, mockConfig);
-
-            expect(adapter.getCurrentLocale()).toBe('en');
-        });
-    });
-
-    describe('getLocales', () => {
-        it('should return locales array from i18n', () => {
-            adapter.initialize(mockNodeI18n, mockConfig);
-
-            expect(adapter.getLocales()).toEqual(['en', 'de', 'fr']);
-        });
-
-        it('should return default language in array if locales not set', () => {
-            mockNodeI18n.getLocales.mockReturnValue(null as unknown as string[]);
-            adapter.initialize(mockNodeI18n, mockConfig);
-
-            expect(adapter.getLocales()).toEqual(['en']);
-        });
-    });
-
     describe('edge cases', () => {
         it('should handle namespace parameter (ignored for node-i18n)', () => {
             adapter.initialize(mockNodeI18n, mockConfig);

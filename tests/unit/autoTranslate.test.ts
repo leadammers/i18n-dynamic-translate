@@ -344,14 +344,14 @@ describe('AutoTranslate', () => {
     });
 
     describe('production mode', () => {
-        it('should default to development mode', () => {
+        it('should default to development mode', async () => {
             const config = createValidConfig(mockI18next);
             const instance = new AutoTranslate(config);
             expect(instance.getConfig().mode).toBe('development');
-            instance.dispose();
+            await instance.dispose();
         });
 
-        it('should skip missing key handler for non-allowed namespaces in production mode', () => {
+        it('should skip missing key handler for non-allowed namespaces in production mode', async () => {
             const config = {
                 ...createValidConfig(mockI18next),
                 mode: 'production' as const,
@@ -366,7 +366,7 @@ describe('AutoTranslate', () => {
             // Nothing should be queued
             expect(instance.isDisposed()).toBe(false);
             // No processing should have started — verify by checking the handler doesn't throw
-            instance.dispose();
+            await instance.dispose();
         });
 
         it('should allow missing key handler for allowed namespaces in production mode', () => {
@@ -383,10 +383,11 @@ describe('AutoTranslate', () => {
             // This should not throw or be blocked — the key will be queued for processing
             expect(() => handler(['de'], 'products', 'some.key', 'some.key')).not.toThrow();
 
+            // Dispose synchronously — don't await since the queued translation has no mock to resolve
             instance.dispose();
         });
 
-        it('should skip all missing keys in production mode with no allowedNamespaces', () => {
+        it('should skip all missing keys in production mode with no allowedNamespaces', async () => {
             const config = {
                 ...createValidConfig(mockI18next),
                 mode: 'production' as const,
@@ -398,7 +399,7 @@ describe('AutoTranslate', () => {
             handler(['de'], 'products', 'some.key', 'some.key');
 
             // Should not throw — keys are silently skipped
-            instance.dispose();
+            await instance.dispose();
         });
 
         it('should not restrict explicit translateKey calls in production mode', async () => {
@@ -414,7 +415,7 @@ describe('AutoTranslate', () => {
             const result = await instance.translateKey('hello', 'de', { namespace: 'common' });
             expect(result).toBeDefined();
 
-            instance.dispose();
+            await instance.dispose();
         });
     });
 

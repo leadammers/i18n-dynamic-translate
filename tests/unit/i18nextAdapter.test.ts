@@ -196,51 +196,6 @@ describe('I18nextAdapter', () => {
         });
     });
 
-    describe('getCurrentLanguage', () => {
-        it('should return current i18next language', () => {
-            adapter.initialize(mockI18next, mockConfig);
-
-            expect(adapter.getCurrentLanguage()).toBe('en');
-        });
-
-        it('should return defaultLanguage if i18next language is not set', () => {
-            mockI18next.language = null;
-            adapter.initialize(mockI18next, mockConfig);
-
-            expect(adapter.getCurrentLanguage()).toBe('en');
-        });
-    });
-
-    describe('getLanguages', () => {
-        it('should return i18next languages array', () => {
-            adapter.initialize(mockI18next, mockConfig);
-
-            expect(adapter.getLanguages()).toEqual(['en', 'de', 'fr']);
-        });
-
-        it('should return default language in array if languages not set', () => {
-            mockI18next.languages = null;
-            adapter.initialize(mockI18next, mockConfig);
-
-            expect(adapter.getLanguages()).toEqual(['en']);
-        });
-    });
-
-    describe('getNamespaces', () => {
-        it('should return i18next namespaces', () => {
-            adapter.initialize(mockI18next, mockConfig);
-
-            expect(adapter.getNamespaces()).toEqual(['translation', 'common']);
-        });
-
-        it('should return default namespace if not configured', () => {
-            mockI18next.options.ns = null;
-            adapter.initialize(mockI18next, mockConfig);
-
-            expect(adapter.getNamespaces()).toEqual(['translation']);
-        });
-    });
-
     describe('edge cases', () => {
         it('should handle empty namespace configuration', () => {
             (mockConfig as { defaultNamespace?: string }).defaultNamespace = undefined;

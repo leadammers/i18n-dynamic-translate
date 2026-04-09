@@ -91,6 +91,13 @@ export interface AutoTranslateConfig {
      * @returns Human-readable text to send to the translation provider
      */
     keyToText?: (key: string) => string;
+
+    /**
+     * Error callback for the automatic missing-key translation handler.
+     * Called when a translation fails in the fire-and-forget path.
+     * Defaults to console.error.
+     */
+    onError?: (error: Error, key: string, locale: string) => void;
 }
 
 /**
@@ -173,14 +180,6 @@ export interface TranslationCache {
     clear(): void;
 
     has(key: string, locale: string, context?: string): boolean;
-}
-
-/**
- * File operation result
- */
-export interface FileOperationResult {
-    success: boolean;
-    error?: Error;
 }
 
 /**

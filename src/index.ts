@@ -25,7 +25,6 @@ export {
     LocaleData,
     StorageAdapter,
     StorageSaveEntry,
-    FileOperationResult,
     AutoTranslateMode,
 } from '@/types';
 

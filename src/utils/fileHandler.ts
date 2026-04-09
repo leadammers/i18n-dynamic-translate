@@ -5,7 +5,7 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { FileFormat, LocaleData, FileOperationResult } from '@/types';
+import { FileFormat, LocaleData } from '@/types';
 
 let yaml: typeof import('js-yaml') | undefined;
 
@@ -156,13 +156,20 @@ export async function getLocaleFilePath(
     const ext = format === FileFormat.YAML ? 'yaml' : 'json';
     const basePath = namespace ? path.join(localesPath, locale, namespace) : path.join(localesPath, locale);
 
+    // Validate the resolved path stays within localesPath to prevent path traversal
+    const resolvedBase = path.resolve(basePath);
+    const resolvedLocales = path.resolve(localesPath);
+    if (!resolvedBase.startsWith(resolvedLocales + path.sep) && resolvedBase !== resolvedLocales) {
+        throw new FileSystemError(`Path traversal detected: locale or namespace escapes localesPath`, resolvedBase);
+    }
+
     if (format) {
         return `${basePath}.${ext}`;
     }
 
     // Auto-detect format by checking for existing files
-    for (const ext of ['yaml', 'yml', 'json']) {
-        const filePath = `${basePath}.${ext}`;
+    for (const candidate of ['yaml', 'yml', 'json']) {
+        const filePath = `${basePath}.${candidate}`;
         if (await fileExists(filePath)) {
             return filePath;
         }
