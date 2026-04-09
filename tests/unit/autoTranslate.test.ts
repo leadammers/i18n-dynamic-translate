@@ -410,11 +410,9 @@ describe('AutoTranslate', () => {
             const instance = new AutoTranslate(config);
 
             // translateKey with a non-allowed namespace should NOT be blocked by mode.
-            // It will reject due to mock translator, but the error should be a TranslationError,
-            // not a ConfigurationError — proving mode didn't block it.
-            await expect(
-                instance.translateKey('hello', 'de', { namespace: 'common' })
-            ).rejects.toThrow('LibreTranslate');
+            // Explicit calls always go through regardless of mode/allowedNamespaces.
+            const result = await instance.translateKey('hello', 'de', { namespace: 'common' });
+            expect(result).toBeDefined();
 
             instance.dispose();
         });
