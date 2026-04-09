@@ -104,6 +104,7 @@ export class AutoTranslate {
             enableCache: config.enableCache ?? true,
             maxConcurrency: config.maxConcurrency ?? 5,
             defaultNamespace: config.defaultNamespace || 'translation',
+            mode: config.mode || 'development',
         };
     }
 
@@ -119,6 +120,14 @@ export class AutoTranslate {
         // Skip if same as default language
         if (locale === this.config.defaultLanguage) {
             return;
+        }
+
+        // In production mode, only auto-translate within allowed namespaces
+        if (this.config.mode === 'production') {
+            const allowed = this.config.allowedNamespaces;
+            if (!allowed || !allowed.includes(namespace || '')) {
+                return;
+            }
         }
 
         // Create unique queue key

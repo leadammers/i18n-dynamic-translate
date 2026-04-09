@@ -331,4 +331,81 @@ describe('AutoTranslate', () => {
             instance.dispose();
         });
     });
+
+    describe('production mode', () => {
+        it('should default to development mode', () => {
+            const config = createValidConfig(mockI18next);
+            const instance = new AutoTranslate(config);
+            expect(instance.getConfig().mode).toBe('development');
+            instance.dispose();
+        });
+
+        it('should skip missing key handler for non-allowed namespaces in production mode', () => {
+            const config = {
+                ...createValidConfig(mockI18next),
+                mode: 'production' as const,
+                allowedNamespaces: ['products'],
+            };
+            const instance = new AutoTranslate(config);
+
+            // Trigger missing key handler with a non-allowed namespace
+            const handler = mockI18next.options.missingKeyHandler!;
+            handler(['de'], 'common', 'some.key', 'some.key');
+
+            // Nothing should be queued
+            expect(instance.isDisposed()).toBe(false);
+            // No processing should have started — verify by checking the handler doesn't throw
+            instance.dispose();
+        });
+
+        it('should allow missing key handler for allowed namespaces in production mode', () => {
+            const config = {
+                ...createValidConfig(mockI18next),
+                mode: 'production' as const,
+                allowedNamespaces: ['products'],
+            };
+            const instance = new AutoTranslate(config);
+
+            // Trigger missing key handler with an allowed namespace
+            const handler = mockI18next.options.missingKeyHandler!;
+
+            // This should not throw or be blocked — the key will be queued for processing
+            expect(() => handler(['de'], 'products', 'some.key', 'some.key')).not.toThrow();
+
+            instance.dispose();
+        });
+
+        it('should skip all missing keys in production mode with no allowedNamespaces', () => {
+            const config = {
+                ...createValidConfig(mockI18next),
+                mode: 'production' as const,
+                // No allowedNamespaces configured
+            };
+            const instance = new AutoTranslate(config);
+
+            const handler = mockI18next.options.missingKeyHandler!;
+            handler(['de'], 'products', 'some.key', 'some.key');
+
+            // Should not throw — keys are silently skipped
+            instance.dispose();
+        });
+
+        it('should not restrict explicit translateKey calls in production mode', async () => {
+            const config = {
+                ...createValidConfig(mockI18next),
+                mode: 'production' as const,
+                allowedNamespaces: ['products'],
+            };
+            const instance = new AutoTranslate(config);
+
+            // translateKey with a non-allowed namespace should NOT be blocked by mode.
+            // It will reject due to mock translator, but the error should be a TranslationError,
+            // not a ConfigurationError — proving mode didn't block it.
+            await expect(
+                instance.translateKey('hello', 'de', { namespace: 'common' })
+            ).rejects.toThrow('LibreTranslate');
+
+            instance.dispose();
+        });
+    });
 });

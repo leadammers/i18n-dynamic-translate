@@ -22,6 +22,7 @@ export {
     TranslationCache,
     CacheEntry,
     LocaleData,
+    AutoTranslateMode,
 } from '@/types';
 
 // Export utilities
