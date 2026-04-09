@@ -320,10 +320,10 @@ export class AutoTranslate {
 
             // Use file lock to prevent concurrent writes
             await this.fileLock.withLock(filePath, async () => {
-                const result = await appendTranslationToFile(filePath, key, value, this.config.fileFormat, parentKey);
-
-                if (!result.success) {
-                    console.error(`AutoTranslate: Failed to save translation to file ${filePath}:`, result.error);
+                try {
+                    await appendTranslationToFile(filePath, key, value, this.config.fileFormat, parentKey);
+                } catch (error) {
+                    console.error(`AutoTranslate: Failed to save translation to file ${filePath}:`, error);
                 }
             });
         }

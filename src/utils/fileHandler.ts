@@ -76,7 +76,7 @@ async function ensureDirectoryExists(filePath: string): Promise<void> {
 /**
  * Write locale file (JSON or YAML)
  */
-export async function writeLocaleFile(filePath: string, data: LocaleData): Promise<FileOperationResult> {
+export async function writeLocaleFile(filePath: string, data: LocaleData): Promise<void> {
     try {
         const fileFormat = detectFileFormat(filePath);
         let content: string;
@@ -92,13 +92,8 @@ export async function writeLocaleFile(filePath: string, data: LocaleData): Promi
         await ensureDirectoryExists(filePath);
 
         await fs.writeFile(filePath, content, 'utf-8');
-
-        return { success: true };
     } catch (error) {
-        return {
-            success: false,
-            error: new FileSystemError(`Failed to write locale file: ${filePath}`, filePath, error as Error),
-        };
+        throw new FileSystemError(`Failed to write locale file: ${filePath}`, filePath, error as Error);
     }
 }
 
@@ -190,16 +185,9 @@ export async function appendTranslationToFile(
     value: string,
     format?: FileFormat,
     parentKey?: string
-): Promise<FileOperationResult> {
-    try {
-        const data = await readLocaleFile(filePath);
-        const fullKey = parentKey ? `${parentKey}.${key}` : key;
-        setNestedValue(data, fullKey, value);
-        return await writeLocaleFile(filePath, data);
-    } catch (error) {
-        return {
-            success: false,
-            error: error as Error,
-        };
-    }
+): Promise<void> {
+    const data = await readLocaleFile(filePath);
+    const fullKey = parentKey ? `${parentKey}.${key}` : key;
+    setNestedValue(data, fullKey, value);
+    await writeLocaleFile(filePath, data);
 }
