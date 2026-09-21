@@ -13,10 +13,11 @@ interface NodeI18nInstance {
     getLocale: () => string;
     setLocale: (locale: string) => void;
     getLocales: () => string[];
-    getCatalog: (locale: string) => Record<string, string> | undefined;
+    getCatalog: (locale: string) => LocaleData | undefined;
     configure: (options: Record<string, unknown>) => void;
     options?: Record<string, unknown>;
-    catalog?: Record<string, Record<string, string>>;
+    // Nested when `objectNotation` is on, flat otherwise — `LocaleData` covers both.
+    catalog?: Record<string, LocaleData>;
 }
 
 export class NodeI18nAdapter implements BackendAdapter {
@@ -162,7 +163,7 @@ export class NodeI18nAdapter implements BackendAdapter {
             // Hold the reference rather than re-indexing: a second lookup would be
             // optional again, and a `?? {}` fallback there would write into a
             // detached object and silently drop the translation.
-            const catalogForLocale: Record<string, string> = this.i18n.catalog[locale] ?? {};
+            const catalogForLocale: LocaleData = this.i18n.catalog[locale] ?? {};
             this.i18n.catalog[locale] = catalogForLocale;
 
             // If objectNotation is enabled, set nested value
