@@ -23,7 +23,6 @@ export {
     TranslationCache,
     TranslationIdentity,
     CacheStats,
-    CacheEntry,
     LocaleData,
     StorageAdapter,
     StorageSaveEntry,

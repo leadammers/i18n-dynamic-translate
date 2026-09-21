@@ -171,7 +171,11 @@ export interface TranslationService {
 export type MissingKeyCallback = (key: string, locale: string, namespace?: string) => void | Promise<void>;
 
 /**
- * Cache entry structure
+ * One stored value plus the timestamp its TTL is measured from.
+ *
+ * Internal to `MemoryCache` — deliberately not re-exported from `src/index.ts`. A custom
+ * `TranslationCache` never has to name it: the interface deals only in identities, strings
+ * and `null`.
  */
 export interface CacheEntry {
     value: string;
