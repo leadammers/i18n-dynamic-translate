@@ -67,8 +67,8 @@ export class I18nextAdapter implements BackendAdapter {
             }
 
             // Call our callback with bounds checking
-            if (this.missingKeyCallback && lngs && lngs.length > 0) {
-                const locale = lngs[0];
+            const [locale] = lngs ?? [];
+            if (this.missingKeyCallback && locale) {
                 // Handle async callback with proper error handling
                 Promise.resolve(this.missingKeyCallback(key, locale, ns)).catch((error: unknown) => {
                     this.reportError(error as Error, key, locale);

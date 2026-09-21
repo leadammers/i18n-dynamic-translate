@@ -91,6 +91,6 @@ export class LibreTranslateService implements TranslationService {
      * Normalize language code for LibreTranslate (e.g., 'en-US' -> 'en')
      */
     private normalizeLangCode(lang: string): string {
-        return lang.split('-')[0].toLowerCase();
+        return (lang.split('-')[0] ?? lang).toLowerCase();
     }
 }

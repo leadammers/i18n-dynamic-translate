@@ -3,7 +3,7 @@
  * In-memory caching for translations to avoid redundant API calls
  */
 
-import { TranslationCache, CacheEntry } from '@/types';
+import { CacheEntry, CacheStats, TranslationCache, TranslationIdentity } from '@/types';
 
 export class MemoryCache implements TranslationCache {
     private cache: Map<string, CacheEntry>;
@@ -53,15 +53,15 @@ export class MemoryCache implements TranslationCache {
     }
 
     /**
-     * Generate a cache key from translation key, locale and context.
+     * Compose the storage key for an identity.
      *
-     * JSON rather than a delimiter join: all three components are
-     * consumer-supplied, so a separator character can occur inside one. A
-     * context of `formal` on key `title` would otherwise share an entry with
-     * the context-free key `title:formal`.
+     * JSON rather than a delimiter join: every field is consumer-supplied, so a
+     * separator character can occur inside one. A context of `formal` on key
+     * `title` would otherwise share an entry with the context-free key
+     * `title:formal`.
      */
-    private getCacheKey(key: string, locale: string, context?: string): string {
-        return JSON.stringify([locale, key, context ?? null]);
+    private getCacheKey(identity: TranslationIdentity): string {
+        return JSON.stringify([identity.locale, identity.namespace ?? '', identity.key, identity.context ?? null]);
     }
 
     /**
@@ -74,8 +74,8 @@ export class MemoryCache implements TranslationCache {
     /**
      * Get a cached translation
      */
-    get(key: string, locale: string, context?: string): string | null {
-        const cacheKey = this.getCacheKey(key, locale, context);
+    get(identity: TranslationIdentity): string | null {
+        const cacheKey = this.getCacheKey(identity);
         const entry = this.cache.get(cacheKey);
 
         if (!entry) {
@@ -93,8 +93,8 @@ export class MemoryCache implements TranslationCache {
     /**
      * Set a translation in cache
      */
-    set(key: string, locale: string, value: string, context?: string): void {
-        const cacheKey = this.getCacheKey(key, locale, context);
+    set(identity: TranslationIdentity, value: string): void {
+        const cacheKey = this.getCacheKey(identity);
 
         // Evict oldest entry if at capacity (and not updating existing key)
         if (!this.cache.has(cacheKey) && this.cache.size >= this.maxSize) {
@@ -129,8 +129,8 @@ export class MemoryCache implements TranslationCache {
     /**
      * Check if a translation exists in cache
      */
-    has(key: string, locale: string, context?: string): boolean {
-        const cacheKey = this.getCacheKey(key, locale, context);
+    has(identity: TranslationIdentity): boolean {
+        const cacheKey = this.getCacheKey(identity);
         const entry = this.cache.get(cacheKey);
 
         if (!entry) {
@@ -167,11 +167,8 @@ export class MemoryCache implements TranslationCache {
     /**
      * Get cache statistics
      */
-    getStats(): { size: number; keys: string[] } {
-        return {
-            size: this.cache.size,
-            keys: Array.from(this.cache.keys()),
-        };
+    getStats(): CacheStats {
+        return { size: this.cache.size };
     }
 
     /**

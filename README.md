@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/i18n-dynamic-translate.svg)](https://www.npmjs.com/package/i18n-dynamic-translate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
 **DynamicTranslate** automatically translates missing i18n keys in your application without manual work. Perfect for
 translating dynamic content like API metadata or dynamic product attributes where the keys are not known beforehand
@@ -56,10 +56,14 @@ attributes, category trees, anything data-driven.
 
 ## Prerequisites
 
-- Node.js 22.12+ — **server-side only.** The library holds your provider API key and writes locale
+- Node.js 22.12+, tested on 22 and 24 (current LTS) — **server-side only.** The library holds your provider API key and writes locale
   files, so it needs a trusted process and a filesystem. It is not usable in a browser, and it is
   not meant to be: shipping a DeepL key to a client would expose it. Edge runtimes without `node:fs`
   are unsupported for the same reason.
+- TypeScript 5.0+, if you use TypeScript. Every release compiles the shipped declarations under
+  5.0, 5.9, 6 and 7 in CI, so the range is checked rather than claimed. `npm` enforces the Node
+  floor from `engines`; there is no equivalent field for TypeScript, which is why it is a build
+  step instead.
 - An i18next or node-i18n instance already configured
 - DeepL API key (free tier available at [deepl.com](https://www.deepl.com/pro-api)) or a self-hosted LibreTranslate
   instance
@@ -164,8 +168,8 @@ const autoTranslate = new AutoTranslate({
 
     // Custom cache (default: built-in in-memory cache)
     // Implement the TranslationCache interface for Redis/Memcached/etc.
-    // Supplying one enables caching regardless of enableCache.
-    // cache: new MyRedisCache(),
+    // Supplying one enables caching regardless of enableCache. See "Custom Cache" below.
+    // cache: myRedisCache,
 
     // Operating mode (default: 'development')
     // 'development' — auto-translate all missing keys
@@ -326,6 +330,65 @@ const autoTranslate = new AutoTranslate({
 });
 ```
 
+### Custom Cache
+
+The built-in cache is in-memory and per-process. Supply a `TranslationCache` to share
+translations across instances or survive a restart — supplying one enables caching regardless of
+`enableCache`.
+
+**The interface is synchronous.** The lookup sits in the missing-key path, between the backend
+reporting a miss and the translation being dispatched, so `get` and `has` return values rather
+than promises. A store with a blocking client fits directly:
+
+```typescript
+import Database from 'better-sqlite3';
+import { AutoTranslate, CacheStats, TranslationCache, TranslationIdentity } from 'i18n-dynamic-translate';
+
+const db = new Database('translations.db');
+db.exec('CREATE TABLE IF NOT EXISTS translations (id TEXT PRIMARY KEY, value TEXT NOT NULL)');
+
+// Every field of the identity changes the translation, so all of them belong in the
+// storage key. Encode rather than join: a namespace or context may contain your separator.
+const storageKey = (identity: TranslationIdentity): string =>
+    JSON.stringify([identity.locale, identity.namespace ?? '', identity.key, identity.context ?? null]);
+
+const sqliteCache: TranslationCache = {
+    get: (identity: TranslationIdentity): string | null => {
+        const row = db.prepare('SELECT value FROM translations WHERE id = ?').get(storageKey(identity)) as
+            | { value: string }
+            | undefined;
+        return row?.value ?? null;
+    },
+    set: (identity: TranslationIdentity, value: string): void => {
+        db.prepare('INSERT OR REPLACE INTO translations (id, value) VALUES (?, ?)').run(storageKey(identity), value);
+    },
+    has: (identity: TranslationIdentity): boolean =>
+        db.prepare('SELECT 1 FROM translations WHERE id = ?').get(storageKey(identity)) !== undefined,
+    clear: (): void => {
+        db.exec('DELETE FROM translations');
+    },
+    // Optional — without it, getCacheStats() reports null
+    getStats: (): CacheStats => ({
+        size: (db.prepare('SELECT COUNT(*) AS count FROM translations').get() as { count: number }).count,
+    }),
+};
+
+const autoTranslate = new AutoTranslate({
+    // ...
+    cache: sqliteCache,
+});
+```
+
+For an asynchronous store such as Redis, keep a local `Map` as the synchronous face of the cache
+and let the remote copy trail it: `get` and `has` read the map, `set` writes the map and fires the
+remote write without awaiting it, and the map is warmed from Redis at startup. Returning a promise
+from `get` does not work — the caller writes whatever it receives straight into the i18n instance,
+so every lookup would hand your application a `Promise` object instead of a string.
+
+`identity.key` is the full dot path the translation occupies (`meta.name`, with any `parentKey`
+already folded in), so it matches what the backend and the locale file use. That makes
+namespace-scoped invalidation straightforward.
+
 ## API
 
 ### `translateObject(obj, targetLocale, options?)`
@@ -385,17 +448,13 @@ autoTranslate.clearCache();
 
 ### `getCacheStats()`
 
-Returns the number of cached entries and their internal keys.
+Returns the number of cached entries, or `null` when caching is off — or when a custom cache
+does not implement the optional `getStats()`.
 
 ```typescript
 const stats = autoTranslate.getCacheStats();
-// { size: 42, keys: ['["de","[\\"products\\",\\"\\",\\"title\\"]",null]', ...] }
+// { size: 42 }
 ```
-
-Each key is an opaque encoding of locale, namespace, parent key and key — the identity is
-composed twice, once by the orchestrator and once by the cache itself. Treat `keys` as a
-debugging aid: the encoding is not part of the API contract and may change in a minor
-release. `size` is the stable half.
 
 ### `getConfig()`
 

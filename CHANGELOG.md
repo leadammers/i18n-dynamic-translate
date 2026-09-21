@@ -7,11 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 While the version stays below 1.0.0 the public API may change in a minor release.
 
-## [Unreleased]
+## [0.1.0] — unreleased
 
-## [0.1.0] - 2026-09-21
-
-Initial release.
+The initial release. Nothing has been published to npm yet; the date is filled in when the
+version is tagged.
 
 ### Added
 
@@ -27,7 +26,10 @@ Initial release.
 - Debounced batching — missing keys are collected into one provider request, with a maximum
   wait so a continuous key stream still flushes.
 - Caching with a TTL and a size cap, or any `TranslationCache` supplied through the `cache`
-  option.
+  option. A cache is addressed by a `TranslationIdentity` — locale, namespace, full dot path
+  and provider context — so an implementation can scope and invalidate by any of them.
+- `getCacheStats()` reports `{ size }`, for the built-in cache and for a custom one that
+  implements the optional `getStats()`.
 - A `production` mode that translates only allow-listed namespaces.
 - `keyToText` for custom key-to-source-text conversion; the built-in converter handles
   camelCase, snake_case, acronyms and digit boundaries.
@@ -37,5 +39,9 @@ Initial release.
 
 ### Requirements
 
-- Node.js >= 22.12, CommonJS, **zero runtime dependencies**.
+- Node.js >= 22.12, tested on 22 and 24. CommonJS, **zero runtime dependencies**.
+- Built with TypeScript 7; the shipped type declarations compile under TypeScript 5.0 and later,
+  which CI checks on every change. The optional `js-yaml` load is emitted as a native
+  `await import()` rather than a downlevelled `require()`, so a bundler sees it as the dynamic
+  import it is.
 - `i18next`, `i18n` and `js-yaml` are optional peer dependencies — install only what you use.

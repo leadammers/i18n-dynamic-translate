@@ -5,12 +5,13 @@ index below is maintained on purpose.
 
 ## What this is
 
-A published npm library that fills in missing i18n keys at runtime: it hooks a backend's
-missing-key handler, translates the key through a provider, writes the result back into the live
-i18n instance and persists it. Built for dynamic content (API metadata, product attributes) where
-the set of keys is not known at build time.
+An npm library — not yet published; 0.1.0 is being prepared — that fills in missing i18n keys at
+runtime: it hooks a backend's missing-key handler, translates the key through a provider, writes
+the result back into the live i18n instance and persists it. Built for dynamic content (API
+metadata, product attributes) where the set of keys is not known at build time.
 
-**Zero runtime dependencies.** CommonJS, Node >= 22.12, TypeScript 6.
+**Zero runtime dependencies.** CommonJS, Node >= 22.12, built with TypeScript 7. The shipped
+declarations compile under TypeScript 5.0 and later, so consumers are not forced onto 7.
 
 ## Architecture
 
@@ -45,6 +46,7 @@ factory — not special-casing `AutoTranslate`.
 | `src/storage/` | `FileStorageAdapter`, the default persistence |
 | `src/types/` | shared interfaces, config types, enums |
 | `src/utils/` | `cache` · `errors` · `http` · `fileHandler` · `fileLock` · `semaphore` · `keyConverter` |
+| `tools/compat/` | not shipped — proves the README's TypeScript and packaging claims in CI |
 
 ## Conventions
 
@@ -76,7 +78,11 @@ replaces any user- or team-level TypeScript convention. Do not apply both.
 5. **Import through the `@/` alias.** The build fails if a `require("@/` survives into `dist/`.
 6. **Dispose what you create.** Timers, locks and queues are released in `dispose()`; `clear()` never
    tears down. See the concurrency conventions — most known bugs in this repo were lifecycle bugs.
-7. **A cache key contains every input that changes the value** — locale, namespace, parent key, key.
+7. **A cache entry is addressed by every input that changes the value** — that is the
+   `TranslationIdentity`: locale, namespace, full dot path, provider context. `parentKey` is folded
+   into the path first, because two calls that spell the same slot differently must share an entry.
+   Compose such keys with `JSON.stringify`, never a delimiter join — see the concurrency
+   conventions.
 
 ## Gate before pushing
 
@@ -85,6 +91,10 @@ npm run format:check && npm run typecheck && npm run build && npm test
 ```
 
 E2E tests self-skip without `DEEPL_API_KEY`, so this is safe to run with no credentials.
+
+Touching the public types, `exports`, `main`, `types` or `files` also means running
+`npm run compat:types && npm run compat:package` — the same checks CI's `compat` job runs. They
+need a `dist/`, so build first. See the releasing conventions for what each one proves.
 
 ## Known state
 

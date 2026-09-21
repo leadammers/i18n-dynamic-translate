@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
-import { Backend, StorageAdapter, TranslationCache, TranslationProvider } from '@/types';
+import { Backend, StorageAdapter, TranslationCache, TranslationIdentity, TranslationProvider } from '@/types';
 import { ConfigurationError } from '@/utils/errors';
 
 // Mock the translators module so translateKey / translateObject don't make real HTTP calls
@@ -508,19 +508,18 @@ describe('AutoTranslate', () => {
     describe('custom cache', () => {
         function createRecordingCache(): TranslationCache & { store: Map<string, string> } {
             const store = new Map<string, string>();
+            const storageKey = (identity: TranslationIdentity): string =>
+                JSON.stringify([identity.locale, identity.namespace ?? '', identity.key, identity.context ?? null]);
+
             return {
                 store,
-                get: vi.fn(
-                    (key: string, locale: string, context?: string) =>
-                        store.get(`${key}|${locale}|${context ?? ''}`) ?? null
-                ),
-                set: vi.fn((key: string, locale: string, value: string, context?: string) => {
-                    store.set(`${key}|${locale}|${context ?? ''}`, value);
+                get: vi.fn((identity: TranslationIdentity) => store.get(storageKey(identity)) ?? null),
+                set: vi.fn((identity: TranslationIdentity, value: string) => {
+                    store.set(storageKey(identity), value);
                 }),
-                has: vi.fn((key: string, locale: string, context?: string) =>
-                    store.has(`${key}|${locale}|${context ?? ''}`)
-                ),
+                has: vi.fn((identity: TranslationIdentity) => store.has(storageKey(identity))),
                 clear: vi.fn(() => store.clear()),
+                getStats: vi.fn(() => ({ size: store.size })),
             };
         }
 
@@ -545,6 +544,62 @@ describe('AutoTranslate', () => {
 
             expect(cache.has).toHaveBeenCalled();
             expect(cache.set).toHaveBeenCalledTimes(1);
+
+            await at.dispose();
+        });
+
+        it('hands the cache a structured identity, not an opaque blob', async () => {
+            const cache = createRecordingCache();
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache });
+
+            await at.translateKey('name', 'de', { namespace: 'products', parentKey: 'meta', context: 'formal' });
+
+            const [identity] = (cache.set as unknown as { mock: { calls: TranslationIdentity[][] } }).mock.calls[0];
+            expect(identity).toEqual({
+                key: 'meta.name',
+                locale: 'de',
+                namespace: 'products',
+                context: 'formal',
+            });
+
+            await at.dispose();
+        });
+
+        // `parentKey` addresses a slot, not an argument: both spellings resolve to the
+        // dot path `product.meta.name`, so they must share one entry rather than each
+        // paying for its own provider call.
+        it('shares one cache entry between two spellings of the same dot path', async () => {
+            const cache = createRecordingCache();
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache });
+
+            await at.translateKey('name', 'de', { parentKey: 'product.meta' });
+            await at.translateKey('meta.name', 'de', { parentKey: 'product' });
+
+            expect(cache.set).toHaveBeenCalledTimes(1);
+            expect(cache.store.size).toBe(1);
+
+            await at.dispose();
+        });
+
+        it('reports stats through a custom cache that implements getStats', async () => {
+            const cache = createRecordingCache();
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache });
+
+            await at.translateKey('hello', 'de');
+
+            expect(at.getCacheStats()).toEqual({ size: 1 });
+
+            await at.dispose();
+        });
+
+        it('reports null stats for a cache that does not implement getStats', async () => {
+            const cache = createRecordingCache();
+            delete cache.getStats;
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache });
+
+            await at.translateKey('hello', 'de');
+
+            expect(at.getCacheStats()).toBeNull();
 
             await at.dispose();
         });

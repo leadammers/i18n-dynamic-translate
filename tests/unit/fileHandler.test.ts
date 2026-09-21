@@ -223,6 +223,14 @@ describe('FileHandler', () => {
             setNestedValue(obj, 'user.name', 'John');
             expect(obj).toEqual({ user: { name: 'John' } });
         });
+
+        // `typeof null === 'object'`, so a null left in a hand-edited locale file
+        // used to pass the intermediate guard and then throw on the property write.
+        it('should overwrite a null intermediate value', () => {
+            const obj: Record<string, any> = { user: null };
+            setNestedValue(obj, 'user.name', 'John');
+            expect(obj).toEqual({ user: { name: 'John' } });
+        });
     });
 
     describe('getLocaleFilePath', () => {

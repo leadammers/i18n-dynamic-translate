@@ -3,7 +3,15 @@
  * Main orchestrator for automatic translation functionality
  */
 
-import { AutoTranslateConfig, BackendAdapter, StorageAdapter, TranslationCache, TranslationService } from '@/types';
+import {
+    AutoTranslateConfig,
+    BackendAdapter,
+    CacheStats,
+    StorageAdapter,
+    TranslationCache,
+    TranslationIdentity,
+    TranslationService,
+} from '@/types';
 import { createBackendAdapter } from '@/adapters';
 import { createTranslationService } from '@/translators';
 import { MemoryCache } from '@/utils/cache';
@@ -149,23 +157,21 @@ export class AutoTranslate {
     }
 
     /**
-     * Build the cache identity for a translation.
+     * The identity a translation is cached under.
      *
-     * `namespace` and `parentKey` are part of the identity: the same trailing
-     * key can carry completely different meanings under different namespaces
-     * (`products.title` vs `legal.title`), and conflating them would serve one
-     * namespace's translation to another.
+     * Built from the slot the translation occupies, not from the arguments
+     * that addressed it: `parentKey` is a dot path, so parent `product.meta`
+     * with key `name` and parent `product` with key `meta.name` are one entry
+     * in the backend and in the locale file, and must be one cache entry too.
      */
-    private cacheKeyFor(key: string, namespace?: string, parentKey?: string): string {
-        // Keyed on the slot the translation actually occupies, not on the
-        // arguments that addressed it: `parentKey` is a dot path, so parent
-        // `product.meta` + key `name` and parent `product` + key `meta.name`
-        // are the same entry in the backend and in the locale file, and must
-        // not become two cache entries that then disagree.
-        //
-        // JSON rather than a delimiter join: both components are
-        // consumer-supplied, so a separator character can occur inside one.
-        return JSON.stringify([namespace ?? '', this.targetKeyFor(key, parentKey)]);
+    private identityFor(
+        key: string,
+        locale: string,
+        namespace?: string,
+        parentKey?: string,
+        context?: string
+    ): TranslationIdentity {
+        return { key: this.targetKeyFor(key, parentKey), locale, namespace, context };
     }
 
     /**
@@ -179,7 +185,7 @@ export class AutoTranslate {
      * Build the identity under which a missing key is de-duplicated, both in
      * the in-flight {@link processingQueue} and in the pending batch.
      *
-     * Same reasoning as {@link cacheKeyFor}: a delimiter join is not injective
+     * Same reasoning as {@link identityFor}: a delimiter join is not injective
      * over consumer-supplied values. Namespace `b` with key `c:d` and namespace
      * `b:c` with key `d` would otherwise collapse into one entry, and the
      * second key would never be translated.
@@ -267,11 +273,11 @@ export class AutoTranslate {
      * Keys are collected for a short debounce period then translated together
      */
     private async processMissingKey(key: string, locale: string, namespace?: string): Promise<void> {
-        const cacheKey = this.cacheKeyFor(key, namespace);
+        const identity = this.identityFor(key, locale, namespace);
 
         // Check cache first
-        if (this.cache && this.cache.has(cacheKey, locale)) {
-            const cachedTranslation = this.cache.get(cacheKey, locale);
+        if (this.cache && this.cache.has(identity)) {
+            const cachedTranslation = this.cache.get(identity);
             if (cachedTranslation) {
                 await this.updateTranslation(key, locale, cachedTranslation, namespace);
                 return;
@@ -409,19 +415,16 @@ export class AutoTranslate {
                     locale
                 );
 
-                this.assertCompleteBatch(translations, sourceTexts.length);
+                const translated = this.pairWithTranslations(keys, translations);
 
                 // Update all translations in parallel
-                const updatePromises = keys.map(async (pending: PendingKey, index: number) => {
-                    const translation = translations[index];
-
+                const updatePromises = translated.map(async ([pending, translation]: [PendingKey, string]) => {
                     try {
                         await this.updateTranslation(pending.key, pending.locale, translation, pending.namespace);
 
                         if (this.cache) {
                             this.cache.set(
-                                this.cacheKeyFor(pending.key, pending.namespace),
-                                pending.locale,
+                                this.identityFor(pending.key, pending.locale, pending.namespace),
                                 translation
                             );
                         }
@@ -458,24 +461,30 @@ export class AutoTranslate {
     }
 
     /**
-     * Guard against a provider returning a batch that does not line up with the
-     * request. Both shapes below would otherwise be persisted as `undefined`:
-     * too few entries, or the right count with a malformed entry inside it (a
-     * DeepL response of `{ translations: [{}] }` maps to `[undefined]`).
+     * Zip each request with its translation, rejecting a batch that does not line
+     * up with the request. Both shapes below would otherwise be persisted as
+     * `undefined`: too few entries, or the right count with a malformed entry
+     * inside it (a DeepL response of `{ translations: [{}] }` maps to `[undefined]`).
+     *
+     * Pairing rather than asserting is what keeps the two lists in step: the
+     * positional correspondence is still the invariant, but it is established and
+     * checked here once instead of at every call site.
      */
-    private assertCompleteBatch(translations: string[], expected: number): void {
-        if (translations.length !== expected) {
+    private pairWithTranslations<TRequest>(requests: TRequest[], translations: string[]): [TRequest, string][] {
+        if (translations.length !== requests.length) {
             throw new TranslationError(
-                `Translation provider returned ${translations.length} translations for ${expected} requested texts`
+                `Translation provider returned ${translations.length} translations for ${requests.length} requested texts`
             );
         }
 
-        const invalidIndex = translations.findIndex((translation: string) => typeof translation !== 'string');
-        if (invalidIndex !== -1) {
-            throw new TranslationError(
-                `Translation provider returned a non-string translation at index ${invalidIndex}`
-            );
-        }
+        return requests.map((request: TRequest, index: number): [TRequest, string] => {
+            const translation = translations[index];
+            if (typeof translation !== 'string') {
+                throw new TranslationError(`Translation provider returned a non-string translation at index ${index}`);
+            }
+
+            return [request, translation];
+        });
     }
 
     /**
@@ -535,11 +544,11 @@ export class AutoTranslate {
         }
 
         const { namespace, parentKey, context } = options || {};
-        const cacheKey = this.cacheKeyFor(key, namespace, parentKey);
+        const identity = this.identityFor(key, targetLocale, namespace, parentKey, context);
 
         // Check cache first
-        if (this.cache?.has(cacheKey, targetLocale, context)) {
-            const cached = this.cache.get(cacheKey, targetLocale, context);
+        if (this.cache?.has(identity)) {
+            const cached = this.cache.get(identity);
             if (cached) return cached;
         }
 
@@ -568,7 +577,7 @@ export class AutoTranslate {
         // Update and cache
         await this.updateTranslation(key, targetLocale, translation, namespace, parentKey);
         if (this.cache) {
-            this.cache.set(cacheKey, targetLocale, translation, context);
+            this.cache.set(identity, translation);
         }
 
         return translation;
@@ -616,11 +625,11 @@ export class AutoTranslate {
         const pendingTranslations: Array<{ key: string; sourceText: string }> = [];
 
         for (const key of this.collectLeafKeys(obj)) {
-            const cacheKey = this.cacheKeyFor(key, namespace, parentKey);
+            const identity = this.identityFor(key, targetLocale, namespace, parentKey, context);
 
             // Check cache first
-            if (this.cache?.has(cacheKey, targetLocale, context)) {
-                const cached = this.cache.get(cacheKey, targetLocale, context);
+            if (this.cache?.has(identity)) {
+                const cached = this.cache.get(identity);
                 if (cached) {
                     translations[key] = cached;
                     continue;
@@ -657,15 +666,14 @@ export class AutoTranslate {
             context
         );
 
-        this.assertCompleteBatch(translatedValues, sourceTexts.length);
+        const translated = this.pairWithTranslations(pendingTranslations, translatedValues);
 
         // Update backend for all translated keys
-        pendingTranslations.forEach(({ key }: { key: string }, index: number) => {
-            const translatedValue = translatedValues[index];
+        translated.forEach(([{ key }, translatedValue]: [{ key: string }, string]) => {
             translations[key] = translatedValue;
 
             if (this.cache) {
-                this.cache.set(this.cacheKeyFor(key, namespace, parentKey), targetLocale, translatedValue, context);
+                this.cache.set(this.identityFor(key, targetLocale, namespace, parentKey, context), translatedValue);
             }
 
             const targetKey = this.targetKeyFor(key, parentKey);
@@ -674,10 +682,10 @@ export class AutoTranslate {
 
         // Persist to storage
         if (this.config.autoSave) {
-            const entries = pendingTranslations.map(({ key }: { key: string }, index: number) => ({
+            const entries = translated.map(([{ key }, translatedValue]: [{ key: string }, string]) => ({
                 locale: targetLocale,
                 key,
-                value: translatedValues[index],
+                value: translatedValue,
                 namespace,
                 parentKey,
             }));
@@ -733,11 +741,8 @@ export class AutoTranslate {
     /**
      * Get cache statistics
      */
-    getCacheStats(): { size: number; keys: string[] } | null {
-        if (this.memoryCache) {
-            return this.memoryCache.getStats();
-        }
-        return null;
+    getCacheStats(): CacheStats | null {
+        return this.cache?.getStats?.() ?? null;
     }
 
     /**
