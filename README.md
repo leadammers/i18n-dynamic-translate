@@ -334,30 +334,56 @@ const autoTranslate = new AutoTranslate({
 
 The built-in cache is in-memory and per-process. Supply a `TranslationCache` to share
 translations across instances or survive a restart — supplying one enables caching regardless of
-`enableCache`:
+`enableCache`.
+
+**The interface is synchronous.** The lookup sits in the missing-key path, between the backend
+reporting a miss and the translation being dispatched, so `get` and `has` return values rather
+than promises. A store with a blocking client fits directly:
 
 ```typescript
-import { AutoTranslate, TranslationCache, TranslationIdentity } from 'i18n-dynamic-translate';
+import Database from 'better-sqlite3';
+import { AutoTranslate, CacheStats, TranslationCache, TranslationIdentity } from 'i18n-dynamic-translate';
+
+const db = new Database('translations.db');
+db.exec('CREATE TABLE IF NOT EXISTS translations (id TEXT PRIMARY KEY, value TEXT NOT NULL)');
 
 // Every field of the identity changes the translation, so all of them belong in the
 // storage key. Encode rather than join: a namespace or context may contain your separator.
 const storageKey = (identity: TranslationIdentity): string =>
     JSON.stringify([identity.locale, identity.namespace ?? '', identity.key, identity.context ?? null]);
 
-const redisCache: TranslationCache = {
-    get: (identity) => redis.get(storageKey(identity)),
-    set: (identity, value) => redis.set(storageKey(identity), value, 'EX', 86400),
-    has: (identity) => redis.exists(storageKey(identity)),
-    clear: () => redis.flushdb(),
+const sqliteCache: TranslationCache = {
+    get: (identity: TranslationIdentity): string | null => {
+        const row = db.prepare('SELECT value FROM translations WHERE id = ?').get(storageKey(identity)) as
+            | { value: string }
+            | undefined;
+        return row?.value ?? null;
+    },
+    set: (identity: TranslationIdentity, value: string): void => {
+        db.prepare('INSERT OR REPLACE INTO translations (id, value) VALUES (?, ?)').run(storageKey(identity), value);
+    },
+    has: (identity: TranslationIdentity): boolean =>
+        db.prepare('SELECT 1 FROM translations WHERE id = ?').get(storageKey(identity)) !== undefined,
+    clear: (): void => {
+        db.exec('DELETE FROM translations');
+    },
     // Optional — without it, getCacheStats() reports null
-    getStats: () => ({ size: redis.dbsize() }),
+    getStats: (): CacheStats => ({
+        size: (db.prepare('SELECT COUNT(*) AS count FROM translations').get() as { count: number }).count,
+    }),
 };
 
 const autoTranslate = new AutoTranslate({
     // ...
-    cache: redisCache,
+    cache: sqliteCache,
 });
 ```
+
+For an asynchronous store such as Redis, keep a local `Map` as the synchronous face of the cache
+and let the remote copy trail it: `get` and `has` read the map, `set` writes the map and fires the
+remote write without awaiting it, and the map is warmed from Redis at startup. Returning a promise
+from `get` does not work — the caller writes whatever it receives straight into the i18n instance,
+so every lookup would hand your application a `Promise` object instead of a string.
 
 `identity.key` is the full dot path the translation occupies (`meta.name`, with any `parentKey`
 already folded in), so it matches what the backend and the locale file use. That makes

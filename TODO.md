@@ -39,9 +39,24 @@ wrong. A custom key-to-text function is supported through `keyToText`, and acron
 grouped — `"apiURL"` yields `"Api URL"`, not `"Api U R L"`. Digit boundaries were fixed in the
 same pass (`"order2Status"` → `"Order 2 Status"`).
 
-Both remaining items were fixed on `feature/cache-contract`: a key that already contains a space
+Both remaining items were fixed on `feature/cache-contract`: a key made only of words and spaces
 is passed through untouched, and a single lowercase letter in front of an acronym stays attached
-to it (`"iOSDevice"` → `"iOS Device"`). Nothing open here.
+to it (`"iOSDevice"` → `"iOS Device"`).
+
+One known rough edge, left as is: the acronym rule preserves any word containing a run of two or
+more capitals, so a contrived key can now keep a lowercase first letter (`"vATRate"` → `"vAT
+Rate"`, where the old code gave `"V AT Rate"`). Telling that apart from `"iOS"` needs a
+dictionary, and every real-world shape checked — `apiURL`, `XMLHttpRequest`, `parseHTMLString`,
+`deliveryETA`, `is2FAEnabled` — is unchanged. Supply `keyToText` if your keys look like this.
+
+### Decide whether `TranslationCache` should allow an async implementation
+`get` and `has` are synchronous, because the lookup sits between the backend reporting a miss and
+the dispatch. That rules out a direct Redis or DynamoDB implementation: those need a local `Map`
+as the synchronous face with the remote copy trailing it, which the README now documents. Widening
+the return types to `string | null | Promise<string | null>` and awaiting at the call sites would
+remove the workaround at the cost of an await in the missing-key path. Post-0.1.0 — changing it
+later is a breaking change to the public surface, so it is worth a deliberate decision rather than
+a drive-by.
 
 ## Testing
 

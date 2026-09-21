@@ -185,7 +185,7 @@ export class AutoTranslate {
      * Build the identity under which a missing key is de-duplicated, both in
      * the in-flight {@link processingQueue} and in the pending batch.
      *
-     * Same reasoning as {@link cacheKeyFor}: a delimiter join is not injective
+     * Same reasoning as {@link identityFor}: a delimiter join is not injective
      * over consumer-supplied values. Namespace `b` with key `c:d` and namespace
      * `b:c` with key `d` would otherwise collapse into one entry, and the
      * second key would never be translated.
@@ -466,8 +466,9 @@ export class AutoTranslate {
      * `undefined`: too few entries, or the right count with a malformed entry
      * inside it (a DeepL response of `{ translations: [{}] }` maps to `[undefined]`).
      *
-     * Pairing rather than asserting is what keeps the two lists in step — callers
-     * never index one array with the other's position.
+     * Pairing rather than asserting is what keeps the two lists in step: the
+     * positional correspondence is still the invariant, but it is established and
+     * checked here once instead of at every call site.
      */
     private pairWithTranslations<TRequest>(requests: TRequest[], translations: string[]): [TRequest, string][] {
         if (translations.length !== requests.length) {
