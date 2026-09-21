@@ -4,11 +4,11 @@
   "description": "Automatic translation library for i18next and Node.js i18n with support for DeepL and LibreTranslate.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/adalea-dev/i18n-dynamic-translate.git"
+    "url": "git+https://github.com/leadammers/i18n-dynamic-translate.git"
   },
-  "homepage": "https://github.com/adalea-dev/i18n-dynamic-translate#readme",
+  "homepage": "https://github.com/leadammers/i18n-dynamic-translate#readme",
   "bugs": {
-    "url": "https://github.com/adalea-dev/i18n-dynamic-translate/issues"
+    "url": "https://github.com/leadammers/i18n-dynamic-translate/issues"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

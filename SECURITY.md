@@ -21,7 +21,7 @@ problem.** A public report tells attackers about the flaw before a fix exists.
 Report privately through GitHub's private vulnerability reporting:
 
 1. Go to
-   <https://github.com/adalea-dev/i18n-dynamic-translate/security/advisories/new>
+   <https://github.com/leadammers/i18n-dynamic-translate/security/advisories/new>
    (repository → **Security** tab → **Report a vulnerability**).
 2. Describe the issue.
 
