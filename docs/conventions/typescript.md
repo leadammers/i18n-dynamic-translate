@@ -5,6 +5,13 @@
 | Framework | none — standalone library, zero runtime dependencies |
 | Lang | TypeScript 7, `strict` + `noUnusedLocals` + `noUnusedParameters` + `noImplicitOverride` + `noFallthroughCasesInSwitch` + `noUncheckedIndexedAccess` |
 | Styling | n/a |
+
+> **`overrides.i18next.typescript` in `package.json` is deliberate.** i18next 26 still declares its
+> optional TypeScript peer as `^5 || ^6`, so `npm ci` on npm 10 (the version Node 22 ships) refuses
+> to install alongside TypeScript 7. The override points it at the root compiler. Our own type-check
+> against i18next's declarations passes on 7, so the range is stale rather than a real
+> incompatibility — remove the override once i18next widens it.
+
 | State | plain classes; no state container |
 | Tests | Vitest 4 |
 
