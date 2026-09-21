@@ -60,6 +60,10 @@ attributes, category trees, anything data-driven.
   files, so it needs a trusted process and a filesystem. It is not usable in a browser, and it is
   not meant to be: shipping a DeepL key to a client would expose it. Edge runtimes without `node:fs`
   are unsupported for the same reason.
+- TypeScript 5.0+, if you use TypeScript. Every release compiles the shipped declarations under
+  5.0, 5.9, 6 and 7 in CI, so the range is checked rather than claimed. `npm` enforces the Node
+  floor from `engines`; there is no equivalent field for TypeScript, which is why it is a build
+  step instead.
 - An i18next or node-i18n instance already configured
 - DeepL API key (free tier available at [deepl.com](https://www.deepl.com/pro-api)) or a self-hosted LibreTranslate
   instance

@@ -46,6 +46,7 @@ factory — not special-casing `AutoTranslate`.
 | `src/storage/` | `FileStorageAdapter`, the default persistence |
 | `src/types/` | shared interfaces, config types, enums |
 | `src/utils/` | `cache` · `errors` · `http` · `fileHandler` · `fileLock` · `semaphore` · `keyConverter` |
+| `tools/compat/` | not shipped — proves the README's TypeScript and packaging claims in CI |
 
 ## Conventions
 
@@ -90,6 +91,10 @@ npm run format:check && npm run typecheck && npm run build && npm test
 ```
 
 E2E tests self-skip without `DEEPL_API_KEY`, so this is safe to run with no credentials.
+
+Touching the public types, `exports`, `main`, `types` or `files` also means running
+`npm run compat:types && npm run compat:package` — the same checks CI's `compat` job runs. They
+need a `dist/`, so build first. See the releasing conventions for what each one proves.
 
 ## Known state
 

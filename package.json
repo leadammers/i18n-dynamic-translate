@@ -10,6 +10,7 @@
   "bugs": {
     "url": "https://github.com/leadammers/i18n-dynamic-translate/issues"
   },
+  "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -41,6 +42,8 @@
     "test:watch": "vitest",
     "test:deepl-e2e": "vitest run tests/e2e/deepl.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+    "compat:types": "node tools/compat/check.mjs",
+    "compat:package": "attw --pack . --profile node16 && publint",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "audit": "npm audit --audit-level=high",
@@ -68,6 +71,7 @@
     }
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@types/i18n": "^0.13.12",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.20.0",
@@ -76,6 +80,7 @@
     "i18next": "^26.0.0",
     "js-yaml": "^4.3.2",
     "prettier": "^3.8.1",
+    "publint": "^0.3.24",
     "tsc-alias": "^1.8.16",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
