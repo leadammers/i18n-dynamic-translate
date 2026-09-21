@@ -431,6 +431,11 @@ try {
 - [ ] **Google Translate support** - Add Google Cloud Translation API integration
 - [ ] **Azure Translator support** - Add Microsoft Azure Translation API integration
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching, commit and review workflow, and
+[AGENTS.md](AGENTS.md) for an architecture overview and the convention index.
+
 ## License
 
 MIT
