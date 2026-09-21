@@ -43,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   passed the full dotted path while the explicit APIs passed the bare key.
 - The default key-to-text conversion splits digit boundaries, so `order2Status` yields
   `Order 2 Status` instead of `Order2status`.
+- A DeepL response whose entry carries no `text` field (`{ translations: [{}] }`) now raises a
+  `TranslationError` on the single-text path as well. It previously returned `undefined` typed as
+  `string`, which reached the cache, the backend and the locale file.
+- The cache is keyed on the slot a translation occupies rather than on the arguments that addressed
+  it. Parent key `product.meta` with key `name` and parent key `product` with key `meta.name` write
+  to one place but held two cache entries, so the two could disagree after a second write.
 - The missing-key de-duplication identity is JSON-encoded too. A key containing the separator
   could collapse into a different namespace's entry — namespace `b` with key `c:d` and namespace
   `b:c` with key `d` shared one queue entry, and the second key was silently never translated.

@@ -157,10 +157,22 @@ export class AutoTranslate {
      * namespace's translation to another.
      */
     private cacheKeyFor(key: string, namespace?: string, parentKey?: string): string {
-        // JSON rather than a delimiter join: every component is consumer-supplied,
-        // so a separator character can occur inside one. Namespace `a|b` + parent
-        // `c` and namespace `a` + parent `b|c` would otherwise share a cache key.
-        return JSON.stringify([namespace ?? '', parentKey ?? '', key]);
+        // Keyed on the slot the translation actually occupies, not on the
+        // arguments that addressed it: `parentKey` is a dot path, so parent
+        // `product.meta` + key `name` and parent `product` + key `meta.name`
+        // are the same entry in the backend and in the locale file, and must
+        // not become two cache entries that then disagree.
+        //
+        // JSON rather than a delimiter join: both components are
+        // consumer-supplied, so a separator character can occur inside one.
+        return JSON.stringify([namespace ?? '', this.targetKeyFor(key, parentKey)]);
+    }
+
+    /**
+     * The dot path a translation occupies in the backend and the locale file.
+     */
+    private targetKeyFor(key: string, parentKey?: string): string {
+        return parentKey ? `${parentKey}.${key}` : key;
     }
 
     /**
@@ -477,7 +489,7 @@ export class AutoTranslate {
         parentKey?: string
     ): Promise<void> {
         // Update in backend
-        const targetKey = parentKey ? `${parentKey}.${key}` : key;
+        const targetKey = this.targetKeyFor(key, parentKey);
         this.adapter.setTranslation(targetKey, locale, value, namespace);
 
         // Persist to storage if autoSave is enabled
@@ -532,7 +544,7 @@ export class AutoTranslate {
         }
 
         // Adjust adapter target key with parentKey if provided
-        const targetKey = parentKey ? `${parentKey}.${key}` : key;
+        const targetKey = this.targetKeyFor(key, parentKey);
 
         // Check backend
         const existing = this.adapter.getTranslation(targetKey, targetLocale, namespace);
@@ -616,7 +628,7 @@ export class AutoTranslate {
             }
 
             // Check if translation already exists in backend
-            const targetKey = parentKey ? `${parentKey}.${key}` : key;
+            const targetKey = this.targetKeyFor(key, parentKey);
             const existing = this.adapter.getTranslation(targetKey, targetLocale, namespace);
             if (existing) {
                 translations[key] = existing;
@@ -656,7 +668,7 @@ export class AutoTranslate {
                 this.cache.set(this.cacheKeyFor(key, namespace, parentKey), targetLocale, translatedValue, context);
             }
 
-            const targetKey = parentKey ? `${parentKey}.${key}` : key;
+            const targetKey = this.targetKeyFor(key, parentKey);
             this.adapter.setTranslation(targetKey, targetLocale, translatedValue, namespace);
         });
 

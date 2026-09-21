@@ -419,4 +419,27 @@ describe('review regressions', () => {
         });
     });
 
+    describe('P-7 one slot, one cache entry', () => {
+        it('does not hold two cache entries for one physical translation slot', async () => {
+            const instance = new AutoTranslate(createConfig(createMockI18next()));
+
+            // Both address `product.meta.name` in the backend and the locale file.
+            const viaParent = await instance.translateKey('name', 'de', { parentKey: 'product.meta' });
+            const viaKey = await instance.translateKey('meta.name', 'de', { parentKey: 'product' });
+
+            expect(translate).toHaveBeenCalledTimes(1);
+            expect(viaKey).toBe(viaParent);
+            await instance.dispose();
+        });
+
+        it('still separates two slots that merely share a suffix', async () => {
+            const instance = new AutoTranslate(createConfig(createMockI18next()));
+
+            await instance.translateKey('name', 'de', { parentKey: 'product' });
+            await instance.translateKey('name', 'de', { parentKey: 'legal' });
+
+            expect(translate).toHaveBeenCalledTimes(2);
+            await instance.dispose();
+        });
+    });
 });
