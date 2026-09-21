@@ -62,7 +62,9 @@ replaces any user- or team-level TypeScript convention. Do not apply both.
 
 ## Critical rules
 
-1. **`src/index.ts` is the public API.** Anything exported there is frozen until a major bump.
+1. **`src/index.ts` is the public API.** Anything exported there is frozen for the rest of the
+   current minor — while the version is below 1.0.0 semver allows a breaking change in a minor
+   bump, and after 1.0.0 it takes a major one.
    Utilities stay internal — do not export one for convenience.
 2. **`dependencies` stays empty.** Optional functionality goes behind a lazy `import()` and an
    optional peer dependency.
