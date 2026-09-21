@@ -245,27 +245,35 @@ export class AutoTranslate {
             return;
         }
 
-        // Create new processing promise
-        const processingPromise = this.processMissingKeyAsync(key, locale, namespace, queueKey).catch(
-            (error: unknown) => this.reportError(error as Error, key, locale)
-        );
-        this.processingQueue.set(queueKey, processingPromise);
+        this.startProcessing(key, locale, namespace, queueKey);
     }
 
     /**
-     * Process a missing translation key asynchronously
+     * Register a missing key as in flight, then process it.
+     *
+     * The slot is reserved before the work starts rather than after it. Deriving
+     * the source text reads the default language out of the backend, and the
+     * backend reports that read as another miss — for the *target* locale,
+     * because i18next reports a miss against the fallback language rather than
+     * the one that was looked up. That re-enters {@link handleMissingKey} for
+     * the very key being processed, and a registration that came afterwards
+     * would leave the re-entry looking at an empty queue, recursing until the
+     * stack ran out.
+     *
+     * The placeholder stands in only for the two synchronous statements below,
+     * which replace it with the real promise before control returns to the event
+     * loop — nothing can await the queue in between.
      */
-    private async processMissingKeyAsync(
-        key: string,
-        locale: string,
-        namespace: string | undefined,
-        queueKey: string
-    ): Promise<void> {
-        try {
-            await this.processMissingKey(key, locale, namespace);
-        } finally {
-            this.processingQueue.delete(queueKey);
-        }
+    private startProcessing(key: string, locale: string, namespace: string | undefined, queueKey: string): void {
+        this.processingQueue.set(queueKey, Promise.resolve());
+
+        const processingPromise = this.processMissingKey(key, locale, namespace)
+            .catch((error: unknown) => this.reportError(error as Error, key, locale))
+            .finally(() => {
+                this.processingQueue.delete(queueKey);
+            });
+
+        this.processingQueue.set(queueKey, processingPromise);
     }
 
     /**
