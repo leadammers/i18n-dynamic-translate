@@ -23,7 +23,8 @@ yarn-error.log*
 # Serena semantic-code-intelligence cache
 .serena/
 
-# REST-client private environments (hold API keys)
+# REST-client scratch requests and private environments (hold API keys)
+*.http
 http-client.private.env.json
 **/http-client.private.env.json
 
