@@ -385,13 +385,17 @@ autoTranslate.clearCache();
 
 ### `getCacheStats()`
 
-Returns cache statistics (size and keys). The keys are diagnostic strings — an internal
-encoding of the locale, key and context — not an addressable identifier.
+Returns the number of cached entries and their internal keys.
 
 ```typescript
 const stats = autoTranslate.getCacheStats();
-// { size: 42, keys: ['["de","hello",null]', '["fr","hello",null]', ...] }
+// { size: 42, keys: ['["de","[\\"products\\",\\"\\",\\"title\\"]",null]', ...] }
 ```
+
+Each key is an opaque encoding of locale, namespace, parent key and key — the identity is
+composed twice, once by the orchestrator and once by the cache itself. Treat `keys` as a
+debugging aid: the encoding is not part of the API contract and may change in a minor
+release. `size` is the stable half.
 
 ### `getConfig()`
 

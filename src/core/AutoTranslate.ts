@@ -164,6 +164,19 @@ export class AutoTranslate {
     }
 
     /**
+     * Build the identity under which a missing key is de-duplicated, both in
+     * the in-flight {@link processingQueue} and in the pending batch.
+     *
+     * Same reasoning as {@link cacheKeyFor}: a delimiter join is not injective
+     * over consumer-supplied values. Namespace `b` with key `c:d` and namespace
+     * `b:c` with key `d` would otherwise collapse into one entry, and the
+     * second key would never be translated.
+     */
+    private queueKeyFor(key: string, locale: string, namespace?: string): string {
+        return JSON.stringify([locale, namespace ?? '', key]);
+    }
+
+    /**
      * Decide whether an automatically detected missing key may be translated.
      *
      * In production mode only explicitly allow-listed namespaces qualify. The
@@ -206,7 +219,7 @@ export class AutoTranslate {
         }
 
         // Create unique queue key
-        const queueKey = `${locale}:${namespace || ''}:${key}`;
+        const queueKey = this.queueKeyFor(key, locale, namespace);
 
         // If already processing, wait for existing promise (fire and forget)
         if (this.processingQueue.has(queueKey)) {
@@ -296,7 +309,7 @@ export class AutoTranslate {
         namespace: string | undefined,
         sourceText: string
     ): Promise<void> {
-        const queueKey = `${locale}:${namespace || ''}:${key}`;
+        const queueKey = this.queueKeyFor(key, locale, namespace);
 
         return new Promise((resolve: () => void, reject: (error: Error) => void) => {
             // If already in batch, just add our callback to the list

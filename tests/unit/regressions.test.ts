@@ -378,4 +378,31 @@ describe('review regressions', () => {
             cache.dispose();
         });
     });
+
+    describe('P-5 queue identity', () => {
+        it('does not drop a missing key whose namespace and key re-split across the separator', async () => {
+            const i18next = createMockI18next();
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            i18next.options.missingKeyHandler?.(['de'], 'b', 'c:d', '');
+            i18next.options.missingKeyHandler?.(['de'], 'b:c', 'd', '');
+            await instance.waitForPendingTranslations(2000);
+
+            const translatedKeys = i18next.addResource.mock.calls.map((call: unknown[]) => call[2] as string).sort();
+            expect(translatedKeys).toEqual(['c:d', 'd']);
+            await instance.dispose();
+        });
+
+        it('still collapses a genuine duplicate missing key into one translation', async () => {
+            const i18next = createMockI18next();
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            i18next.options.missingKeyHandler?.(['de'], 'products', 'title', '');
+            i18next.options.missingKeyHandler?.(['de'], 'products', 'title', '');
+            await instance.waitForPendingTranslations(2000);
+
+            expect(i18next.addResource.mock.calls).toHaveLength(1);
+            await instance.dispose();
+        });
+    });
 });
