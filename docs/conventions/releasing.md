@@ -11,8 +11,9 @@ so in the changelog entry rather than silently shipping them.
 ## Steps
 
 1. Land everything on `dev` and confirm it is green.
-2. Update `CHANGELOG.md`: rename `## [Unreleased]` to the new version, add today's date, and open a
-   fresh `## [Unreleased]` above it. The sections follow
+2. Update `CHANGELOG.md`: give the version's heading today's date and open a fresh
+   `## [Unreleased]` above it. Until 0.1.0 ships there is no `[Unreleased]` section — the
+   `## [0.1.0] — unreleased` heading is what gets dated. The sections follow
    [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): Added / Changed / Deprecated / Removed /
    Fixed / Security.
 3. `npm version <major|minor|patch>` — this writes `package.json`, the lockfile and a `v<version>` tag.

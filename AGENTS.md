@@ -77,7 +77,11 @@ replaces any user- or team-level TypeScript convention. Do not apply both.
 5. **Import through the `@/` alias.** The build fails if a `require("@/` survives into `dist/`.
 6. **Dispose what you create.** Timers, locks and queues are released in `dispose()`; `clear()` never
    tears down. See the concurrency conventions — most known bugs in this repo were lifecycle bugs.
-7. **A cache key contains every input that changes the value** — locale, namespace, parent key, key.
+7. **A cache entry is addressed by every input that changes the value** — that is the
+   `TranslationIdentity`: locale, namespace, full dot path, provider context. `parentKey` is folded
+   into the path first, because two calls that spell the same slot differently must share an entry.
+   Compose such keys with `JSON.stringify`, never a delimiter join — see the concurrency
+   conventions.
 
 ## Gate before pushing
 

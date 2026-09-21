@@ -164,8 +164,8 @@ const autoTranslate = new AutoTranslate({
 
     // Custom cache (default: built-in in-memory cache)
     // Implement the TranslationCache interface for Redis/Memcached/etc.
-    // Supplying one enables caching regardless of enableCache.
-    // cache: new MyRedisCache(),
+    // Supplying one enables caching regardless of enableCache. See "Custom Cache" below.
+    // cache: myRedisCache,
 
     // Operating mode (default: 'development')
     // 'development' — auto-translate all missing keys

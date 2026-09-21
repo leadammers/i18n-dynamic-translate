@@ -52,7 +52,13 @@ decision on stale data.
 
 ## Caching
 
-- A cache key must contain **every** input that changes the value. For a translation that is locale,
-  namespace, parent key and key — omitting namespace made two different keys collide and served the
-  wrong translation.
-- Build keys through one helper (`cacheKeyFor`) so no call site can invent its own shape.
+- A cache entry is addressed by **every** input that changes the value. That is the
+  `TranslationIdentity`: locale, namespace, the full dot path and the provider context — omitting
+  namespace made two different keys collide and served the wrong translation.
+- `parentKey` is folded into the path before the cache sees it, because it is not part of the
+  identity: `{parentKey: 'product.meta', key: 'name'}` and `{parentKey: 'product', key: 'meta.name'}`
+  address the same slot in the backend and the locale file, so they must share one entry.
+- Build identities through one helper (`identityFor`) so no call site can invent its own shape.
+- **Encode, never join.** Every component is consumer-supplied and may contain any separator you
+  pick, so a delimiter join is not injective — `JSON.stringify([...])` is. This applies to the
+  cache key, the missing-key queue key and anything else that has to tell two inputs apart.
