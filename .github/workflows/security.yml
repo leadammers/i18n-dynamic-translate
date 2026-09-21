@@ -28,12 +28,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Use Node.js 22
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
+
+      # Lifecycle scripts are the main supply-chain injection vector, and no
+      # dependency in this tree declares one, so skipping them costs nothing.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
 
       # Runtime surface of the published package. This is what consumers install.
       - name: Audit production dependencies
@@ -42,6 +47,13 @@ jobs:
       # Full tree including devDependencies (build/test tooling).
       - name: Audit all dependencies
         run: npm audit --audit-level=high
+
+      # `npm audit` only consults the advisory database. This verifies the
+      # registry's signatures and provenance attestations, catching tampered or
+      # unsigned publishes. Runs on the full tree: npm errors out when the audit
+      # target is empty, and the production tree has no dependencies.
+      - name: Verify registry signatures
+        run: npm audit signatures
 
   # ---------------------------------------------------------------------------
   # Static analysis (SAST)
@@ -54,7 +66,7 @@ jobs:
       actions: read
       security-events: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
@@ -76,8 +88,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # gitleaks-action lists the PR's commits via the API on pull_request runs.
+      # Without this it fails with 403 "Resource not accessible by integration".
+      pull-requests: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           # Full history so rewritten/old commits are scanned too, not just the tip.
           fetch-depth: 0

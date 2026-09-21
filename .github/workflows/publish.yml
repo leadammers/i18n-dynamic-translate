@@ -18,20 +18,30 @@ jobs:
       # Required by `npm publish --provenance` to mint a Sigstore OIDC token.
       id-token: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Use Node.js 22
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      # --ignore-scripts: no dependency here declares an install lifecycle script,
+      # so refusing to run them removes an injection path into dist/ at no cost.
+      # It is deliberately not passed to `npm publish`, which must still run the
+      # prepublishOnly gate.
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+
+      # Registry signatures and provenance attestations for everything that went
+      # into this build. Full tree: the production tree is empty and npm treats an
+      # empty audit target as an error.
+      - name: Verify registry signatures
+        run: npm audit signatures
 
       - name: Build
         run: npm run build
