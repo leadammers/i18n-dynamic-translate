@@ -86,6 +86,8 @@ E2E tests self-skip without `DEEPL_API_KEY`, so this is safe to run with no cred
 
 ## Known state
 
+- `docs/planning/2026-09-21_pre-release.md` — what must be true before the first npm publish:
+  blockers, decisions on the frozen public surface, and what is deliberately deferred past 0.1.0.
 - `TODO.md` — the architecture backlog. `core/AutoTranslate.ts` is over the size guideline and its
   breakup is the main open item.
 - `CHANGELOG.md` — what shipped and what broke.
