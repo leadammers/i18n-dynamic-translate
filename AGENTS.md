@@ -10,7 +10,7 @@ missing-key handler, translates the key through a provider, writes the result ba
 i18n instance and persists it. Built for dynamic content (API metadata, product attributes) where
 the set of keys is not known at build time.
 
-**Zero runtime dependencies.** CommonJS, Node >= 20.19, TypeScript 6.
+**Zero runtime dependencies.** CommonJS, Node >= 22.12, TypeScript 6.
 
 ## Architecture
 

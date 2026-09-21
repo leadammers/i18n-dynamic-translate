@@ -105,7 +105,7 @@ src/
 
 - **Zero runtime dependencies.** `dependencies` is empty and must stay empty; anything optional
   (`js-yaml`) is a lazy `import()` behind an optional peer dependency.
-- Target is CommonJS on Node >= 20.19. Use only APIs available there — global `fetch` is fine, but
+- Target is CommonJS on Node >= 22.12. Use only APIs available there — global `fetch` is fine, but
   nothing newer without checking.
 - The package is side-effect free (`sideEffects: false`). Module top level must not do I/O, start
   timers or mutate globals.

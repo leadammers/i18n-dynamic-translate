@@ -34,7 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking:** minimum supported Node.js version raised to 20.19, matching what CI verifies.
+- **Breaking:** minimum supported Node.js version raised to 22.12, the lowest LTS still
+  receiving security updates — Node 20 reached end of life in April 2026. CI now runs the
+  matrix on 22 and 24.
 - `js-yaml` peer range raised to `^4.3.2`; earlier 4.x releases carry a quadratic-complexity
   DoS in merge-key handling.
 - DeepL and LibreTranslate error messages share one sanitizer that never includes the

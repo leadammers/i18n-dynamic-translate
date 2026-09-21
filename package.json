@@ -29,7 +29,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.12.0"
   },
   "publishConfig": {
     "access": "public"
@@ -66,7 +66,7 @@
     "@types/i18n": "^0.13.12",
     "@types/js-yaml": "^4.0.9",
     "js-yaml": "^4.3.2",
-    "@types/node": "^20.19.39",
+    "@types/node": "^22.20.0",
     "dotenv": "^17.4.1",
     "i18n": "^0.15.3",
     "i18next": "^26.0.0",
