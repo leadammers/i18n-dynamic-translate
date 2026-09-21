@@ -39,5 +39,6 @@ version is tagged.
 
 ### Requirements
 
-- Node.js >= 22.12, CommonJS, **zero runtime dependencies**.
+- Node.js >= 22.12, tested on 22 and 24. CommonJS, **zero runtime dependencies**.
+- The shipped type declarations compile under TypeScript 5.0 and later.
 - `i18next`, `i18n` and `js-yaml` are optional peer dependencies — install only what you use.

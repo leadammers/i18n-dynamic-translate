@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/i18n-dynamic-translate.svg)](https://www.npmjs.com/package/i18n-dynamic-translate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
 **DynamicTranslate** automatically translates missing i18n keys in your application without manual work. Perfect for
 translating dynamic content like API metadata or dynamic product attributes where the keys are not known beforehand
@@ -56,7 +56,7 @@ attributes, category trees, anything data-driven.
 
 ## Prerequisites
 
-- Node.js 22.12+ — **server-side only.** The library holds your provider API key and writes locale
+- Node.js 22.12+, tested on 22 and 24 (current LTS) — **server-side only.** The library holds your provider API key and writes locale
   files, so it needs a trusted process and a filesystem. It is not usable in a browser, and it is
   not meant to be: shipping a DeepL key to a client would expose it. Edge runtimes without `node:fs`
   are unsupported for the same reason.
