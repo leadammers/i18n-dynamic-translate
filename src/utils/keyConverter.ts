@@ -12,6 +12,8 @@
  * convertKeyToText('userName') // 'User Name'
  * convertKeyToText('user_name') // 'User Name'
  * convertKeyToText('user-name') // 'User Name'
+ * convertKeyToText('apiURL') // 'Api URL'
+ * convertKeyToText('order2Status') // 'Order 2 Status'
  */
 export function convertKeyToText(key: string): string {
     if (!key || typeof key !== 'string') {
@@ -31,6 +33,10 @@ export function convertKeyToText(key: string): string {
         .replace(/([a-z])([A-Z])/g, '$1 $2')
         // Handle PascalCase and consecutive capitals: XMLParser -> XML Parser
         .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+        // Handle digit boundaries: order2Status -> order 2 Status. Without this
+        // the whole run stays one word and its inner capital is lowercased away.
+        .replace(/([A-Za-z])(\d)/g, '$1 $2')
+        .replace(/(\d)([A-Za-z])/g, '$1 $2')
         // Trim and normalize spaces
         .trim()
         .replace(/\s+/g, ' ');
