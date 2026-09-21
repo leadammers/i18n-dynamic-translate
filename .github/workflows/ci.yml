@@ -17,7 +17,10 @@ jobs:
       contents: read
     strategy:
       matrix:
-        node-version: [22, 24]
+        # 22.12 is the floor from `engines` — pinned exactly, because plain `22`
+        # resolves to the latest 22.x and would let a newer API pass unnoticed.
+        # 22 and 24 are the current LTS lines.
+        node-version: ['22.12', 22, 24]
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -78,3 +81,32 @@ jobs:
 
       - name: Check the published package resolves for every consumer shape
         run: npm run compat:package
+
+  # A packed tarball installed into a scratch project and driven end to end: missing
+  # key -> stub provider over HTTP -> live i18next instance -> YAML file. `compat`
+  # checks that the package resolves; this checks that it runs, through the same
+  # `node_modules` a consumer gets. It found a re-entrancy bug the unit suite could
+  # not see, because its i18next mock never reported a miss back to the handler.
+  smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          # The floor from `engines`, so the declared minimum is the one exercised.
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Install the packed tarball and run a consumer against it
+        run: npm run smoke

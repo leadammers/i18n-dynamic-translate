@@ -49,6 +49,7 @@ export class AutoTranslate {
     private cache?: TranslationCache;
     private memoryCache?: MemoryCache;
     private processingQueue: Map<string, Promise<void>>;
+    private readingBackend: boolean = false;
     private semaphore: Semaphore;
     private storageAdapter: StorageAdapter;
     private disposed: boolean = false;
@@ -227,6 +228,11 @@ export class AutoTranslate {
             return;
         }
 
+        // A read this library made itself is not an application's missing key
+        if (this.readingBackend) {
+            return;
+        }
+
         // Skip if same as default language
         if (locale === this.config.defaultLanguage) {
             return;
@@ -245,27 +251,35 @@ export class AutoTranslate {
             return;
         }
 
-        // Create new processing promise
-        const processingPromise = this.processMissingKeyAsync(key, locale, namespace, queueKey).catch(
-            (error: unknown) => this.reportError(error as Error, key, locale)
-        );
-        this.processingQueue.set(queueKey, processingPromise);
+        this.startProcessing(key, locale, namespace, queueKey);
     }
 
     /**
-     * Process a missing translation key asynchronously
+     * Register a missing key as in flight, then process it.
+     *
+     * The slot is reserved before the work starts rather than after it. Deriving
+     * the source text reads the default language out of the backend, and the
+     * backend reports that read as another miss — for the *target* locale,
+     * because i18next reports a miss against the fallback language rather than
+     * the one that was looked up. That re-enters {@link handleMissingKey} for
+     * the very key being processed, and a registration that came afterwards
+     * would leave the re-entry looking at an empty queue, recursing until the
+     * stack ran out.
+     *
+     * The placeholder stands in only for the two synchronous statements below,
+     * which replace it with the real promise before control returns to the event
+     * loop — nothing can await the queue in between.
      */
-    private async processMissingKeyAsync(
-        key: string,
-        locale: string,
-        namespace: string | undefined,
-        queueKey: string
-    ): Promise<void> {
-        try {
-            await this.processMissingKey(key, locale, namespace);
-        } finally {
-            this.processingQueue.delete(queueKey);
-        }
+    private startProcessing(key: string, locale: string, namespace: string | undefined, queueKey: string): void {
+        this.processingQueue.set(queueKey, Promise.resolve());
+
+        const processingPromise = this.processMissingKey(key, locale, namespace)
+            .catch((error: unknown) => this.reportError(error as Error, key, locale))
+            .finally(() => {
+                this.processingQueue.delete(queueKey);
+            });
+
+        this.processingQueue.set(queueKey, processingPromise);
     }
 
     /**
@@ -291,6 +305,26 @@ export class AutoTranslate {
     }
 
     /**
+     * Read a translation out of the backend without the read counting as a miss.
+     *
+     * A backend reports a failed lookup to its missing-key handler, so every
+     * read this library makes to decide what to do next would arrive back as an
+     * application miss: the source-language read below would queue the key it
+     * was called for, and the existing-translation check in {@link translateKey}
+     * would queue a key the caller is already translating. Neither came from the
+     * application, so neither is reported. `getTranslation` is synchronous,
+     * which is what keeps the flag from spanning anything else.
+     */
+    private readFromBackend(key: string, locale: string, namespace?: string): string | null {
+        this.readingBackend = true;
+        try {
+            return this.adapter.getTranslation(key, locale, namespace);
+        } finally {
+            this.readingBackend = false;
+        }
+    }
+
+    /**
      * Derive the text to send to the translation provider.
      *
      * Preference order: the default language's own translation, then the
@@ -303,7 +337,7 @@ export class AutoTranslate {
      */
     private resolveSourceText(key: string, lookupKey: string, skipBackendLookup: boolean, namespace?: string): string {
         if (!skipBackendLookup) {
-            const fromDefaultLanguage = this.adapter.getTranslation(lookupKey, this.config.defaultLanguage, namespace);
+            const fromDefaultLanguage = this.readFromBackend(lookupKey, this.config.defaultLanguage, namespace);
             if (fromDefaultLanguage) {
                 return fromDefaultLanguage;
             }
@@ -556,7 +590,7 @@ export class AutoTranslate {
         const targetKey = this.targetKeyFor(key, parentKey);
 
         // Check backend
-        const existing = this.adapter.getTranslation(targetKey, targetLocale, namespace);
+        const existing = this.readFromBackend(targetKey, targetLocale, namespace);
         if (existing) return existing;
 
         const sourceText = this.resolveSourceText(
@@ -638,7 +672,7 @@ export class AutoTranslate {
 
             // Check if translation already exists in backend
             const targetKey = this.targetKeyFor(key, parentKey);
-            const existing = this.adapter.getTranslation(targetKey, targetLocale, namespace);
+            const existing = this.readFromBackend(targetKey, targetLocale, namespace);
             if (existing) {
                 translations[key] = existing;
                 continue;

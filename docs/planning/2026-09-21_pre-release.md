@@ -105,7 +105,63 @@ carries a placeholder and is untracked and gitignored.
 
 ---
 
-## 3. Pre-flight
+## 3. What CI proves about the support claims — settled on `feature/release-hardening`
+
+Every claim a consumer reads was a hand-written assertion. Three of them are now checked on every
+pull request, and the last of them found a bug that would have shipped.
+
+### 3.1 The Node floor is the floor that runs
+
+The test matrix pinned `22`, which npm resolves to the newest 22.x — a release could have used an
+API added after 22.12 and passed. The matrix is now `['22.12', 22, 24]`, so the exact `engines`
+floor is exercised alongside both current LTS lines. `compat:package` also runs in
+`publish.yml`: a broken `exports` map is only visible once the tarball is assembled, and that job
+is the last point before npm.
+
+- [x] `22.12` pinned in the CI matrix, verified locally against a real 22.12 install
+- [x] `publish.yml` gates on the same packaging checks CI runs
+
+### 3.2 The packed tarball is installed and driven end to end
+
+`npm run smoke` packs the library, installs it into a scratch project with `i18next` and `js-yaml`,
+and runs one missing key through a stub provider into a live i18next instance and out to a YAML
+file. This is the only check that exercises the shipped artifact through a consumer's
+`node_modules` — including the lazy `js-yaml` import, which resolves from a different place in an
+installed package than in the repository.
+
+**It found a defect on its first run.** A real i18next reports a failed lookup to the missing-key
+handler, and it reports it against the *fallback* language rather than the one looked up. So the
+library's own read of the source language came straight back as a miss for the target locale, and
+re-entered the handler for the key it was already processing: unbounded recursion,
+`RangeError: Maximum call stack size exceeded`, before a single translation was written. The unit
+suite passed throughout, because its i18next mock returns the key without ever reporting a miss —
+the mock hid the very interaction the adapter exists to hook.
+
+Fixed in two parts: the in-flight queue entry is now reserved before the work starts rather than
+after it, and the reads the library makes itself no longer count as application misses (which also
+removes a duplicate provider call on every explicit `translateKey`). Both are covered by
+regression tests using a mock that reports misses the way i18next does.
+
+- [x] `npm run smoke` and a `smoke` job in CI
+- [x] `fix(core)`: reserve the queue entry before processing; fence the library's own backend reads
+
+### 3.3 The i18next peer range is tested, not guessed
+
+`i18next >=23.0.0` was plausible — the adapter touches only `missingKeyHandler`, `saveMissing`,
+`getFixedT` and `addResource`, stable since v19 — but nothing had run against it. The smoke check
+now repeats for every entry in `SUPPORTED_I18NEXT`: majors 23, 24, 25 and 26 all pass.
+
+The range **stays open above 26** rather than being capped at what is tested. An upper bound would
+mark every fresh i18next major unsupported until this package released again, which is a worse
+failure mode for a four-method surface than an untested-but-likely-fine major. A new major goes
+into `SUPPORTED_I18NEXT` and the claim is re-proven.
+
+- [x] Majors 23–26 driven end to end from an installed tarball
+- [x] Decision recorded: open range, tested list, documented in the README
+
+---
+
+## 4. Pre-flight
 
 Run immediately before tagging, not now — several of these go stale.
 
@@ -123,7 +179,7 @@ Run immediately before tagging, not now — several of these go stale.
 
 ---
 
-## 4. Deliberately deferred
+## 5. Deliberately deferred
 
 Not blockers. All internal, all cheap to do after publishing, listed so they are not rediscovered as
 "surely this should happen first".
@@ -144,7 +200,7 @@ writes locale files, so shipping it to a client would leak the key. See the READ
 
 ---
 
-## 5. State at creation
+## 6. State at creation
 
 Captured 2026-09-21, from PR #9 (`chore/review-2026-09-21` → `dev`), all checks green.
 
@@ -155,6 +211,6 @@ Captured 2026-09-21, from PR #9 (`chore/review-2026-09-21` → `dev`), all check
 | Default branch | `main`, 67 commits behind `dev` after PR #9 merged |
 | Visibility | private |
 | Actions secrets | none |
-| Tests | 276 passing (262 when this file was written) |
+| Tests | 281 passing (262 when this file was written) |
 | `npm audit` | 0 vulnerabilities; `dependencies` empty, all three peers optional |
 | Licence | MIT, `LICENSE` present and matching `package.json` |

@@ -45,3 +45,5 @@ version is tagged.
   `await import()` rather than a downlevelled `require()`, so a bundler sees it as the dynamic
   import it is.
 - `i18next`, `i18n` and `js-yaml` are optional peer dependencies — install only what you use.
+  `i18next >=23.0.0` is the declared range; majors 23 through 26 are driven end to end from an
+  installed tarball in CI.

@@ -45,6 +45,32 @@ function createMockI18next(): MockI18next {
     };
 }
 
+/**
+ * Mirrors the one thing a real i18next does and the mock above does not: it
+ * reports a failed lookup to the missing-key handler. i18next reports the miss
+ * against the fallback language rather than the language that was looked up, so
+ * reading the *default* language still arrives as a miss for the *target*
+ * locale — which is how the library's own lookups re-entered the handler they
+ * were called from. `lookups` records every key the library asked the backend
+ * for, which is what makes that re-entry visible to an assertion.
+ */
+function createReportingMockI18next(fallbackLocale: string = 'de'): MockI18next & { lookups: string[] } {
+    const instance: MockI18next & { lookups: string[] } = {
+        language: 'de',
+        languages: ['en', 'de'],
+        options: { ns: ['translation'], missingKeyHandler: null, saveMissing: false },
+        lookups: [],
+        getFixedT: () => (key: string) => {
+            instance.lookups.push(key);
+            instance.options.missingKeyHandler?.([fallbackLocale], 'translation', key, key);
+            return key;
+        },
+        addResource: vi.fn(),
+    };
+
+    return instance;
+}
+
 function createConfig(i18nInstance: unknown, overrides: Record<string, unknown> = {}) {
     return {
         backend: Backend.I18NEXT,
@@ -449,6 +475,37 @@ describe('review regressions', () => {
             await instance.translateKey('name', 'de', { parentKey: 'legal' });
 
             expect(translate).toHaveBeenCalledTimes(2);
+            await instance.dispose();
+        });
+    });
+
+    describe('S-1 missing-key re-entry', () => {
+        it('does not recurse when the backend reports its own lookup as another miss', async () => {
+            const i18next = createReportingMockI18next();
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            i18next.options.missingKeyHandler?.(['de'], 'translation', 'welcomeMessage', '');
+            await instance.waitForPendingTranslations(2000);
+
+            // One reported miss costs exactly one source-language lookup. Before
+            // the fix that lookup was itself reported as a miss and the handler
+            // re-entered itself until the stack ran out.
+            expect(i18next.lookups).toEqual(['welcomeMessage']);
+            expect(translateBatch).toHaveBeenCalledTimes(1);
+            expect(translateBatch.mock.calls[0]?.[0]).toEqual(['Welcome Message']);
+            await instance.dispose();
+        });
+
+        it('sends one provider request for an explicit translateKey', async () => {
+            const i18next = createReportingMockI18next();
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            const translated = await instance.translateKey('welcomeMessage', 'de');
+            await instance.waitForPendingTranslations(2000);
+
+            expect(translated).toBe('X(Welcome Message)');
+            expect(translate).toHaveBeenCalledTimes(1);
+            expect(translateBatch).not.toHaveBeenCalled();
             await instance.dispose();
         });
     });
