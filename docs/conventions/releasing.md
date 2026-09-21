@@ -48,8 +48,16 @@ which were tried. So the rest is proven by the `compat` job in CI rather than wr
   the package the way a CJS consumer, an ESM consumer and a bundler each would, the second checks
   the manifest's `exports`, `main` and `types` agree with what is in the tarball.
 
-Both are cheap and run on every pull request, so a change that breaks an older compiler or a
-consumer shape fails before it is released rather than in someone's install.
+- `npm run smoke` packs the tarball, installs it into a scratch project alongside `i18next` and
+  `js-yaml`, and runs `tools/smoke/consumer.cjs` against it: one missing key through a stub
+  provider, into a live i18next instance and out to a YAML file. `compat:package` checks that the
+  package *resolves*; this checks that it *runs*, through the `node_modules` a consumer gets.
+  The consumer is copied into the scratch project first — run from the repository, Node's package
+  self-reference would resolve the import back to the source tree and prove nothing.
+
+All three are cheap and run on every pull request, so a change that breaks an older compiler, a
+consumer shape or the installed package fails before it is released rather than in someone's
+install.
 
 ## Checklist
 

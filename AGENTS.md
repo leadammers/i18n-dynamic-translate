@@ -47,6 +47,7 @@ factory — not special-casing `AutoTranslate`.
 | `src/types/` | shared interfaces, config types, enums |
 | `src/utils/` | `cache` · `errors` · `http` · `fileHandler` · `fileLock` · `semaphore` · `keyConverter` |
 | `tools/compat/` | not shipped — proves the README's TypeScript and packaging claims in CI |
+| `tools/smoke/` | not shipped — installs the packed tarball and drives it end to end in CI |
 
 ## Conventions
 
