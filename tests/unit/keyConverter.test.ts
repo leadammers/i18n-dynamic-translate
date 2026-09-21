@@ -42,6 +42,17 @@ describe('keyConverter', () => {
             expect(convertKeyToText('utf8Encoding')).toBe('Utf 8 Encoding');
         });
 
+        it('passes an already readable key through untouched', () => {
+            expect(convertKeyToText('already has spaces')).toBe('already has spaces');
+            expect(convertKeyToText('Order confirmed')).toBe('Order confirmed');
+            expect(convertKeyToText('checkout.Payment failed')).toBe('Payment failed');
+        });
+
+        it('keeps a single lowercase letter attached to the acronym it prefixes', () => {
+            expect(convertKeyToText('iOSDevice')).toBe('iOS Device');
+            expect(convertKeyToText('iOS')).toBe('iOS');
+        });
+
         it('should handle empty or invalid input', () => {
             expect(convertKeyToText('')).toBe('');
             expect(convertKeyToText(null as any)).toBe('');
