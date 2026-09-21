@@ -159,25 +159,28 @@ export class NodeI18nAdapter implements BackendAdapter {
             if (!this.i18n.catalog) {
                 this.i18n.catalog = {};
             }
-            if (!this.i18n.catalog[locale]) {
-                this.i18n.catalog[locale] = {};
-            }
+            // Hold the reference rather than re-indexing: a second lookup would be
+            // optional again, and a `?? {}` fallback there would write into a
+            // detached object and silently drop the translation.
+            const catalogForLocale: Record<string, string> = this.i18n.catalog[locale] ?? {};
+            this.i18n.catalog[locale] = catalogForLocale;
 
             // If objectNotation is enabled, set nested value
             if (this.config?.objectNotation) {
                 const keys = key.split('.');
-                let current: LocaleData = this.i18n.catalog[locale];
-                for (let i = 0; i < keys.length - 1; i++) {
-                    const k = keys[i];
-                    if (!(k in current) || typeof current[k] !== 'object') {
-                        current[k] = {};
+                // `split` never returns an empty array, so the leaf key always exists.
+                const leafKey = keys.pop() ?? key;
+                let current: LocaleData = catalogForLocale;
+                for (const segment of keys) {
+                    if (typeof current[segment] !== 'object') {
+                        current[segment] = {};
                     }
-                    current = current[k] as LocaleData;
+                    current = current[segment] as LocaleData;
                 }
-                current[keys[keys.length - 1]] = value;
+                current[leafKey] = value;
             } else {
                 // Flat key
-                this.i18n.catalog[locale][key] = value;
+                catalogForLocale[key] = value;
             }
         } catch (error) {
             throw new BackendError(

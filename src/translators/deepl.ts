@@ -150,7 +150,7 @@ export class DeepLService implements TranslationService {
      * Normalize source language code for DeepL
      */
     private normalizeSourceLang(lang: string): string {
-        return lang.toUpperCase().split('-')[0];
+        return lang.toUpperCase().split('-')[0] ?? lang.toUpperCase();
     }
 
     /**

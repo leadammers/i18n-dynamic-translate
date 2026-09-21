@@ -22,7 +22,8 @@ export function convertKeyToText(key: string): string {
 
     // Handle dot notation (e.g., 'user.profile.userName')
     const parts = key.split('.');
-    const lastPart = parts[parts.length - 1];
+    // `split` never returns an empty array, so the last part always exists.
+    const lastPart = parts[parts.length - 1] ?? key;
 
     let result = lastPart
         // Handle snake_case: user_name -> user name

@@ -415,12 +415,10 @@ export class AutoTranslate {
                     locale
                 );
 
-                this.assertCompleteBatch(translations, sourceTexts.length);
+                const translated = this.pairWithTranslations(keys, translations);
 
                 // Update all translations in parallel
-                const updatePromises = keys.map(async (pending: PendingKey, index: number) => {
-                    const translation = translations[index];
-
+                const updatePromises = translated.map(async ([pending, translation]: [PendingKey, string]) => {
                     try {
                         await this.updateTranslation(pending.key, pending.locale, translation, pending.namespace);
 
@@ -463,24 +461,29 @@ export class AutoTranslate {
     }
 
     /**
-     * Guard against a provider returning a batch that does not line up with the
-     * request. Both shapes below would otherwise be persisted as `undefined`:
-     * too few entries, or the right count with a malformed entry inside it (a
-     * DeepL response of `{ translations: [{}] }` maps to `[undefined]`).
+     * Zip each request with its translation, rejecting a batch that does not line
+     * up with the request. Both shapes below would otherwise be persisted as
+     * `undefined`: too few entries, or the right count with a malformed entry
+     * inside it (a DeepL response of `{ translations: [{}] }` maps to `[undefined]`).
+     *
+     * Pairing rather than asserting is what keeps the two lists in step — callers
+     * never index one array with the other's position.
      */
-    private assertCompleteBatch(translations: string[], expected: number): void {
-        if (translations.length !== expected) {
+    private pairWithTranslations<TRequest>(requests: TRequest[], translations: string[]): [TRequest, string][] {
+        if (translations.length !== requests.length) {
             throw new TranslationError(
-                `Translation provider returned ${translations.length} translations for ${expected} requested texts`
+                `Translation provider returned ${translations.length} translations for ${requests.length} requested texts`
             );
         }
 
-        const invalidIndex = translations.findIndex((translation: string) => typeof translation !== 'string');
-        if (invalidIndex !== -1) {
-            throw new TranslationError(
-                `Translation provider returned a non-string translation at index ${invalidIndex}`
-            );
-        }
+        return requests.map((request: TRequest, index: number): [TRequest, string] => {
+            const translation = translations[index];
+            if (typeof translation !== 'string') {
+                throw new TranslationError(`Translation provider returned a non-string translation at index ${index}`);
+            }
+
+            return [request, translation];
+        });
     }
 
     /**
@@ -662,11 +665,10 @@ export class AutoTranslate {
             context
         );
 
-        this.assertCompleteBatch(translatedValues, sourceTexts.length);
+        const translated = this.pairWithTranslations(pendingTranslations, translatedValues);
 
         // Update backend for all translated keys
-        pendingTranslations.forEach(({ key }: { key: string }, index: number) => {
-            const translatedValue = translatedValues[index];
+        translated.forEach(([{ key }, translatedValue]: [{ key: string }, string]) => {
             translations[key] = translatedValue;
 
             if (this.cache) {
@@ -679,10 +681,10 @@ export class AutoTranslate {
 
         // Persist to storage
         if (this.config.autoSave) {
-            const entries = pendingTranslations.map(({ key }: { key: string }, index: number) => ({
+            const entries = translated.map(([{ key }, translatedValue]: [{ key: string }, string]) => ({
                 locale: targetLocale,
                 key,
-                value: translatedValues[index],
+                value: translatedValue,
                 namespace,
                 parentKey,
             }));

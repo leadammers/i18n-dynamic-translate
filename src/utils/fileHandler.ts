@@ -105,17 +105,18 @@ export async function writeLocaleFile(filePath: string, data: LocaleData): Promi
  */
 export function setNestedValue(obj: LocaleData, path: string, value: string | LocaleData): void {
     const keys = path.split('.');
+    // `split` never returns an empty array, so the leaf key always exists.
+    const leafKey = keys.pop() ?? path;
     let current: LocaleData = obj;
 
-    for (let i = 0; i < keys.length - 1; i++) {
-        const key = keys[i];
-        if (!(key in current) || typeof current[key] !== 'object') {
+    for (const key of keys) {
+        if (typeof current[key] !== 'object') {
             current[key] = {};
         }
         current = current[key] as LocaleData;
     }
 
-    current[keys[keys.length - 1]] = value;
+    current[leafKey] = value;
 }
 
 /**
