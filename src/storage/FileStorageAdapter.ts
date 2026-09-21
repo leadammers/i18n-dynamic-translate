@@ -34,21 +34,10 @@ export class FileStorageAdapter implements StorageAdapter {
         value: string,
         options?: { namespace?: string; parentKey?: string }
     ): Promise<void> {
-        const filePath = await getLocaleFilePath(
-            this.localesPath,
-            locale,
-            options?.namespace,
-            this.fileFormat
-        );
+        const filePath = await getLocaleFilePath(this.localesPath, locale, options?.namespace, this.fileFormat);
 
         await this.fileLock.withLock(filePath, async () => {
-            await appendTranslationToFile(
-                filePath,
-                key,
-                value,
-                this.fileFormat,
-                options?.parentKey
-            );
+            await appendTranslationToFile(filePath, key, value, options?.parentKey);
         });
     }
 
@@ -57,12 +46,7 @@ export class FileStorageAdapter implements StorageAdapter {
         const entriesWithPaths = await Promise.all(
             entries.map(async (entry) => ({
                 ...entry,
-                filePath: await getLocaleFilePath(
-                    this.localesPath,
-                    entry.locale,
-                    entry.namespace,
-                    this.fileFormat
-                ),
+                filePath: await getLocaleFilePath(this.localesPath, entry.locale, entry.namespace, this.fileFormat),
             }))
         );
 
@@ -81,9 +65,7 @@ export class FileStorageAdapter implements StorageAdapter {
                 const data = await readLocaleFile(filePath);
 
                 for (const entry of fileEntries) {
-                    const fullKey = entry.parentKey
-                        ? `${entry.parentKey}.${entry.key}`
-                        : entry.key;
+                    const fullKey = entry.parentKey ? `${entry.parentKey}.${entry.key}` : entry.key;
                     setNestedValue(data, fullKey, entry.value);
                 }
 

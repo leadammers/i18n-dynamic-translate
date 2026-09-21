@@ -8,9 +8,9 @@ vi.mock('@/utils/fileHandler', async (importOriginal) => {
     return {
         ...actual,
         getLocaleFilePath: vi.fn().mockResolvedValue('/locales/de/translation.json'),
-        appendTranslationToFile: vi.fn().mockResolvedValue({ success: true }),
+        appendTranslationToFile: vi.fn().mockResolvedValue(undefined),
         readLocaleFile: vi.fn().mockResolvedValue({}),
-        writeLocaleFile: vi.fn().mockResolvedValue({ success: true }),
+        writeLocaleFile: vi.fn().mockResolvedValue(undefined),
     };
 });
 
@@ -28,11 +28,12 @@ describe('FileStorageAdapter', () => {
         it('should resolve file path and append translation', async () => {
             await adapter.save('de', 'hello', 'Hallo', { namespace: 'translation' });
 
-            expect(fileHandler.getLocaleFilePath).toHaveBeenCalledWith(
-                '/locales', 'de', 'translation', undefined
-            );
+            expect(fileHandler.getLocaleFilePath).toHaveBeenCalledWith('/locales', 'de', 'translation', undefined);
             expect(fileHandler.appendTranslationToFile).toHaveBeenCalledWith(
-                '/locales/de/translation.json', 'hello', 'Hallo', undefined, undefined
+                '/locales/de/translation.json',
+                'hello',
+                'Hallo',
+                undefined
             );
         });
 
@@ -43,7 +44,10 @@ describe('FileStorageAdapter', () => {
             });
 
             expect(fileHandler.appendTranslationToFile).toHaveBeenCalledWith(
-                '/locales/de/translation.json', 'category', 'Kategorie', undefined, 'product.meta'
+                '/locales/de/translation.json',
+                'category',
+                'Kategorie',
+                'product.meta'
             );
         });
 
@@ -55,27 +59,19 @@ describe('FileStorageAdapter', () => {
 
             await yamlAdapter.save('de', 'hello', 'Hallo');
 
-            expect(fileHandler.getLocaleFilePath).toHaveBeenCalledWith(
-                '/locales', 'de', undefined, FileFormat.YAML
-            );
+            expect(fileHandler.getLocaleFilePath).toHaveBeenCalledWith('/locales', 'de', undefined, FileFormat.YAML);
         });
 
         it('should serialize concurrent writes to the same file', async () => {
             const callOrder: string[] = [];
 
-            vi.mocked(fileHandler.appendTranslationToFile).mockImplementation(
-                async (_path, key) => {
-                    callOrder.push(`start:${key}`);
-                    await new Promise((r) => setTimeout(r, 10));
-                    callOrder.push(`end:${key}`);
-                    return { success: true };
-                }
-            );
+            vi.mocked(fileHandler.appendTranslationToFile).mockImplementation(async (_path: string, key: string) => {
+                callOrder.push(`start:${key}`);
+                await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, 10));
+                callOrder.push(`end:${key}`);
+            });
 
-            await Promise.all([
-                adapter.save('de', 'a', 'A'),
-                adapter.save('de', 'b', 'B'),
-            ]);
+            await Promise.all([adapter.save('de', 'a', 'A'), adapter.save('de', 'b', 'B')]);
 
             // With file lock, writes should be serialized (not interleaved)
             expect(callOrder).toEqual(['start:a', 'end:a', 'start:b', 'end:b']);
