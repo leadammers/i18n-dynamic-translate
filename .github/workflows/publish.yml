@@ -56,6 +56,12 @@ jobs:
       - name: Verify no path aliases in dist
         run: "! grep -r 'require(\"@/' dist/"
 
+      # The same packaging checks CI runs on every pull request. They belong here
+      # too: a broken `exports` map or a mismatched `types` entry is only visible
+      # once the tarball is assembled, and this is the last point before npm.
+      - name: Check the published package resolves for every consumer shape
+        run: npm run compat:package
+
       # Guards against tagging v1.2.3 while package.json still says 1.2.2.
       - name: Verify package version matches release tag
         run: |
