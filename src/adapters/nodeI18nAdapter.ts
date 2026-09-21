@@ -5,6 +5,7 @@
 
 import { BackendAdapter, MissingKeyCallback, AutoTranslateConfig, LocaleData } from '@/types';
 import { BackendError } from '@/utils/errors';
+import { setNestedValue } from '@/utils/fileHandler';
 
 // Type for node-i18n instance (minimal interface)
 interface NodeI18nInstance {
@@ -129,9 +130,9 @@ export class NodeI18nAdapter implements BackendAdapter {
             if (this.config?.objectNotation) {
                 const keys = key.split('.');
                 let current: LocaleData | string | undefined = catalog;
-                for (const k of keys) {
-                    if (current && typeof current === 'object' && k in current) {
-                        current = current[k];
+                for (const segment of keys) {
+                    if (current && typeof current === 'object' && segment in current) {
+                        current = current[segment];
                     } else {
                         return null;
                     }
@@ -166,22 +167,10 @@ export class NodeI18nAdapter implements BackendAdapter {
             const catalogForLocale: LocaleData = this.i18n.catalog[locale] ?? {};
             this.i18n.catalog[locale] = catalogForLocale;
 
-            // If objectNotation is enabled, set nested value
+            // A catalog under `objectNotation` nests exactly like a locale file,
+            // down to the null-branch case, so it is written by the same function.
             if (this.config?.objectNotation) {
-                const keys = key.split('.');
-                // `split` never returns an empty array, so the leaf key always exists.
-                const leafKey = keys.pop() ?? key;
-                let current: LocaleData = catalogForLocale;
-                for (const segment of keys) {
-                    // `typeof null === 'object'`, so null has to be excluded explicitly
-                    // or the property write below throws.
-                    const branch = current[segment];
-                    if (typeof branch !== 'object' || branch === null) {
-                        current[segment] = {};
-                    }
-                    current = current[segment] as LocaleData;
-                }
-                current[leafKey] = value;
+                setNestedValue(catalogForLocale, key, value);
             } else {
                 // Flat key
                 catalogForLocale[key] = value;
