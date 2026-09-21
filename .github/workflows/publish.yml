@@ -1,9 +1,10 @@
 name: Publish
 
+# Release-triggered only. A workflow_dispatch run carries no tag, so it would
+# skip the version/tag check below and could publish arbitrary branch content.
 on:
   release:
     types: [published]
-  workflow_dispatch:
 
 # Least privilege by default; the publish job elevates id-token for provenance.
 permissions:
@@ -57,7 +58,6 @@ jobs:
 
       # Guards against tagging v1.2.3 while package.json still says 1.2.2.
       - name: Verify package version matches release tag
-        if: github.event_name == 'release'
         run: |
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
           TAG_VERSION="${GITHUB_REF_NAME#v}"

@@ -291,7 +291,9 @@ describe('FileHandler', () => {
         it('should work with YAML files', async () => {
             const filePath = path.join(TEST_DIR, 'test.yaml');
 
-            await appendTranslationToFile(filePath, 'greeting', 'Hello', FileFormat.YAML);
+            // No format argument: the .yaml extension already selects the format,
+            // and a fourth argument here would nest the value under a parent key.
+            await appendTranslationToFile(filePath, 'greeting', 'Hello');
 
             const content = await fs.readFile(filePath, 'utf-8');
             expect(content).toContain('greeting: Hello');

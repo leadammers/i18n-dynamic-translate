@@ -152,7 +152,10 @@ export class AutoTranslate {
      * namespace's translation to another.
      */
     private cacheKeyFor(key: string, namespace?: string, parentKey?: string): string {
-        return `${namespace ?? ''}|${parentKey ?? ''}|${key}`;
+        // JSON rather than a delimiter join: every component is consumer-supplied,
+        // so a separator character can occur inside one. Namespace `a|b` + parent
+        // `c` and namespace `a` + parent `b|c` would otherwise share a cache key.
+        return JSON.stringify([namespace ?? '', parentKey ?? '', key]);
     }
 
     /**
@@ -402,13 +405,15 @@ export class AutoTranslate {
 
                 await Promise.all(updatePromises);
             } catch (error: unknown) {
-                // Reject all pending keys for this locale
+                // Reject all pending keys for this locale. Reporting stops here on
+                // purpose: each rejection travels back through the caller's own
+                // `.catch(reportError)`, so reporting the batch as well would hand
+                // the consumer the same failure once per key plus once combined.
                 for (const pending of keys) {
                     for (const callback of pending.callbacks) {
                         callback.reject(error as Error);
                     }
                 }
-                this.reportError(error as Error, keys.map((pending: PendingKey) => pending.key).join(', '), locale);
             } finally {
                 this.semaphore.release();
             }
@@ -418,13 +423,22 @@ export class AutoTranslate {
     }
 
     /**
-     * Guard against a provider returning fewer translations than were requested.
-     * Without this the missing entries would be persisted as `undefined`.
+     * Guard against a provider returning a batch that does not line up with the
+     * request. Both shapes below would otherwise be persisted as `undefined`:
+     * too few entries, or the right count with a malformed entry inside it (a
+     * DeepL response of `{ translations: [{}] }` maps to `[undefined]`).
      */
     private assertCompleteBatch(translations: string[], expected: number): void {
         if (translations.length !== expected) {
             throw new TranslationError(
                 `Translation provider returned ${translations.length} translations for ${expected} requested texts`
+            );
+        }
+
+        const invalidIndex = translations.findIndex((translation: string) => typeof translation !== 'string');
+        if (invalidIndex !== -1) {
+            throw new TranslationError(
+                `Translation provider returned a non-string translation at index ${invalidIndex}`
             );
         }
     }

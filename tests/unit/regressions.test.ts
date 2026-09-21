@@ -276,8 +276,65 @@ describe('review regressions', () => {
         });
     });
 
+    describe('P-1 malformed batch entry', () => {
+        it('rejects instead of persisting undefined when an entry is not a string', async () => {
+            // Shape of a DeepL response like { translations: [{}] }: the count is
+            // right, so a length-only guard lets it straight through.
+            translateBatch.mockImplementationOnce(() => Promise.resolve([undefined as unknown as string]));
+            const i18next = createMockI18next();
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            await expect(instance.translateObject({ one: 'a' }, 'de')).rejects.toThrow(
+                /non-string translation at index 0/
+            );
+
+            const wroteUndefined = i18next.addResource.mock.calls.some((call: unknown[]) => call[3] === undefined);
+            expect(wroteUndefined).toBe(false);
+            await instance.dispose();
+        });
+    });
+
+    describe('P-2 cache key injectivity', () => {
+        it('does not conflate component values containing the separator', async () => {
+            const instance = new AutoTranslate(createConfig(createMockI18next()));
+
+            await instance.translateKey('title', 'de', { namespace: 'a|b', parentKey: 'c' });
+            await instance.translateKey('title', 'de', { namespace: 'a', parentKey: 'b|c' });
+
+            expect(translate).toHaveBeenCalledTimes(2);
+            await instance.dispose();
+        });
+
+        it('still serves a genuine repeat lookup from the cache', async () => {
+            const instance = new AutoTranslate(createConfig(createMockI18next()));
+
+            await instance.translateKey('title', 'de', { namespace: 'a|b', parentKey: 'c' });
+            await instance.translateKey('title', 'de', { namespace: 'a|b', parentKey: 'c' });
+
+            expect(translate).toHaveBeenCalledTimes(1);
+            await instance.dispose();
+        });
+    });
+
+    describe('P-3 batch failure reporting', () => {
+        it('reports a failed batch once per key, not once per key plus once combined', async () => {
+            translateBatch.mockImplementationOnce(() => Promise.reject(new Error('provider down')));
+            const onError = vi.fn();
+            const i18next = createMockI18next();
+            const instance = new AutoTranslate(createConfig(i18next, { onError }));
+
+            i18next.options.missingKeyHandler?.(['de'], 'translation', 'alpha', '');
+            i18next.options.missingKeyHandler?.(['de'], 'translation', 'beta', '');
+            await instance.waitForPendingTranslations(2000);
+
+            const reportedKeys = onError.mock.calls.map((call: unknown[]) => call[1] as string).sort();
+            expect(reportedKeys).toEqual(['alpha', 'beta']);
+            await instance.dispose();
+        });
+    });
+
     describe('C-10 getConfig', () => {
-        it('returns a copy whose nested provider options cannot mutate the instance', () => {
+        it('returns a copy whose nested provider options cannot mutate the instance', async () => {
             const instance = new AutoTranslate(createConfig(createMockI18next(), { allowedNamespaces: ['products'] }));
 
             const config = instance.getConfig();
@@ -286,6 +343,7 @@ describe('review regressions', () => {
 
             expect(instance.getConfig().translationProvider.apiKey).toBe('test-key:fx');
             expect(instance.getConfig().allowedNamespaces).toEqual(['products']);
+            await instance.dispose();
         });
     });
 });
