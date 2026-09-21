@@ -31,6 +31,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `onError` hook instead of going straight to `console.error`.
 - `FileLock` no longer grows its internal map without bound; locks are released once the
   last holder is done.
+- Cache keys are now built with JSON encoding rather than a `|` join. Every component is
+  consumer-supplied, so a namespace containing the separator could collide with a different
+  namespace and parent-key pair.
+- A provider returning the requested number of translations but a malformed entry among them
+  (a DeepL response of `{ translations: [{}] }`) now raises a `TranslationError` instead of
+  persisting `undefined`.
+- A failed batch is reported to `onError` once per affected key. It was previously reported
+  once per key *and* once more for the batch as a whole.
+- `keyToText` now always receives the last key segment, as documented. The missing-key path
+  passed the full dotted path while the explicit APIs passed the bare key.
+- The default key-to-text conversion splits digit boundaries, so `order2Status` yields
+  `Order 2 Status` instead of `Order2status`.
+- The publish workflow no longer offers a `workflow_dispatch` trigger. A manual run carries no
+  tag, which skipped the version/tag check and could publish arbitrary branch content.
+
+### Added
+
+- `cache` configuration option, accepting any `TranslationCache` implementation. The exported
+  interface was previously unusable: only the built-in in-memory cache could be selected.
+  Supplying one enables caching irrespective of `enableCache`.
 
 ### Changed
 

@@ -30,15 +30,15 @@ as a dedicated branch.
 ## API Design
 
 ### Improve convertKeyToText robustness
-`convertKeyToText` splits camelCase keys into words and capitalizes them. This works for
-simple cases (`"shippingTime"` → `"Shipping Time"`) but produces bad results for
-abbreviations (`"apiURL"` → `"Api U R L"`), acronyms, or keys that are already
-human-readable sentences.
+Corrected on 2026-09-21: two of the three items here were already done, and the example was
+wrong. A custom key-to-text function is supported through `keyToText`, and acronyms are kept
+grouped — `"apiURL"` yields `"Api URL"`, not `"Api U R L"`. Digit boundaries were fixed in the
+same pass (`"order2Status"` → `"Order 2 Status"`).
 
-Consider:
-- Allowing consumers to provide a custom key-to-text function
-- Better heuristic for consecutive uppercase letters (keep them grouped)
-- Passing through keys that already contain spaces
+What is still open, both minor:
+- Keys that are already human-readable sentences get title-cased (`"already has spaces"` →
+  `"Already Has Spaces"`). Passing them through untouched would be friendlier.
+- A leading lowercase letter before an acronym splits badly (`"iOSDevice"` → `"I OS Device"`).
 
 ## Testing
 
