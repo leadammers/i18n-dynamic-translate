@@ -3,7 +3,7 @@
 | Layer | Choice |
 |---|---|
 | Framework | none — standalone library, zero runtime dependencies |
-| Lang | TypeScript 6, `strict` + `noUnusedLocals` + `noUnusedParameters` + `noImplicitOverride` + `noFallthroughCasesInSwitch` |
+| Lang | TypeScript 7, `strict` + `noUnusedLocals` + `noUnusedParameters` + `noImplicitOverride` + `noFallthroughCasesInSwitch` + `noUncheckedIndexedAccess` |
 | Styling | n/a |
 | State | plain classes; no state container |
 | Tests | Vitest 4 |
