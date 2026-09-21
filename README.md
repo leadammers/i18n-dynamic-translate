@@ -29,7 +29,7 @@ directly to your locale files.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20.19+
 - An i18next or node-i18n instance already configured
 - DeepL API key (free tier available at [deepl.com](https://www.deepl.com/pro-api)) or a self-hosted LibreTranslate
   instance
