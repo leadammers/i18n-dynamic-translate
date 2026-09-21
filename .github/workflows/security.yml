@@ -61,6 +61,11 @@ jobs:
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
+    # Code scanning on a private repository requires GitHub Code Security, so the
+    # SARIF upload is rejected and the job fails however well the scan itself runs.
+    # Skipping while private keeps the check honest; it starts running by itself
+    # once the repository is made public, with no change needed here.
+    if: github.event.repository.visibility == 'public'
     permissions:
       contents: read
       actions: read
