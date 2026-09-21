@@ -54,7 +54,7 @@ export class DeepLService implements TranslationService {
      * Check if the service is available
      */
     isAvailable(): boolean {
-        return !!this.apiKey;
+        return Boolean(this.apiKey);
     }
 
     /**

@@ -54,13 +54,17 @@ export class NodeI18nAdapter implements BackendAdapter {
     private setupMissingKeyHandler(): void {
         if (!this.i18n) return;
 
+        // Captured after the guard: the closures below outlive the narrowing, so without a
+        // local they would each need a non-null assertion.
+        const i18n = this.i18n;
+
         // Store original __ method
-        this.original__ = this.i18n.__.bind(this.i18n);
+        this.original__ = i18n.__.bind(i18n);
 
         // Override __ method to detect missing keys
         const original__ = this.original__;
-        this.i18n.__ = (phrase: string, ...args: unknown[]) => {
-            const locale = this.i18n!.getLocale();
+        i18n.__ = (phrase: string, ...args: unknown[]) => {
+            const locale = i18n.getLocale();
             const translation = original__(phrase, ...args);
 
             // node-i18n returns the phrase itself when a translation is not found.
@@ -77,10 +81,10 @@ export class NodeI18nAdapter implements BackendAdapter {
         };
 
         // Also override __n for plural forms
-        this.original__n = this.i18n.__n.bind(this.i18n);
+        this.original__n = i18n.__n.bind(i18n);
         const original__n = this.original__n;
-        this.i18n.__n = (singular: string, plural: string, count: number, ...args: unknown[]) => {
-            const locale = this.i18n!.getLocale();
+        i18n.__n = (singular: string, plural: string, count: number, ...args: unknown[]) => {
+            const locale = i18n.getLocale();
             const translation = original__n(singular, plural, count, ...args);
 
             // Check if translation is missing
