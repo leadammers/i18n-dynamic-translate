@@ -326,6 +326,39 @@ const autoTranslate = new AutoTranslate({
 });
 ```
 
+### Custom Cache
+
+The built-in cache is in-memory and per-process. Supply a `TranslationCache` to share
+translations across instances or survive a restart — supplying one enables caching regardless of
+`enableCache`:
+
+```typescript
+import { AutoTranslate, TranslationCache, TranslationIdentity } from 'i18n-dynamic-translate';
+
+// Every field of the identity changes the translation, so all of them belong in the
+// storage key. Encode rather than join: a namespace or context may contain your separator.
+const storageKey = (identity: TranslationIdentity): string =>
+    JSON.stringify([identity.locale, identity.namespace ?? '', identity.key, identity.context ?? null]);
+
+const redisCache: TranslationCache = {
+    get: (identity) => redis.get(storageKey(identity)),
+    set: (identity, value) => redis.set(storageKey(identity), value, 'EX', 86400),
+    has: (identity) => redis.exists(storageKey(identity)),
+    clear: () => redis.flushdb(),
+    // Optional — without it, getCacheStats() reports null
+    getStats: () => ({ size: redis.dbsize() }),
+};
+
+const autoTranslate = new AutoTranslate({
+    // ...
+    cache: redisCache,
+});
+```
+
+`identity.key` is the full dot path the translation occupies (`meta.name`, with any `parentKey`
+already folded in), so it matches what the backend and the locale file use. That makes
+namespace-scoped invalidation straightforward.
+
 ## API
 
 ### `translateObject(obj, targetLocale, options?)`
@@ -385,17 +418,13 @@ autoTranslate.clearCache();
 
 ### `getCacheStats()`
 
-Returns the number of cached entries and their internal keys.
+Returns the number of cached entries, or `null` when caching is off — or when a custom cache
+does not implement the optional `getStats()`.
 
 ```typescript
 const stats = autoTranslate.getCacheStats();
-// { size: 42, keys: ['["de","[\\"products\\",\\"\\",\\"title\\"]",null]', ...] }
+// { size: 42 }
 ```
-
-Each key is an opaque encoding of locale, namespace, parent key and key — the identity is
-composed twice, once by the orchestrator and once by the cache itself. Treat `keys` as a
-debugging aid: the encoding is not part of the API contract and may change in a minor
-release. `size` is the stable half.
 
 ### `getConfig()`
 

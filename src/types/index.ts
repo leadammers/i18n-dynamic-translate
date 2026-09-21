@@ -179,16 +179,58 @@ export interface CacheEntry {
 }
 
 /**
- * Translation cache interface
+ * Everything that identifies one translation.
+ *
+ * Two lookups with equal identities address the same slot in the backend and
+ * in the locale file, and must therefore share a cache entry; two lookups that
+ * differ in any field must not. A cache implementation is free to compose its
+ * own storage key from these fields — but it has to include all of them, and a
+ * delimiter join is not enough, since every field is consumer-supplied and can
+ * contain the separator.
+ */
+export interface TranslationIdentity {
+    /**
+     * Full dot path of the translation inside its namespace, with any
+     * `parentKey` already folded in — `product.meta.name`, not `name`. This is
+     * the path the backend and the locale file use.
+     */
+    key: string;
+
+    /** Target locale, as the backend spells it. */
+    locale: string;
+
+    /** Backend namespace, where the backend has namespaces. */
+    namespace?: string;
+
+    /** Provider context hint. DeepL only; changes the translation, so it is part of the identity. */
+    context?: string;
+}
+
+/**
+ * Cache statistics.
+ */
+export interface CacheStats {
+    /** Number of entries currently held. */
+    size: number;
+}
+
+/**
+ * Translation cache interface.
+ *
+ * Implement it to back the `cache` config option with Redis, SQLite or
+ * anything else. `getStats()` is optional: without it
+ * `AutoTranslate.getCacheStats()` reports `null`.
  */
 export interface TranslationCache {
-    get(key: string, locale: string, context?: string): string | null;
+    get(identity: TranslationIdentity): string | null;
 
-    set(key: string, locale: string, value: string, context?: string): void;
+    set(identity: TranslationIdentity, value: string): void;
+
+    has(identity: TranslationIdentity): boolean;
 
     clear(): void;
 
-    has(key: string, locale: string, context?: string): boolean;
+    getStats?(): CacheStats;
 }
 
 /**

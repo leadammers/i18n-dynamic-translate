@@ -21,6 +21,8 @@ export {
     TranslationService,
     MissingKeyCallback,
     TranslationCache,
+    TranslationIdentity,
+    CacheStats,
     CacheEntry,
     LocaleData,
     StorageAdapter,

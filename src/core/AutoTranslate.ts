@@ -3,7 +3,15 @@
  * Main orchestrator for automatic translation functionality
  */
 
-import { AutoTranslateConfig, BackendAdapter, StorageAdapter, TranslationCache, TranslationService } from '@/types';
+import {
+    AutoTranslateConfig,
+    BackendAdapter,
+    CacheStats,
+    StorageAdapter,
+    TranslationCache,
+    TranslationIdentity,
+    TranslationService,
+} from '@/types';
 import { createBackendAdapter } from '@/adapters';
 import { createTranslationService } from '@/translators';
 import { MemoryCache } from '@/utils/cache';
@@ -149,23 +157,21 @@ export class AutoTranslate {
     }
 
     /**
-     * Build the cache identity for a translation.
+     * The identity a translation is cached under.
      *
-     * `namespace` and `parentKey` are part of the identity: the same trailing
-     * key can carry completely different meanings under different namespaces
-     * (`products.title` vs `legal.title`), and conflating them would serve one
-     * namespace's translation to another.
+     * Built from the slot the translation occupies, not from the arguments
+     * that addressed it: `parentKey` is a dot path, so parent `product.meta`
+     * with key `name` and parent `product` with key `meta.name` are one entry
+     * in the backend and in the locale file, and must be one cache entry too.
      */
-    private cacheKeyFor(key: string, namespace?: string, parentKey?: string): string {
-        // Keyed on the slot the translation actually occupies, not on the
-        // arguments that addressed it: `parentKey` is a dot path, so parent
-        // `product.meta` + key `name` and parent `product` + key `meta.name`
-        // are the same entry in the backend and in the locale file, and must
-        // not become two cache entries that then disagree.
-        //
-        // JSON rather than a delimiter join: both components are
-        // consumer-supplied, so a separator character can occur inside one.
-        return JSON.stringify([namespace ?? '', this.targetKeyFor(key, parentKey)]);
+    private identityFor(
+        key: string,
+        locale: string,
+        namespace?: string,
+        parentKey?: string,
+        context?: string
+    ): TranslationIdentity {
+        return { key: this.targetKeyFor(key, parentKey), locale, namespace, context };
     }
 
     /**
@@ -267,11 +273,11 @@ export class AutoTranslate {
      * Keys are collected for a short debounce period then translated together
      */
     private async processMissingKey(key: string, locale: string, namespace?: string): Promise<void> {
-        const cacheKey = this.cacheKeyFor(key, namespace);
+        const identity = this.identityFor(key, locale, namespace);
 
         // Check cache first
-        if (this.cache && this.cache.has(cacheKey, locale)) {
-            const cachedTranslation = this.cache.get(cacheKey, locale);
+        if (this.cache && this.cache.has(identity)) {
+            const cachedTranslation = this.cache.get(identity);
             if (cachedTranslation) {
                 await this.updateTranslation(key, locale, cachedTranslation, namespace);
                 return;
@@ -420,8 +426,7 @@ export class AutoTranslate {
 
                         if (this.cache) {
                             this.cache.set(
-                                this.cacheKeyFor(pending.key, pending.namespace),
-                                pending.locale,
+                                this.identityFor(pending.key, pending.locale, pending.namespace),
                                 translation
                             );
                         }
@@ -535,11 +540,11 @@ export class AutoTranslate {
         }
 
         const { namespace, parentKey, context } = options || {};
-        const cacheKey = this.cacheKeyFor(key, namespace, parentKey);
+        const identity = this.identityFor(key, targetLocale, namespace, parentKey, context);
 
         // Check cache first
-        if (this.cache?.has(cacheKey, targetLocale, context)) {
-            const cached = this.cache.get(cacheKey, targetLocale, context);
+        if (this.cache?.has(identity)) {
+            const cached = this.cache.get(identity);
             if (cached) return cached;
         }
 
@@ -568,7 +573,7 @@ export class AutoTranslate {
         // Update and cache
         await this.updateTranslation(key, targetLocale, translation, namespace, parentKey);
         if (this.cache) {
-            this.cache.set(cacheKey, targetLocale, translation, context);
+            this.cache.set(identity, translation);
         }
 
         return translation;
@@ -616,11 +621,11 @@ export class AutoTranslate {
         const pendingTranslations: Array<{ key: string; sourceText: string }> = [];
 
         for (const key of this.collectLeafKeys(obj)) {
-            const cacheKey = this.cacheKeyFor(key, namespace, parentKey);
+            const identity = this.identityFor(key, targetLocale, namespace, parentKey, context);
 
             // Check cache first
-            if (this.cache?.has(cacheKey, targetLocale, context)) {
-                const cached = this.cache.get(cacheKey, targetLocale, context);
+            if (this.cache?.has(identity)) {
+                const cached = this.cache.get(identity);
                 if (cached) {
                     translations[key] = cached;
                     continue;
@@ -665,7 +670,7 @@ export class AutoTranslate {
             translations[key] = translatedValue;
 
             if (this.cache) {
-                this.cache.set(this.cacheKeyFor(key, namespace, parentKey), targetLocale, translatedValue, context);
+                this.cache.set(this.identityFor(key, targetLocale, namespace, parentKey, context), translatedValue);
             }
 
             const targetKey = this.targetKeyFor(key, parentKey);
@@ -733,11 +738,8 @@ export class AutoTranslate {
     /**
      * Get cache statistics
      */
-    getCacheStats(): { size: number; keys: string[] } | null {
-        if (this.memoryCache) {
-            return this.memoryCache.getStats();
-        }
-        return null;
+    getCacheStats(): CacheStats | null {
+        return this.cache?.getStats?.() ?? null;
     }
 
     /**

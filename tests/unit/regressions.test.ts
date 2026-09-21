@@ -353,30 +353,40 @@ describe('review regressions', () => {
         it('keeps an entry with a context distinct from one whose key absorbs it', () => {
             const cache = new MemoryCache();
 
-            cache.set('title', 'de', 'Titel', 'formal');
+            cache.set({ key: 'title', locale: 'de', context: 'formal' }, 'Titel');
 
-            expect(cache.get('title:formal', 'de')).toBeNull();
-            expect(cache.has('title:formal', 'de')).toBe(false);
+            expect(cache.get({ key: 'title:formal', locale: 'de' })).toBeNull();
+            expect(cache.has({ key: 'title:formal', locale: 'de' })).toBe(false);
             cache.dispose();
         });
 
         it('keeps entries distinct across the locale boundary', () => {
             const cache = new MemoryCache();
 
-            cache.set('name', 'de:products', 'Name');
+            cache.set({ key: 'name', locale: 'de:products' }, 'Name');
 
-            expect(cache.get('products:name', 'de')).toBeNull();
-            expect(cache.has('products:name', 'de')).toBe(false);
+            expect(cache.get({ key: 'products:name', locale: 'de' })).toBeNull();
+            expect(cache.has({ key: 'products:name', locale: 'de' })).toBe(false);
+            cache.dispose();
+        });
+
+        it('keeps entries distinct across the namespace boundary', () => {
+            const cache = new MemoryCache();
+
+            cache.set({ key: 'title', locale: 'de', namespace: 'products' }, 'Produkttitel');
+
+            expect(cache.get({ key: 'title', locale: 'de', namespace: 'legal' })).toBeNull();
+            expect(cache.get({ key: 'products:title', locale: 'de' })).toBeNull();
             cache.dispose();
         });
 
         it('still serves a genuine repeat lookup from the cache', () => {
             const cache = new MemoryCache();
 
-            cache.set('title', 'de', 'Titel', 'formal');
+            cache.set({ key: 'title', locale: 'de', context: 'formal' }, 'Titel');
 
-            expect(cache.get('title', 'de', 'formal')).toBe('Titel');
-            expect(cache.get('title', 'de')).toBeNull();
+            expect(cache.get({ key: 'title', locale: 'de', context: 'formal' })).toBe('Titel');
+            expect(cache.get({ key: 'title', locale: 'de' })).toBeNull();
             cache.dispose();
         });
     });
