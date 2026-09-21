@@ -385,11 +385,12 @@ autoTranslate.clearCache();
 
 ### `getCacheStats()`
 
-Returns cache statistics (size and keys).
+Returns cache statistics (size and keys). The keys are diagnostic strings — an internal
+encoding of the locale, key and context — not an addressable identifier.
 
 ```typescript
 const stats = autoTranslate.getCacheStats();
-// { size: 42, keys: ['de:hello', 'fr:hello', ...] }
+// { size: 42, keys: ['["de","hello",null]', '["fr","hello",null]', ...] }
 ```
 
 ### `getConfig()`

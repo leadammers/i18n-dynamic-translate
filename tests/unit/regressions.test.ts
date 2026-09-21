@@ -346,4 +346,36 @@ describe('review regressions', () => {
             await instance.dispose();
         });
     });
+
+    describe('P-4 MemoryCache key injectivity', () => {
+        it('keeps an entry with a context distinct from one whose key absorbs it', () => {
+            const cache = new MemoryCache();
+
+            cache.set('title', 'de', 'Titel', 'formal');
+
+            expect(cache.get('title:formal', 'de')).toBeNull();
+            expect(cache.has('title:formal', 'de')).toBe(false);
+            cache.dispose();
+        });
+
+        it('keeps entries distinct across the locale boundary', () => {
+            const cache = new MemoryCache();
+
+            cache.set('name', 'de:products', 'Name');
+
+            expect(cache.get('products:name', 'de')).toBeNull();
+            expect(cache.has('products:name', 'de')).toBe(false);
+            cache.dispose();
+        });
+
+        it('still serves a genuine repeat lookup from the cache', () => {
+            const cache = new MemoryCache();
+
+            cache.set('title', 'de', 'Titel', 'formal');
+
+            expect(cache.get('title', 'de', 'formal')).toBe('Titel');
+            expect(cache.get('title', 'de')).toBeNull();
+            cache.dispose();
+        });
+    });
 });

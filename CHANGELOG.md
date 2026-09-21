@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   passed the full dotted path while the explicit APIs passed the bare key.
 - The default key-to-text conversion splits digit boundaries, so `order2Status` yields
   `Order 2 Status` instead of `Order2status`.
+- `MemoryCache` composes its key from locale, key and context with the same JSON encoding, so
+  the injectivity guarantee holds for the built-in cache too. A context of `formal` on key
+  `title` previously shared an entry with the context-free key `title:formal`.
 - The publish workflow no longer offers a `workflow_dispatch` trigger. A manual run carries no
   tag, which skipped the version/tag check and could publish arbitrary branch content.
 
