@@ -85,8 +85,13 @@ export class DeepLService implements TranslationService {
                 timeout: REQUEST_TIMEOUT_MS,
             });
 
-            if (response.data && response.data.translations && response.data.translations[0]) {
-                return response.data.translations[0].text;
+            // The entry itself being present is not enough: DeepL can answer with
+            // `{ translations: [{}] }`, and returning `.text` off that hands the
+            // caller `undefined` typed as `string`, which then reaches the cache,
+            // the backend and the locale file.
+            const translation = response.data?.translations?.[0]?.text;
+            if (typeof translation === 'string') {
+                return translation;
             }
 
             throw new TranslationError('Invalid response from DeepL API', 'deepl');

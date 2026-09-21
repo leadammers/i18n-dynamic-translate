@@ -8,6 +8,8 @@ import { AutoTranslate } from '@/core/AutoTranslate';
 import { Backend, StorageAdapter, TranslationProvider } from '@/types';
 import { MemoryCache } from '@/utils/cache';
 import { LibreTranslateService } from '@/translators/libreTranslate';
+import { DeepLService } from '@/translators/deepl';
+import { TranslationError } from '@/utils/errors';
 import { http } from '@/utils/http';
 
 const translateBatch = vi.fn((texts: string[]) => Promise.resolve(texts.map((text: string) => `X(${text})`)));
@@ -405,4 +407,16 @@ describe('review regressions', () => {
             await instance.dispose();
         });
     });
+
+    describe('P-6 malformed single translation', () => {
+        it('rejects a DeepL response whose only entry carries no text', async () => {
+            // Same shape P-1 guards on the batch path: { translations: [{}] }. The
+            // single-text path checked the entry object, not its `text` field.
+            vi.spyOn(http, 'post').mockResolvedValue({ data: { translations: [{}] }, status: 200 });
+            const service = new DeepLService({ provider: TranslationProvider.DEEPL, apiKey: 'test-key:fx' });
+
+            await expect(service.translate('Title', 'en', 'de')).rejects.toThrow(TranslationError);
+        });
+    });
+
 });
