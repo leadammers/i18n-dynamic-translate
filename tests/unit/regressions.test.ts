@@ -495,5 +495,18 @@ describe('review regressions', () => {
             expect(translateBatch.mock.calls[0]?.[0]).toEqual(['Welcome Message']);
             await instance.dispose();
         });
+
+        it('sends one provider request for an explicit translateKey', async () => {
+            const i18next = createReportingMockI18next();
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            const translated = await instance.translateKey('welcomeMessage', 'de');
+            await instance.waitForPendingTranslations(2000);
+
+            expect(translated).toBe('X(Welcome Message)');
+            expect(translate).toHaveBeenCalledTimes(1);
+            expect(translateBatch).not.toHaveBeenCalled();
+            await instance.dispose();
+        });
     });
 });

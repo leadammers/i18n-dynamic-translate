@@ -49,6 +49,7 @@ export class AutoTranslate {
     private cache?: TranslationCache;
     private memoryCache?: MemoryCache;
     private processingQueue: Map<string, Promise<void>>;
+    private readingBackend: boolean = false;
     private semaphore: Semaphore;
     private storageAdapter: StorageAdapter;
     private disposed: boolean = false;
@@ -227,6 +228,11 @@ export class AutoTranslate {
             return;
         }
 
+        // A read this library made itself is not an application's missing key
+        if (this.readingBackend) {
+            return;
+        }
+
         // Skip if same as default language
         if (locale === this.config.defaultLanguage) {
             return;
@@ -299,6 +305,26 @@ export class AutoTranslate {
     }
 
     /**
+     * Read a translation out of the backend without the read counting as a miss.
+     *
+     * A backend reports a failed lookup to its missing-key handler, so every
+     * read this library makes to decide what to do next would arrive back as an
+     * application miss: the source-language read below would queue the key it
+     * was called for, and the existing-translation check in {@link translateKey}
+     * would queue a key the caller is already translating. Neither came from the
+     * application, so neither is reported. `getTranslation` is synchronous,
+     * which is what keeps the flag from spanning anything else.
+     */
+    private readFromBackend(key: string, locale: string, namespace?: string): string | null {
+        this.readingBackend = true;
+        try {
+            return this.adapter.getTranslation(key, locale, namespace);
+        } finally {
+            this.readingBackend = false;
+        }
+    }
+
+    /**
      * Derive the text to send to the translation provider.
      *
      * Preference order: the default language's own translation, then the
@@ -311,7 +337,7 @@ export class AutoTranslate {
      */
     private resolveSourceText(key: string, lookupKey: string, skipBackendLookup: boolean, namespace?: string): string {
         if (!skipBackendLookup) {
-            const fromDefaultLanguage = this.adapter.getTranslation(lookupKey, this.config.defaultLanguage, namespace);
+            const fromDefaultLanguage = this.readFromBackend(lookupKey, this.config.defaultLanguage, namespace);
             if (fromDefaultLanguage) {
                 return fromDefaultLanguage;
             }
@@ -564,7 +590,7 @@ export class AutoTranslate {
         const targetKey = this.targetKeyFor(key, parentKey);
 
         // Check backend
-        const existing = this.adapter.getTranslation(targetKey, targetLocale, namespace);
+        const existing = this.readFromBackend(targetKey, targetLocale, namespace);
         if (existing) return existing;
 
         const sourceText = this.resolveSourceText(
@@ -646,7 +672,7 @@ export class AutoTranslate {
 
             // Check if translation already exists in backend
             const targetKey = this.targetKeyFor(key, parentKey);
-            const existing = this.adapter.getTranslation(targetKey, targetLocale, namespace);
+            const existing = this.readFromBackend(targetKey, targetLocale, namespace);
             if (existing) {
                 translations[key] = existing;
                 continue;
