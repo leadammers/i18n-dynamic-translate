@@ -39,7 +39,7 @@ describe('http.post', () => {
 
     it('should return parsed JSON data and status on success', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-            new Response(JSON.stringify({ result: 'ok' }), { status: 200 }),
+            new Response(JSON.stringify({ result: 'ok' }), { status: 200 })
         );
 
         const response = await http.post('https://api.example.com/data', { key: 'value' });
@@ -48,9 +48,9 @@ describe('http.post', () => {
     });
 
     it('should send correct method, headers, and JSON body', async () => {
-        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-            new Response(JSON.stringify({}), { status: 200 }),
-        );
+        const fetchSpy = vi
+            .spyOn(globalThis, 'fetch')
+            .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
         await http.post('https://api.example.com/data', { foo: 'bar' });
 
@@ -63,13 +63,17 @@ describe('http.post', () => {
     });
 
     it('should merge custom headers with Content-Type', async () => {
-        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-            new Response(JSON.stringify({}), { status: 200 }),
-        );
+        const fetchSpy = vi
+            .spyOn(globalThis, 'fetch')
+            .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
 
-        await http.post('https://api.example.com/data', {}, {
-            headers: { Authorization: 'Bearer token123' },
-        });
+        await http.post(
+            'https://api.example.com/data',
+            {},
+            {
+                headers: { Authorization: 'Bearer token123' },
+            }
+        );
 
         const [, init] = fetchSpy.mock.calls[0];
         const headers = init?.headers as Record<string, string>;
@@ -78,9 +82,7 @@ describe('http.post', () => {
     });
 
     it('should throw HttpError with status code for non-ok response', async () => {
-        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-            new Response('Not Found', { status: 404 }),
-        );
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('Not Found', { status: 404 }));
 
         await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toThrow(HttpError);
         await expect(http.post('https://api.example.com/data', {}, { retries: 0 })).rejects.toMatchObject({
@@ -117,7 +119,8 @@ describe('http.post', () => {
     });
 
     it('should retry on retryable status codes and succeed', async () => {
-        const fetchSpy = vi.spyOn(globalThis, 'fetch')
+        const fetchSpy = vi
+            .spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(new Response('', { status: 429 }))
             .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 
@@ -128,7 +131,8 @@ describe('http.post', () => {
     });
 
     it('should retry on network errors and succeed', async () => {
-        const fetchSpy = vi.spyOn(globalThis, 'fetch')
+        const fetchSpy = vi
+            .spyOn(globalThis, 'fetch')
             .mockRejectedValueOnce(new TypeError('fetch failed'))
             .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 
@@ -139,8 +143,7 @@ describe('http.post', () => {
     });
 
     it('should not retry on non-retryable status codes', async () => {
-        const fetchSpy = vi.spyOn(globalThis, 'fetch')
-            .mockResolvedValue(new Response('Unauthorized', { status: 401 }));
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('Unauthorized', { status: 401 }));
 
         await expect(http.post('https://api.example.com/data', {}, { retries: 2 })).rejects.toMatchObject({
             status: 401,
@@ -150,8 +153,7 @@ describe('http.post', () => {
     });
 
     it('should exhaust retries and throw last error', async () => {
-        const fetchSpy = vi.spyOn(globalThis, 'fetch')
-            .mockResolvedValue(new Response('', { status: 503 }));
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 503 }));
 
         await expect(http.post('https://api.example.com/data', {}, { retries: 2 })).rejects.toMatchObject({
             status: 503,
@@ -161,8 +163,7 @@ describe('http.post', () => {
     });
 
     it('should default to 2 retries', async () => {
-        const fetchSpy = vi.spyOn(globalThis, 'fetch')
-            .mockResolvedValue(new Response('', { status: 500 }));
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 500 }));
 
         await expect(http.post('https://api.example.com/data', {})).rejects.toMatchObject({
             status: 500,

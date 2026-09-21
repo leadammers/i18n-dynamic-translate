@@ -23,14 +23,7 @@ describe('FileLock', () => {
         await Promise.all([task('a', 30), task('b', 10), task('c', 10)]);
 
         // Each task must fully complete before the next starts
-        expect(order).toEqual([
-            'a:start',
-            'a:end',
-            'b:start',
-            'b:end',
-            'c:start',
-            'c:end',
-        ]);
+        expect(order).toEqual(['a:start', 'a:end', 'b:start', 'b:end', 'c:start', 'c:end']);
     });
 
     it('should allow concurrent access to different files', async () => {
@@ -57,7 +50,7 @@ describe('FileLock', () => {
         await expect(
             lock.withLock('file.json', async () => {
                 throw new Error('boom');
-            }),
+            })
         ).rejects.toThrow('boom');
 
         // Lock should be released, so a subsequent call should succeed

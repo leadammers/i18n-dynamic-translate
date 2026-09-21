@@ -120,8 +120,8 @@ describe('MemoryCache', () => {
             cache.set('world', 'de', 'Welt');
 
             const stats = cache.getStats();
-            expect(stats.keys).toContain('en:hello');
-            expect(stats.keys).toContain('de:world');
+            expect(stats.keys).toContain('["en","hello",null]');
+            expect(stats.keys).toContain('["de","world",null]');
         });
     });
 

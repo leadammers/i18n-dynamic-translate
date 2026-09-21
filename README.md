@@ -13,6 +13,33 @@ directly to your locale files.
 > **Note:** This library has currently only been tested with DeepL. LibreTranslate support is implemented but not yet
 > verified in production.
 
+## When to use this
+
+DynamicTranslate fills keys **at runtime**, inside the process serving the request. That is a
+different job from the build-time CLI translators that walk a locale file and fill in what is
+already listed in it — if your keys are known when you build, use one of those instead.
+
+Reach for this when the set of keys cannot be known ahead of time: API metadata, product
+attributes, category trees, anything data-driven.
+
+### Alternatives
+
+- **[locize](https://locize.com)** — the managed service from the i18next authors. It covers the
+  same runtime missing-key flow and adds a translation-management UI, human review and a CDN.
+  Choose it if you want a product. DynamicTranslate is the self-hosted take on the same idea: your
+  own DeepL or LibreTranslate key, your own locale files in your own repository, no subscription
+  and no third party holding your content.
+- **Build-time translation CLIs** — a better fit whenever your keys are static.
+
+### Honest limits
+
+- **Translation is asynchronous.** The request that first encounters a missing key gets the
+  fallback. The translation is written to the locale file and served from the next request on.
+- **Every genuinely new key costs a provider API call.** Cached and persisted keys do not.
+- **Machine translation of short UI fragments is often mediocre** without surrounding context.
+  Use the `context` option and review what lands in your locale files.
+- **Server-side only** — see [Prerequisites](#prerequisites).
+
 ## Features
 
 - 🚀 **Automatic translation** of missing i18n keys
@@ -29,7 +56,10 @@ directly to your locale files.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 22.12+ — **server-side only.** The library holds your provider API key and writes locale
+  files, so it needs a trusted process and a filesystem. It is not usable in a browser, and it is
+  not meant to be: shipping a DeepL key to a client would expose it. Edge runtimes without `node:fs`
+  are unsupported for the same reason.
 - An i18next or node-i18n instance already configured
 - DeepL API key (free tier available at [deepl.com](https://www.deepl.com/pro-api)) or a self-hosted LibreTranslate
   instance
@@ -132,6 +162,11 @@ const autoTranslate = new AutoTranslate({
     // Maximum number of cached entries (default: 1000)
     maxCacheSize: 1000,
 
+    // Custom cache (default: built-in in-memory cache)
+    // Implement the TranslationCache interface for Redis/Memcached/etc.
+    // Supplying one enables caching regardless of enableCache.
+    // cache: new MyRedisCache(),
+
     // Operating mode (default: 'development')
     // 'development' — auto-translate all missing keys
     // 'production' — only auto-translate within allowedNamespaces
@@ -140,7 +175,8 @@ const autoTranslate = new AutoTranslate({
     // Namespaces allowed for auto-translation in production mode
     allowedNamespaces: ['products.metaData', 'api.labels'],
 
-    // Custom key-to-text conversion function (overrides built-in converter)
+    // Custom key-to-text conversion function (overrides built-in converter).
+    // Receives the last key segment, never the full dotted path.
     keyToText: (key) => key.replace(/_/g, ' '),
 
     // Error callback for the automatic missing-key handler (default: console.error)
@@ -349,12 +385,17 @@ autoTranslate.clearCache();
 
 ### `getCacheStats()`
 
-Returns cache statistics (size and keys).
+Returns the number of cached entries and their internal keys.
 
 ```typescript
 const stats = autoTranslate.getCacheStats();
-// { size: 42, keys: ['de:hello', 'fr:hello', ...] }
+// { size: 42, keys: ['["de","[\\"products\\",\\"\\",\\"title\\"]",null]', ...] }
 ```
+
+Each key is an opaque encoding of locale, namespace, parent key and key — the identity is
+composed twice, once by the orchestrator and once by the cache itself. Treat `keys` as a
+debugging aid: the encoding is not part of the API contract and may change in a minor
+release. `size` is the stable half.
 
 ### `getConfig()`
 
@@ -430,6 +471,11 @@ try {
 - [ ] **LibreTranslate verification** - Full testing and validation
 - [ ] **Google Translate support** - Add Google Cloud Translation API integration
 - [ ] **Azure Translator support** - Add Microsoft Azure Translation API integration
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching, commit and review workflow, and
+[AGENTS.md](AGENTS.md) for an architecture overview and the convention index.
 
 ## License
 

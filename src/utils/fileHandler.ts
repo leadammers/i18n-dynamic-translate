@@ -119,27 +119,6 @@ export function setNestedValue(obj: LocaleData, path: string, value: string | Lo
 }
 
 /**
- * Get a nested value from an object using dot notation
- * @param obj - The object to read from
- * @param path - Dot-separated path
- * @returns The value or null if not found
- */
-export function getNestedValue(obj: LocaleData, path: string): string | LocaleData | null {
-    const keys = path.split('.');
-    let current: string | LocaleData = obj;
-
-    for (const key of keys) {
-        if (current && typeof current === 'object' && key in current) {
-            current = current[key];
-        } else {
-            return null;
-        }
-    }
-
-    return current;
-}
-
-/**
  * Get locale file path
  * @param localesPath - Base path to locales directory
  * @param locale - Locale code (e.g., 'en', 'fr')
@@ -183,14 +162,12 @@ export async function getLocaleFilePath(
  * @param filePath - Path to the locale file
  * @param key - Translation key
  * @param value - Translation value
- * @param format - File format (JSON or YAML)
  * @param parentKey - Optional parent key to nest translations under
  */
 export async function appendTranslationToFile(
     filePath: string,
     key: string,
     value: string,
-    format?: FileFormat,
     parentKey?: string
 ): Promise<void> {
     const data = await readLocaleFile(filePath);

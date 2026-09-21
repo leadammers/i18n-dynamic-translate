@@ -53,10 +53,15 @@ export class MemoryCache implements TranslationCache {
     }
 
     /**
-     * Generate a cache key from translation key and locale
+     * Generate a cache key from translation key, locale and context.
+     *
+     * JSON rather than a delimiter join: all three components are
+     * consumer-supplied, so a separator character can occur inside one. A
+     * context of `formal` on key `title` would otherwise share an entry with
+     * the context-free key `title:formal`.
      */
     private getCacheKey(key: string, locale: string, context?: string): string {
-        return context ? `${locale}:${key}:${context}` : `${locale}:${key}`;
+        return JSON.stringify([locale, key, context ?? null]);
     }
 
     /**
@@ -141,9 +146,20 @@ export class MemoryCache implements TranslationCache {
     }
 
     /**
-     * Clear all cached translations and stop auto-cleanup
+     * Clear all cached translations.
+     *
+     * The automatic expiry sweeper keeps running — use {@link dispose} to shut
+     * the cache down for good.
      */
     clear(): void {
+        this.cache.clear();
+    }
+
+    /**
+     * Clear all cached translations and stop the automatic expiry sweeper.
+     * The cache must not be used after this.
+     */
+    dispose(): void {
         this.cache.clear();
         this.stopAutoCleanup();
     }

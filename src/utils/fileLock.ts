@@ -1,51 +1,47 @@
+import { Semaphore } from '@/utils/semaphore';
+
 /**
- * File write lock to prevent concurrent writes to the same file
- * Uses a queue-based approach to eliminate race conditions and busy-waiting
+ * Mutual exclusion per file path, so two writers never read-modify-write the
+ * same locale file at once.
+ *
+ * A lock is a `Semaphore(1)`; the semaphore already provides the FIFO wait
+ * queue, so this class only owns the per-path bookkeeping.
  */
 export class FileLock {
-    private locks: Map<string, Array<() => void>> = new Map();
-    private activeLocks: Set<string> = new Set();
+    private locks: Map<string, { semaphore: Semaphore; holders: number }> = new Map();
 
     async withLock<T>(filePath: string, fn: () => Promise<T>): Promise<T> {
-        // Acquire lock (wait if file is currently locked)
-        await this.acquire(filePath);
+        const entry = this.retain(filePath);
+        await entry.semaphore.acquire();
 
         try {
             return await fn();
         } finally {
+            entry.semaphore.release();
             this.release(filePath);
         }
     }
 
-    private async acquire(filePath: string): Promise<void> {
-        // If not locked, acquire immediately
-        if (!this.activeLocks.has(filePath)) {
-            this.activeLocks.add(filePath);
+    /** Get (or create) the lock for a path and record one more interested caller */
+    private retain(filePath: string): { semaphore: Semaphore; holders: number } {
+        let entry = this.locks.get(filePath);
+        if (!entry) {
+            entry = { semaphore: new Semaphore(1), holders: 0 };
+            this.locks.set(filePath, entry);
+        }
+        entry.holders++;
+        return entry;
+    }
+
+    /** Drop the lock once nobody holds or waits for it, so the map cannot grow without bound */
+    private release(filePath: string): void {
+        const entry = this.locks.get(filePath);
+        if (!entry) {
             return;
         }
 
-        // File is locked - add to waiting queue
-        return new Promise<void>((resolve) => {
-            if (!this.locks.has(filePath)) {
-                this.locks.set(filePath, []);
-            }
-            this.locks.get(filePath)!.push(resolve);
-        });
-    }
-
-    private release(filePath: string): void {
-        const waitingQueue = this.locks.get(filePath);
-
-        // Process next waiter in queue (FIFO)
-        if (waitingQueue && waitingQueue.length > 0) {
-            const next = waitingQueue.shift()!;
-            if (waitingQueue.length === 0) {
-                this.locks.delete(filePath);
-            }
-            next(); // Transfer lock to next waiter
-        } else {
-            // No waiters - release lock
-            this.activeLocks.delete(filePath);
+        entry.holders--;
+        if (entry.holders === 0) {
             this.locks.delete(filePath);
         }
     }

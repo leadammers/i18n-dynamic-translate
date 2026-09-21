@@ -20,3 +20,17 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+# Serena semantic-code-intelligence cache
+.serena/
+
+# REST-client scratch requests and private environments
+*.http
+http-client.private.env.json
+**/http-client.private.env.json
+
+# Output written by the DeepL e2e suite into the node-i18n fixture tree
+tests/fixtures/node-i18n-locales/*/
+
+# Internal working docs, not part of the published repo
+docs/superpowers/
+docs/reviews/

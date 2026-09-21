@@ -5,7 +5,7 @@
 
 import { DeepLModelType, TranslationProviderConfig, TranslationService } from '@/types';
 import { TranslationError } from '@/utils/errors';
-import { http, isHttpError, HttpError } from '@/utils/http';
+import { describeHttpError, http, HttpError, isHttpError } from '@/utils/http';
 
 interface DeepLRequestPayload {
     source_lang: string;
@@ -16,6 +16,14 @@ interface DeepLRequestPayload {
     context?: string;
     split_sentences?: string;
 }
+
+/** DeepL-specific status codes that need a clearer message than the generic fallback */
+const DEEPL_STATUS_MESSAGES: Readonly<Record<number, string>> = {
+    456: 'Quota exceeded',
+};
+
+/** Request timeout for DeepL calls, in milliseconds */
+const REQUEST_TIMEOUT_MS = 10000;
 
 export class DeepLService implements TranslationService {
     private apiKey: string;
@@ -46,7 +54,7 @@ export class DeepLService implements TranslationService {
      * Check if the service is available
      */
     isAvailable(): boolean {
-        return !!this.apiKey;
+        return Boolean(this.apiKey);
     }
 
     /**
@@ -74,11 +82,16 @@ export class DeepLService implements TranslationService {
                     Authorization: `DeepL-Auth-Key ${this.apiKey}`,
                     'Content-Type': 'application/json',
                 },
-                timeout: 10000,
+                timeout: REQUEST_TIMEOUT_MS,
             });
 
-            if (response.data && response.data.translations && response.data.translations[0]) {
-                return response.data.translations[0].text;
+            // The entry itself being present is not enough: DeepL can answer with
+            // `{ translations: [{}] }`, and returning `.text` off that hands the
+            // caller `undefined` typed as `string`, which then reaches the cache,
+            // the backend and the locale file.
+            const translation = response.data?.translations?.[0]?.text;
+            if (typeof translation === 'string') {
+                return translation;
             }
 
             throw new TranslationError('Invalid response from DeepL API', 'deepl');
@@ -117,7 +130,7 @@ export class DeepLService implements TranslationService {
                     Authorization: `DeepL-Auth-Key ${this.apiKey}`,
                     'Content-Type': 'application/json',
                 },
-                timeout: 10000,
+                timeout: REQUEST_TIMEOUT_MS,
             });
 
             if (response.data && response.data.translations) {
@@ -194,22 +207,7 @@ export class DeepLService implements TranslationService {
      * @throws TranslationError with sanitized message
      */
     private handleApiError(error: HttpError): never {
-        // Sanitize error message to avoid leaking API keys
-        const statusCode = error.status;
-        let message: string;
-        if (statusCode === 401 || statusCode === 403) {
-            message = 'Authentication failed - check your API key';
-        } else if (statusCode === 429) {
-            message = 'Rate limit exceeded';
-        } else if (statusCode === 456) {
-            message = 'Quota exceeded';
-        } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-            message = 'Unable to connect to DeepL API';
-        } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-            message = 'Request timed out';
-        } else {
-            message = `Request failed with status ${statusCode || 'unknown'}`;
-        }
+        const message = describeHttpError(error, 'DeepL API', DEEPL_STATUS_MESSAGES);
         throw new TranslationError(`DeepL API error: ${message}`, 'deepl', error);
     }
 }

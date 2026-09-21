@@ -36,6 +36,12 @@ describe('keyConverter', () => {
             expect(convertKeyToText('apiURL')).toBe('Api URL');
         });
 
+        it('should split digit boundaries', () => {
+            expect(convertKeyToText('order2Status')).toBe('Order 2 Status');
+            expect(convertKeyToText('heading1')).toBe('Heading 1');
+            expect(convertKeyToText('utf8Encoding')).toBe('Utf 8 Encoding');
+        });
+
         it('should handle empty or invalid input', () => {
             expect(convertKeyToText('')).toBe('');
             expect(convertKeyToText(null as any)).toBe('');

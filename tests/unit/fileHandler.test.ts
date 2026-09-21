@@ -7,7 +7,6 @@ import {
     readLocaleFile,
     writeLocaleFile,
     setNestedValue,
-    getNestedValue,
     getLocaleFilePath,
     appendTranslationToFile,
 } from '@/utils/fileHandler';
@@ -226,43 +225,6 @@ describe('FileHandler', () => {
         });
     });
 
-    describe('getNestedValue', () => {
-        it('should get simple key', () => {
-            const obj = { hello: 'Hello' };
-            expect(getNestedValue(obj, 'hello')).toBe('Hello');
-        });
-
-        it('should get nested key', () => {
-            const obj = { user: { name: 'John' } };
-            expect(getNestedValue(obj, 'user.name')).toBe('John');
-        });
-
-        it('should get deeply nested key', () => {
-            const obj = { user: { profile: { settings: { theme: 'dark' } } } };
-            expect(getNestedValue(obj, 'user.profile.settings.theme')).toBe('dark');
-        });
-
-        it('should return null for non-existent key', () => {
-            const obj = { hello: 'Hello' };
-            expect(getNestedValue(obj, 'nonexistent')).toBeNull();
-        });
-
-        it('should return null for non-existent nested key', () => {
-            const obj = { user: { name: 'John' } };
-            expect(getNestedValue(obj, 'user.email')).toBeNull();
-        });
-
-        it('should return null for path through non-object', () => {
-            const obj = { user: 'string' };
-            expect(getNestedValue(obj, 'user.name')).toBeNull();
-        });
-
-        it('should return nested object', () => {
-            const obj = { user: { name: 'John', email: 'john@example.com' } };
-            expect(getNestedValue(obj, 'user')).toEqual({ name: 'John', email: 'john@example.com' });
-        });
-    });
-
     describe('getLocaleFilePath', () => {
         it('should generate path for node-i18n style (no namespace)', async () => {
             const result = await getLocaleFilePath('/locales', 'en');
@@ -329,7 +291,9 @@ describe('FileHandler', () => {
         it('should work with YAML files', async () => {
             const filePath = path.join(TEST_DIR, 'test.yaml');
 
-            await appendTranslationToFile(filePath, 'greeting', 'Hello', FileFormat.YAML);
+            // No format argument: the .yaml extension already selects the format,
+            // and a fourth argument here would nest the value under a parent key.
+            await appendTranslationToFile(filePath, 'greeting', 'Hello');
 
             const content = await fs.readFile(filePath, 'utf-8');
             expect(content).toContain('greeting: Hello');

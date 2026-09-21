@@ -33,7 +33,7 @@ config({ path: path.join(__dirname, '../..', '.env.dev') });
 const I18NEXT_LOCALES_PATH = path.join(__dirname, '..', 'fixtures', 'i18next-locales');
 const NODE_I18N_LOCALES_PATH = path.join(__dirname, '..', 'fixtures', 'node-i18n-locales');
 const DEEPL_API_KEY = process.env.DEEPL_API_KEY;
-const hasApi = !!DEEPL_API_KEY;
+const hasApi = Boolean(DEEPL_API_KEY);
 
 // Test Data
 const apiData = {

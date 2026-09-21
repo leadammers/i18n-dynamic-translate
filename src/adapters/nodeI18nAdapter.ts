@@ -54,13 +54,17 @@ export class NodeI18nAdapter implements BackendAdapter {
     private setupMissingKeyHandler(): void {
         if (!this.i18n) return;
 
+        // Captured after the guard: the closures below outlive the narrowing, so without a
+        // local they would each need a non-null assertion.
+        const i18n = this.i18n;
+
         // Store original __ method
-        this.original__ = this.i18n.__.bind(this.i18n);
+        this.original__ = i18n.__.bind(i18n);
 
         // Override __ method to detect missing keys
         const original__ = this.original__;
-        this.i18n.__ = (phrase: string, ...args: unknown[]) => {
-            const locale = this.i18n!.getLocale();
+        i18n.__ = (phrase: string, ...args: unknown[]) => {
+            const locale = i18n.getLocale();
             const translation = original__(phrase, ...args);
 
             // node-i18n returns the phrase itself when a translation is not found.
@@ -68,8 +72,8 @@ export class NodeI18nAdapter implements BackendAdapter {
             // this will produce a false positive and trigger an unnecessary API call.
             if (translation === phrase && this.missingKeyCallback) {
                 // Handle async callback with proper error handling
-                Promise.resolve(this.missingKeyCallback(phrase, locale)).catch((error) => {
-                    console.error(`AutoTranslate: Error in missing key callback for "${phrase}":`, error);
+                Promise.resolve(this.missingKeyCallback(phrase, locale)).catch((error: unknown) => {
+                    this.reportError(error as Error, phrase, locale);
                 });
             }
 
@@ -77,22 +81,35 @@ export class NodeI18nAdapter implements BackendAdapter {
         };
 
         // Also override __n for plural forms
-        this.original__n = this.i18n.__n.bind(this.i18n);
+        this.original__n = i18n.__n.bind(i18n);
         const original__n = this.original__n;
-        this.i18n.__n = (singular: string, plural: string, count: number, ...args: unknown[]) => {
-            const locale = this.i18n!.getLocale();
+        i18n.__n = (singular: string, plural: string, count: number, ...args: unknown[]) => {
+            const locale = i18n.getLocale();
             const translation = original__n(singular, plural, count, ...args);
 
             // Check if translation is missing
             if ((translation === singular || translation === plural) && this.missingKeyCallback) {
                 // Handle async callback with proper error handling
-                Promise.resolve(this.missingKeyCallback(singular, locale)).catch((error) => {
-                    console.error(`AutoTranslate: Error in missing key callback for "${singular}":`, error);
+                Promise.resolve(this.missingKeyCallback(singular, locale)).catch((error: unknown) => {
+                    this.reportError(error as Error, singular, locale);
                 });
             }
 
             return translation;
         };
+    }
+
+    /**
+     * Report a callback failure through the configured hook, falling back to
+     * stderr only when the host application has not provided one.
+     */
+    private reportError(error: Error, key: string, locale: string): void {
+        if (this.config?.onError) {
+            this.config.onError(error, key, locale);
+            return;
+        }
+
+        console.error(`AutoTranslate: Error in missing key callback for "${key}":`, error);
     }
 
     /**
