@@ -64,7 +64,11 @@ attributes, category trees, anything data-driven.
   5.0, 5.9, 6 and 7 in CI, so the range is checked rather than claimed. `npm` enforces the Node
   floor from `engines`; there is no equivalent field for TypeScript, which is why it is a build
   step instead.
-- An i18next or node-i18n instance already configured
+- An i18next or node-i18n instance already configured. The peer range is `i18next >=23.0.0`, and
+  every release drives a real instance of majors 23, 24, 25 and 26 end to end from an installed
+  tarball. The range stays open above that: the adapter uses four stable i18next entry points, and
+  pinning an upper bound would make every new major look unsupported until this package released
+  again.
 - DeepL API key (free tier available at [deepl.com](https://www.deepl.com/pro-api)) or a self-hosted LibreTranslate
   instance
 

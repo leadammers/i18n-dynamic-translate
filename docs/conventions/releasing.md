@@ -54,6 +54,11 @@ which were tried. So the rest is proven by the `compat` job in CI rather than wr
   package *resolves*; this checks that it *runs*, through the `node_modules` a consumer gets.
   The consumer is copied into the scratch project first — run from the repository, Node's package
   self-reference would resolve the import back to the source tree and prove nothing.
+  It repeats once per entry in `SUPPORTED_I18NEXT` (`tools/smoke/check.mjs`), which is what turns
+  the `i18next >=23.0.0` peer range from a claim into a tested one. A new i18next major goes into
+  that list; the range itself stays open, because the adapter only uses `missingKeyHandler`,
+  `saveMissing`, `getFixedT` and `addResource`, and an upper bound would mark every fresh major
+  unsupported until this package released again.
 
 All three are cheap and run on every pull request, so a change that breaks an older compiler, a
 consumer shape or the installed package fails before it is released rather than in someone's
