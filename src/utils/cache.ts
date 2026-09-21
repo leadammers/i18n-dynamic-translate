@@ -141,9 +141,20 @@ export class MemoryCache implements TranslationCache {
     }
 
     /**
-     * Clear all cached translations and stop auto-cleanup
+     * Clear all cached translations.
+     *
+     * The automatic expiry sweeper keeps running — use {@link dispose} to shut
+     * the cache down for good.
      */
     clear(): void {
+        this.cache.clear();
+    }
+
+    /**
+     * Clear all cached translations and stop the automatic expiry sweeper.
+     * The cache must not be used after this.
+     */
+    dispose(): void {
         this.cache.clear();
         this.stopAutoCleanup();
     }

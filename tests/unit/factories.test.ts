@@ -122,5 +122,4 @@ describe('Factory Functions', () => {
             }).toThrow(TranslationError);
         });
     });
-
 });

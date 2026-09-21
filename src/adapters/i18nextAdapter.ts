@@ -70,14 +70,27 @@ export class I18nextAdapter implements BackendAdapter {
             if (this.missingKeyCallback && lngs && lngs.length > 0) {
                 const locale = lngs[0];
                 // Handle async callback with proper error handling
-                Promise.resolve(this.missingKeyCallback(key, locale, ns)).catch((error) => {
-                    console.error(`AutoTranslate: Error in missing key callback for "${key}":`, error);
+                Promise.resolve(this.missingKeyCallback(key, locale, ns)).catch((error: unknown) => {
+                    this.reportError(error as Error, key, locale);
                 });
             }
         };
 
         // Also set saveMissing to true to trigger the handler
         this.i18next.options.saveMissing = true;
+    }
+
+    /**
+     * Report a callback failure through the configured hook, falling back to
+     * stderr only when the host application has not provided one.
+     */
+    private reportError(error: Error, key: string, locale: string): void {
+        if (this.config?.onError) {
+            this.config.onError(error, key, locale);
+            return;
+        }
+
+        console.error(`AutoTranslate: Error in missing key callback for "${key}":`, error);
     }
 
     /**

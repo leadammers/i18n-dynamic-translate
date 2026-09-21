@@ -48,4 +48,3 @@ export function convertKeyToText(key: string): string {
 
     return result;
 }
-

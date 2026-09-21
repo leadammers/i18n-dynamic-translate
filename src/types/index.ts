@@ -206,10 +206,15 @@ export interface StorageSaveEntry {
  */
 export interface StorageAdapter {
     /** Save a single translation to storage */
-    save(locale: string, key: string, value: string, options?: {
-        namespace?: string;
-        parentKey?: string;
-    }): Promise<void>;
+    save(
+        locale: string,
+        key: string,
+        value: string,
+        options?: {
+            namespace?: string;
+            parentKey?: string;
+        }
+    ): Promise<void>;
 
     /**
      * Save multiple translations at once.

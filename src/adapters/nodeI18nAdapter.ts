@@ -68,8 +68,8 @@ export class NodeI18nAdapter implements BackendAdapter {
             // this will produce a false positive and trigger an unnecessary API call.
             if (translation === phrase && this.missingKeyCallback) {
                 // Handle async callback with proper error handling
-                Promise.resolve(this.missingKeyCallback(phrase, locale)).catch((error) => {
-                    console.error(`AutoTranslate: Error in missing key callback for "${phrase}":`, error);
+                Promise.resolve(this.missingKeyCallback(phrase, locale)).catch((error: unknown) => {
+                    this.reportError(error as Error, phrase, locale);
                 });
             }
 
@@ -86,13 +86,26 @@ export class NodeI18nAdapter implements BackendAdapter {
             // Check if translation is missing
             if ((translation === singular || translation === plural) && this.missingKeyCallback) {
                 // Handle async callback with proper error handling
-                Promise.resolve(this.missingKeyCallback(singular, locale)).catch((error) => {
-                    console.error(`AutoTranslate: Error in missing key callback for "${singular}":`, error);
+                Promise.resolve(this.missingKeyCallback(singular, locale)).catch((error: unknown) => {
+                    this.reportError(error as Error, singular, locale);
                 });
             }
 
             return translation;
         };
+    }
+
+    /**
+     * Report a callback failure through the configured hook, falling back to
+     * stderr only when the host application has not provided one.
+     */
+    private reportError(error: Error, key: string, locale: string): void {
+        if (this.config?.onError) {
+            this.config.onError(error, key, locale);
+            return;
+        }
+
+        console.error(`AutoTranslate: Error in missing key callback for "${key}":`, error);
     }
 
     /**

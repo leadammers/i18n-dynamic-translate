@@ -8,9 +8,7 @@ vi.mock('@/translators', () => ({
     createTranslationService: () => ({
         isAvailable: () => true,
         translate: vi.fn().mockResolvedValue('mocked'),
-        translateBatch: vi.fn().mockImplementation((texts: string[]) =>
-            Promise.resolve(texts.map(() => 'mocked'))
-        ),
+        translateBatch: vi.fn().mockImplementation((texts: string[]) => Promise.resolve(texts.map(() => 'mocked'))),
     }),
 }));
 
@@ -21,7 +19,9 @@ function createMockI18next() {
         languages: ['en', 'de', 'fr'],
         options: {
             ns: ['translation'],
-            missingKeyHandler: null as ((lngs: string[], ns: string, key: string, fallbackValue: string) => void) | null,
+            missingKeyHandler: null as
+                | ((lngs: string[], ns: string, key: string, fallbackValue: string) => void)
+                | null,
             saveMissing: false,
         },
         getFixedT: vi.fn((_locale: string, _ns: string) => {
@@ -223,7 +223,9 @@ describe('AutoTranslate', () => {
             const instance = new AutoTranslate(config);
 
             await expect(instance.translateKey('hello', '')).rejects.toThrow(ConfigurationError);
-            await expect(instance.translateKey('hello', '')).rejects.toThrow('Target locale must be a non-empty string');
+            await expect(instance.translateKey('hello', '')).rejects.toThrow(
+                'Target locale must be a non-empty string'
+            );
 
             await instance.dispose();
         });
@@ -235,7 +237,9 @@ describe('AutoTranslate', () => {
             const instance = new AutoTranslate(config);
 
             await expect(instance.translateObject(null as never, 'de')).rejects.toThrow(ConfigurationError);
-            await expect(instance.translateObject(null as never, 'de')).rejects.toThrow('Object must be a non-null object');
+            await expect(instance.translateObject(null as never, 'de')).rejects.toThrow(
+                'Object must be a non-null object'
+            );
 
             await instance.dispose();
         });
@@ -254,7 +258,9 @@ describe('AutoTranslate', () => {
             const instance = new AutoTranslate(config);
 
             await expect(instance.translateObject({ key: 'value' }, '')).rejects.toThrow(ConfigurationError);
-            await expect(instance.translateObject({ key: 'value' }, '')).rejects.toThrow('Target locale must be a non-empty string');
+            await expect(instance.translateObject({ key: 'value' }, '')).rejects.toThrow(
+                'Target locale must be a non-empty string'
+            );
 
             await instance.dispose();
         });
