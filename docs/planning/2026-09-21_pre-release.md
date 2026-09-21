@@ -50,7 +50,7 @@ Two ways out, and they are not equivalent:
 > Verify the exact failure mode against a dry run rather than trusting this note — npm documents the
 > public-repository prerequisite but not what it does when the prerequisite is unmet.
 
-### 1.3 `main` is the default branch and is 39 commits behind `dev`
+### 1.3 `main` is the default branch and is 67 commits behind `dev`
 
 A GitHub Release created from the default branch checks out `main`. Publishing today would ship the
 code from *before* this review round, and the version-equals-tag guard would happily pass, because
@@ -67,6 +67,22 @@ code from *before* this review round, and the version-equals-tag guard would hap
 
 `src/index.ts` is frozen until a major bump. These cost minutes now and a major version later.
 
+### 2.0 The cache contract — settled on `feature/cache-contract`
+
+`TranslationCache` took one pre-encoded string, so an implementation could neither scope by
+locale nor invalidate by namespace, and the orchestrator's encoding was encoded a second time by
+the cache. It now takes a `TranslationIdentity` — locale, namespace, full dot path (with any
+`parentKey` already folded in) and provider context. `getCacheStats()` returns `{ size }` and
+works through the optional `TranslationCache.getStats()`, so it no longer reports `null` for
+every custom cache.
+
+- [x] `TranslationIdentity` and `CacheStats` added to the public surface, documented in the
+      README's *Custom Cache* section
+- [x] `getCacheStats()` reads the configured cache, not only the built-in one
+
+The point of doing this before 0.1.0: the `cache` option is advertised as an extension point, and
+an extension point nobody can implement is worse than none.
+
 ### 2.1 `CacheEntry` is exported but nothing needs it
 
 `TranslationCache` became usable this round through the new `cache` config option, so its export now
@@ -74,10 +90,10 @@ earns its place. `CacheEntry` did not: it appears in no public signature — `Tr
 methods deal only in strings and `null` — and is used solely inside `MemoryCache`. A consumer
 implementing a custom cache never has to name it.
 
-- [ ] Either unexport `CacheEntry` from `src/index.ts`, or accept it as permanent surface
+- [x] Unexported from `src/index.ts`. It stays exported from `@/types` for `MemoryCache`'s own use
+      and carries a comment saying why it is not public
 
-Recommendation: **unexport it.** Removing it after publication is a breaking change; adding it back
-later is not.
+Removing it after publication would have been a breaking change; adding it back later is not.
 
 ### 2.2 Rotate the DeepL API key — optional
 
@@ -98,8 +114,8 @@ Run immediately before tagging, not now — several of these go stale.
 - [ ] `npm pack --dry-run` shows only `dist/`, `src/`, `CHANGELOG.md`, `LICENSE`, `README.md`,
       `package.json`. **Verified clean on 2026-09-21:** 89 files, 67.2 kB packed, no tests,
       fixtures, `.env` or docs
-- [ ] `CHANGELOG.md`: rename `## [Unreleased]` to `## [0.1.0] — <date>` and open a fresh
-      `## [Unreleased]` above it
+- [ ] `CHANGELOG.md`: replace `## [0.1.0] — unreleased` and its "nothing published yet" note with
+      the tag date, and open a fresh `## [Unreleased]` above it
 - [ ] README's documented API and Node floor match what ships (22.12)
 - [ ] `npm view i18n-dynamic-translate` still 404s — the name was free on 2026-09-21 but is not
       reserved
@@ -114,11 +130,10 @@ Not blockers. All internal, all cheap to do after publishing, listed so they are
 
 - **Break up `core/AutoTranslate.ts`** (809 lines, over the guideline). Invisible to consumers; a
   large behaviour-preserving refactor deserves its own branch, not release pressure.
-- **`exactOptionalPropertyTypes` (~50 errors) and `noUncheckedIndexedAccess` (~36).** Internal
-  type-safety work.
+- **`exactOptionalPropertyTypes` (~50 errors).** Internal type-safety work.
+  `noUncheckedIndexedAccess` was pulled forward instead and is now on: it is the flag that would
+  have caught the DeepL `{ translations: [{}] }` bug at compile time.
 - **Translator error-path tests.** Valuable, non-breaking.
-- **Two key-converter edge cases** — already-spaced keys get title-cased; a leading lowercase letter
-  before an acronym splits badly (`iOSDevice` → `I OS Device`).
 - **Edge-runtime support.** `node:fs` is statically imported through `fileHandler` →
   `FileStorageAdapter` → `AutoTranslate`, so the module will not load on Cloudflare Workers or
   Vercel Edge even with a custom `StorageAdapter`. Fixing it means a lazy `import()` behind the
@@ -137,9 +152,9 @@ Captured 2026-09-21, from PR #9 (`chore/review-2026-09-21` → `dev`), all check
 |---|---|
 | Version | `0.1.0`, unpublished, name free on npm |
 | Tags | none |
-| Default branch | `main`, 39 commits behind `dev` |
+| Default branch | `main`, 67 commits behind `dev` after PR #9 merged |
 | Visibility | private |
 | Actions secrets | none |
-| Tests | 262 passing |
+| Tests | 276 passing (262 when this file was written) |
 | `npm audit` | 0 vulnerabilities; `dependencies` empty, all three peers optional |
 | Licence | MIT, `LICENSE` present and matching `package.json` |

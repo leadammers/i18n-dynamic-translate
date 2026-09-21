@@ -25,10 +25,11 @@ branch rather than mixed into the review fixes.
 
 ## Type Safety
 
-### Enable `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
-Both are currently off. Turning them on produces ~50 and ~36 errors respectively — mostly
-genuine `undefined` gaps around optional config fields and array indexing. Worth doing, but
-as a dedicated branch.
+### Enable `exactOptionalPropertyTypes`
+Still off; turning it on produces ~50 errors, mostly genuine `undefined` gaps around optional
+config fields. Worth doing, but as a dedicated branch.
+
+`noUncheckedIndexedAccess` is done — enabled on `feature/cache-contract`.
 
 ## API Design
 
@@ -38,10 +39,9 @@ wrong. A custom key-to-text function is supported through `keyToText`, and acron
 grouped — `"apiURL"` yields `"Api URL"`, not `"Api U R L"`. Digit boundaries were fixed in the
 same pass (`"order2Status"` → `"Order 2 Status"`).
 
-What is still open, both minor:
-- Keys that are already human-readable sentences get title-cased (`"already has spaces"` →
-  `"Already Has Spaces"`). Passing them through untouched would be friendlier.
-- A leading lowercase letter before an acronym splits badly (`"iOSDevice"` → `"I OS Device"`).
+Both remaining items were fixed on `feature/cache-contract`: a key that already contains a space
+is passed through untouched, and a single lowercase letter in front of an acronym stays attached
+to it (`"iOSDevice"` → `"iOS Device"`). Nothing open here.
 
 ## Testing
 
