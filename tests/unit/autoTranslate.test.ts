@@ -565,6 +565,22 @@ describe('AutoTranslate', () => {
             await at.dispose();
         });
 
+        // `parentKey` addresses a slot, not an argument: both spellings resolve to the
+        // dot path `product.meta.name`, so they must share one entry rather than each
+        // paying for its own provider call.
+        it('shares one cache entry between two spellings of the same dot path', async () => {
+            const cache = createRecordingCache();
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache });
+
+            await at.translateKey('name', 'de', { parentKey: 'product.meta' });
+            await at.translateKey('meta.name', 'de', { parentKey: 'product' });
+
+            expect(cache.set).toHaveBeenCalledTimes(1);
+            expect(cache.store.size).toBe(1);
+
+            await at.dispose();
+        });
+
         it('reports stats through a custom cache that implements getStats', async () => {
             const cache = createRecordingCache();
             const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache });
