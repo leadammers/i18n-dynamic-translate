@@ -110,7 +110,10 @@ export function setNestedValue(obj: LocaleData, path: string, value: string | Lo
     let current: LocaleData = obj;
 
     for (const key of keys) {
-        if (typeof current[key] !== 'object') {
+        // `typeof null === 'object'`, so null has to be excluded explicitly or the
+        // property write below throws on a locale file that holds one.
+        const branch = current[key];
+        if (typeof branch !== 'object' || branch === null) {
             current[key] = {};
         }
         current = current[key] as LocaleData;

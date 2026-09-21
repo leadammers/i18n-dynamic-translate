@@ -173,7 +173,10 @@ export class NodeI18nAdapter implements BackendAdapter {
                 const leafKey = keys.pop() ?? key;
                 let current: LocaleData = catalogForLocale;
                 for (const segment of keys) {
-                    if (typeof current[segment] !== 'object') {
+                    // `typeof null === 'object'`, so null has to be excluded explicitly
+                    // or the property write below throws.
+                    const branch = current[segment];
+                    if (typeof branch !== 'object' || branch === null) {
                         current[segment] = {};
                     }
                     current = current[segment] as LocaleData;
