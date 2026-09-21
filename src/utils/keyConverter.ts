@@ -33,10 +33,13 @@ export function convertKeyToText(key: string): string {
     // `split` never returns an empty array, so the last part always exists.
     const lastPart = (parts[parts.length - 1] ?? key).trim();
 
-    // A key that already contains a space is a sentence someone wrote by hand, not a
+    // A key made only of words and spaces is a sentence someone wrote by hand, not a
     // programmatic identifier. Title-casing it ('order confirmed' -> 'Order Confirmed')
-    // damages text that was already fine, so pass it through.
-    if (/\s/.test(lastPart)) {
+    // damages text that was already fine, so pass it through. A separator or a camelCase
+    // boundary means it is an identifier after all, spaces or not, and still needs the
+    // full pipeline — otherwise 'estimated_delivery date' would reach the provider raw.
+    const hasIdentifierShape = /[_-]/.test(lastPart) || /[a-z][A-Z]/.test(lastPart);
+    if (/\s/.test(lastPart) && !hasIdentifierShape) {
         return lastPart.replace(/\s+/g, ' ');
     }
 

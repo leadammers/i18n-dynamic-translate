@@ -48,6 +48,12 @@ describe('keyConverter', () => {
             expect(convertKeyToText('checkout.Payment failed')).toBe('Payment failed');
         });
 
+        it('still normalizes a key that mixes spaces with identifier separators', () => {
+            expect(convertKeyToText('estimated_delivery date')).toBe('Estimated Delivery Date');
+            expect(convertKeyToText('shipping-address line')).toBe('Shipping Address Line');
+            expect(convertKeyToText('orderStatus label')).toBe('Order Status Label');
+        });
+
         it('keeps a single lowercase letter attached to the acronym it prefixes', () => {
             expect(convertKeyToText('iOSDevice')).toBe('iOS Device');
             expect(convertKeyToText('iOS')).toBe('iOS');
