@@ -31,9 +31,7 @@ describe('DeepLService', () => {
 
     describe('constructor', () => {
         it('should throw TranslationError when apiKey is missing', () => {
-            expect(
-                () => new DeepLService({ provider: TranslationProvider.DEEPL }),
-            ).toThrow(TranslationError);
+            expect(() => new DeepLService({ provider: TranslationProvider.DEEPL })).toThrow(TranslationError);
         });
 
         it('should use free API URL for keys ending with :fx', () => {
@@ -50,7 +48,7 @@ describe('DeepLService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 'https://api-free.deepl.com/v2/translate',
                 expect.anything(),
-                expect.anything(),
+                expect.anything()
             );
         });
 
@@ -64,7 +62,7 @@ describe('DeepLService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 'https://api.deepl.com/v2/translate',
                 expect.anything(),
-                expect.anything(),
+                expect.anything()
             );
         });
     });
@@ -90,7 +88,7 @@ describe('DeepLService', () => {
                     headers: expect.objectContaining({
                         Authorization: 'DeepL-Auth-Key test-key-pro',
                     }),
-                }),
+                })
             );
         });
 
@@ -99,27 +97,21 @@ describe('DeepLService', () => {
             mockPost.mockRejectedValue(new HttpError('Unauthorized', 401));
 
             await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(TranslationError);
-            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(
-                /Authentication failed/,
-            );
+            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(/Authentication failed/);
         });
 
         it('should throw TranslationError with sanitized message for 429 error', async () => {
             const service = new DeepLService(baseConfig);
             mockPost.mockRejectedValue(new HttpError('Too Many Requests', 429));
 
-            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(
-                /Rate limit exceeded/,
-            );
+            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(/Rate limit exceeded/);
         });
 
         it('should throw TranslationError for network errors (ECONNREFUSED)', async () => {
             const service = new DeepLService(baseConfig);
             mockPost.mockRejectedValue(new HttpError('Network error', undefined, 'ECONNREFUSED'));
 
-            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(
-                /Unable to connect/,
-            );
+            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(/Unable to connect/);
         });
     });
 
@@ -146,7 +138,7 @@ describe('DeepLService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({ text: ['Hello', 'Goodbye'] }),
-                expect.anything(),
+                expect.anything()
             );
         });
     });
@@ -163,7 +155,7 @@ describe('DeepLService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({ target_lang: 'EN-US' }),
-                expect.anything(),
+                expect.anything()
             );
         });
 
@@ -178,7 +170,7 @@ describe('DeepLService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({ source_lang: 'EN' }),
-                expect.anything(),
+                expect.anything()
             );
         });
     });
@@ -198,7 +190,7 @@ describe('DeepLService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({ model_type: DeepLModelType.QUALITY }),
-                expect.anything(),
+                expect.anything()
             );
         });
 
@@ -213,7 +205,7 @@ describe('DeepLService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({ model_type: DeepLModelType.LATENCY }),
-                expect.anything(),
+                expect.anything()
             );
         });
     });
@@ -242,7 +234,7 @@ describe('LibreTranslateService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 'https://libretranslate.com/translate',
                 expect.anything(),
-                expect.anything(),
+                expect.anything()
             );
         });
 
@@ -259,7 +251,7 @@ describe('LibreTranslateService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 'https://my-instance.example.com/translate',
                 expect.anything(),
-                expect.anything(),
+                expect.anything()
             );
         });
     });
@@ -281,7 +273,7 @@ describe('LibreTranslateService', () => {
                     target: 'fr',
                     format: 'text',
                 }),
-                expect.anything(),
+                expect.anything()
             );
         });
 
@@ -310,7 +302,7 @@ describe('LibreTranslateService', () => {
             expect(mockPost).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({ api_key: 'libre-key-123' }),
-                expect.anything(),
+                expect.anything()
             );
         });
 
@@ -331,9 +323,7 @@ describe('LibreTranslateService', () => {
             mockPost.mockRejectedValue(new HttpError('Forbidden', 403));
 
             await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(TranslationError);
-            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(
-                /Authentication failed/,
-            );
+            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(/Authentication failed/);
         });
     });
 

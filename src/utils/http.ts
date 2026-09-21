@@ -31,6 +31,42 @@ export function isHttpError(error: unknown): error is HttpError {
     return error instanceof HttpError;
 }
 
+/**
+ * Translate an HTTP failure into a short, provider-agnostic message.
+ *
+ * Deliberately drops the request URL and body so that API keys embedded in
+ * either can never reach a log or an error message.
+ *
+ * @param error - The failed request
+ * @param providerName - Human-readable provider name, used in connection errors
+ * @param statusMessages - Provider-specific overrides keyed by HTTP status code
+ * @returns A sanitized, user-safe description of the failure
+ */
+export function describeHttpError(
+    error: HttpError,
+    providerName: string,
+    statusMessages: Readonly<Record<number, string>> = {}
+): string {
+    const status = error.status;
+
+    if (status !== undefined && statusMessages[status]) {
+        return statusMessages[status];
+    }
+    if (status === 401 || status === 403) {
+        return 'Authentication failed - check your API key';
+    }
+    if (status === 429) {
+        return 'Rate limit exceeded';
+    }
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        return `Unable to connect to ${providerName}`;
+    }
+    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+        return 'Request timed out';
+    }
+    return `Request failed with status ${status ?? 'unknown'}`;
+}
+
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 
 function isRetryable(error: unknown): boolean {

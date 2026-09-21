@@ -5,7 +5,15 @@
 
 import { TranslationService, TranslationProviderConfig } from '@/types';
 import { TranslationError } from '@/utils/errors';
-import { http, isHttpError } from '@/utils/http';
+import { describeHttpError, http, isHttpError } from '@/utils/http';
+
+/** LibreTranslate-specific status codes that need a clearer message than the generic fallback */
+const LIBRETRANSLATE_STATUS_MESSAGES: Readonly<Record<number, string>> = {
+    400: 'Invalid request - check language codes',
+};
+
+/** Request timeout for LibreTranslate calls, in milliseconds */
+const REQUEST_TIMEOUT_MS = 10000;
 
 export class LibreTranslateService implements TranslationService {
     private apiUrl: string;
@@ -20,13 +28,17 @@ export class LibreTranslateService implements TranslationService {
      * Check if the service is available
      */
     isAvailable(): boolean {
-        return !!this.apiUrl;
+        return Boolean(this.apiUrl);
     }
 
     /**
      * Translate text using LibreTranslate
+     *
+     * Note: LibreTranslate has no context parameter in its API. The `context`
+     * argument is accepted to satisfy the TranslationService interface and is
+     * ignored — use DeepL if context-aware translation matters.
      */
-    async translate(text: string, sourceLang: string, targetLang: string, context?: string): Promise<string> {
+    async translate(text: string, sourceLang: string, targetLang: string, _context?: string): Promise<string> {
         if (!this.isAvailable()) {
             throw new TranslationError('LibreTranslate API URL not configured', 'libretranslate');
         }
@@ -47,7 +59,7 @@ export class LibreTranslateService implements TranslationService {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                timeout: 10000,
+                timeout: REQUEST_TIMEOUT_MS,
             });
 
             if (response.data && response.data.translatedText) {
@@ -57,22 +69,7 @@ export class LibreTranslateService implements TranslationService {
             throw new TranslationError('Invalid response from LibreTranslate API', 'libretranslate');
         } catch (error) {
             if (isHttpError(error)) {
-                // Sanitize error message to avoid leaking API keys or URLs
-                const statusCode = error.status;
-                let message: string;
-                if (statusCode === 401 || statusCode === 403) {
-                    message = 'Authentication failed - check your API key';
-                } else if (statusCode === 429) {
-                    message = 'Rate limit exceeded';
-                } else if (statusCode === 400) {
-                    message = 'Invalid request - check language codes';
-                } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-                    message = 'Unable to connect to LibreTranslate API';
-                } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-                    message = 'Request timed out';
-                } else {
-                    message = `Request failed with status ${statusCode || 'unknown'}`;
-                }
+                const message = describeHttpError(error, 'LibreTranslate API', LIBRETRANSLATE_STATUS_MESSAGES);
                 throw new TranslationError(`LibreTranslate API error: ${message}`, 'libretranslate', error);
             }
             throw error;
@@ -80,15 +77,14 @@ export class LibreTranslateService implements TranslationService {
     }
 
     /**
-     * Translate a batch of texts
-     * @param texts
-     * @param sourceLang
-     * @param targetLang
+     * Translate a batch of texts.
+     *
+     * LibreTranslate exposes no batch endpoint, so this fans out to one request
+     * per text. `maxConcurrency` on AutoTranslate bounds how many batches run at once.
      */
     async translateBatch(texts: string[], sourceLang: string, targetLang: string, context?: string): Promise<string[]> {
-        // TODO: Implement batch translation if LibreTranslate supports it
         if (texts.length === 0) return [];
-        return Promise.all(texts.map((text) => this.translate(text, sourceLang, targetLang, context)));
+        return Promise.all(texts.map((text: string) => this.translate(text, sourceLang, targetLang, context)));
     }
 
     /**
