@@ -67,8 +67,13 @@ export class AutoTranslate {
                 fileFormat: config.fileFormat,
             });
 
-        // Initialize cache if enabled
-        if (this.config.enableCache) {
+        // Initialize cache. A caller-supplied cache is taken as the intent to
+        // cache, so it does not additionally require enableCache. Only the
+        // built-in cache is tracked as memoryCache: that field drives stats and
+        // sweeper teardown, neither of which applies to a foreign implementation.
+        if (this.config.cache) {
+            this.cache = this.config.cache;
+        } else if (this.config.enableCache) {
             this.memoryCache = new MemoryCache(this.config.cacheTTL, this.config.maxCacheSize);
             this.cache = this.memoryCache;
         }
@@ -273,7 +278,12 @@ export class AutoTranslate {
             }
         }
 
-        return this.config.keyToText ? this.config.keyToText(key) : convertKeyToText(key);
+        // The hook is documented to receive the last key segment. The missing-key
+        // path hands in a full dotted path while the explicit APIs hand in a bare
+        // key, so normalise here rather than leaking that difference to callers.
+        const keyText = key.split('.').at(-1) ?? key;
+
+        return this.config.keyToText ? this.config.keyToText(keyText) : convertKeyToText(keyText);
     }
 
     /**

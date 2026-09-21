@@ -67,6 +67,15 @@ export interface AutoTranslateConfig {
     /** Maximum cache entries (default: 1000) */
     maxCacheSize?: number;
 
+    /**
+     * Custom translation cache. Defaults to an in-memory cache honouring
+     * `cacheTTL` and `maxCacheSize`, which a custom implementation is free to
+     * ignore. Supplying one enables caching regardless of `enableCache`.
+     * The instance is owned by the caller: `dispose()` clears it but does not
+     * tear down any resources it holds.
+     */
+    cache?: TranslationCache;
+
     /** Custom storage adapter. Defaults to FileStorageAdapter when autoSave is true. */
     storageAdapter?: StorageAdapter;
 

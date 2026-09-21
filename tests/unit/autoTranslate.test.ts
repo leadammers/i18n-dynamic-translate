@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
-import { Backend, StorageAdapter, TranslationProvider } from '@/types';
+import { Backend, StorageAdapter, TranslationCache, TranslationProvider } from '@/types';
 import { ConfigurationError } from '@/utils/errors';
 
 // Mock the translators module so translateKey / translateObject don't make real HTTP calls
@@ -502,6 +502,83 @@ describe('AutoTranslate', () => {
             expect(mockAdapter.save).not.toHaveBeenCalled();
 
             at.dispose();
+        });
+    });
+
+    describe('custom cache', () => {
+        function createRecordingCache(): TranslationCache & { store: Map<string, string> } {
+            const store = new Map<string, string>();
+            return {
+                store,
+                get: vi.fn(
+                    (key: string, locale: string, context?: string) =>
+                        store.get(`${key}|${locale}|${context ?? ''}`) ?? null
+                ),
+                set: vi.fn((key: string, locale: string, value: string, context?: string) => {
+                    store.set(`${key}|${locale}|${context ?? ''}`, value);
+                }),
+                has: vi.fn((key: string, locale: string, context?: string) =>
+                    store.has(`${key}|${locale}|${context ?? ''}`)
+                ),
+                clear: vi.fn(() => store.clear()),
+            };
+        }
+
+        it('routes reads and writes through a caller-supplied cache', async () => {
+            const cache = createRecordingCache();
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache });
+
+            await at.translateKey('hello', 'de');
+
+            expect(cache.set).toHaveBeenCalled();
+            expect(cache.store.size).toBe(1);
+
+            await at.dispose();
+        });
+
+        it('caches without enableCache, because supplying a cache is the intent', async () => {
+            const cache = createRecordingCache();
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), enableCache: false, cache });
+
+            await at.translateKey('hello', 'de');
+            await at.translateKey('hello', 'de');
+
+            expect(cache.has).toHaveBeenCalled();
+            expect(cache.set).toHaveBeenCalledTimes(1);
+
+            await at.dispose();
+        });
+
+        it('clears the supplied cache on dispose without assuming it owns a sweeper', async () => {
+            const cache = createRecordingCache();
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache });
+
+            await at.dispose();
+
+            expect(cache.clear).toHaveBeenCalled();
+        });
+    });
+
+    describe('keyToText argument', () => {
+        it('receives the last key segment from the missing-key path', async () => {
+            const keyToText = vi.fn((key: string) => `text:${key}`);
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), keyToText });
+
+            mockI18next.options.missingKeyHandler?.(['de'], 'translation', 'products.meta.carrier', '');
+            await at.waitForPendingTranslations(2000);
+
+            expect(keyToText).toHaveBeenCalledWith('carrier');
+            await at.dispose();
+        });
+
+        it('receives the same last segment from the explicit API', async () => {
+            const keyToText = vi.fn((key: string) => `text:${key}`);
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), keyToText });
+
+            await at.translateKey('carrier', 'de', { parentKey: 'products.meta' });
+
+            expect(keyToText).toHaveBeenCalledWith('carrier');
+            await at.dispose();
         });
     });
 });
