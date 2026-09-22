@@ -105,10 +105,11 @@ carries a placeholder and is untracked and gitignored.
 
 ---
 
-## 3. What CI proves about the support claims — settled on `feature/release-hardening`
+## 3. What CI proves about the support claims
 
 Every claim a consumer reads was a hand-written assertion. Three of them are now checked on every
-pull request, and the last of them found a bug that would have shipped.
+pull request, and the last of them found a bug that would have shipped. Sections 3.1-3.3 were
+settled on `feature/release-hardening`; 3.4 came out of reviewing the branch that followed it.
 
 ### 3.1 The Node floor is the floor that runs
 
@@ -158,6 +159,30 @@ into `SUPPORTED_I18NEXT` and the claim is re-proven.
 
 - [x] Majors 23–26 driven end to end from an installed tarball
 - [x] Decision recorded: open range, tested list, documented in the README
+
+### 3.4 A key is data, not a path into the runtime — settled on `fix/prototype-pollution-nested-write`
+
+Reviewing the `setNestedValue` dedup surfaced a defect older than that branch. A translation key
+arrives as an arbitrary string — the entire premise of the library is that the key set is not known
+at build time — and the dot walk indexed objects with it directly. `__proto__` is an inherited
+accessor on `Object.prototype`, so a key containing that segment wrote **through** the catalog into
+every object in the host process, and the read side returned inherited members to the application as
+though they were translations.
+
+Both walks now use own-property lookups only and store segments with `Object.defineProperty`. A
+colliding key is kept as an ordinary own property rather than rejected — refusing it would silently
+lose a translation the application asked for, which is the failure mode a translation library can
+least afford.
+
+Worth recording *why this is a pre-release item* rather than a deferred one: it is the only finding
+this round that would have been a **breaking** change to fix after publication. Rejecting or
+reshaping a key is observable to a consumer, so the window to choose the semantics closes at 0.1.0.
+
+- [x] `setNestedValue` / `getNestedValue` walk own properties only, on both sides
+- [x] Four `S-2` regression tests, written red first, including the inverse assertion that a key
+      named `__proto__` is still stored and retrievable
+- [x] Recorded as a *Keys as data* section in `docs/conventions/security.md`, so the next dot walk
+      written in this repo goes through those two functions instead of re-deriving the loop
 
 ---
 
@@ -211,6 +236,6 @@ Captured 2026-09-21, from PR #9 (`chore/review-2026-09-21` → `dev`), all check
 | Default branch | `main`, 67 commits behind `dev` after PR #9 merged |
 | Visibility | private |
 | Actions secrets | none |
-| Tests | 281 passing (262 when this file was written) |
+| Tests | 291 passing (262 when this file was written) |
 | `npm audit` | 0 vulnerabilities; `dependencies` empty, all three peers optional |
 | Licence | MIT, `LICENSE` present and matching `package.json` |
