@@ -39,34 +39,73 @@ export class LibreTranslateService implements TranslationService {
      * ignored — use DeepL if context-aware translation matters.
      */
     async translate(text: string, sourceLang: string, targetLang: string, _context?: string): Promise<string> {
+        const translated = await this.request<string>(text, sourceLang, targetLang);
+
+        if (typeof translated !== 'string') {
+            throw new TranslationError('Invalid response from LibreTranslate API', 'libretranslate');
+        }
+
+        return translated;
+    }
+
+    /**
+     * Translate a batch of texts in a single request.
+     *
+     * `/translate` accepts `q` as an array and answers with `translatedText` as an
+     * array in the same order, so a batch costs one request rather than one per
+     * text — which is what keeps a rate-limited instance from rejecting the tail
+     * of a batch. An empty `q` array is rejected by the API, hence the early return.
+     */
+    async translateBatch(
+        texts: string[],
+        sourceLang: string,
+        targetLang: string,
+        _context?: string
+    ): Promise<string[]> {
+        if (texts.length === 0) return [];
+
+        const translated = await this.request<string[]>(texts, sourceLang, targetLang);
+
+        if (!Array.isArray(translated)) {
+            throw new TranslationError('Invalid response from LibreTranslate API', 'libretranslate');
+        }
+
+        return translated;
+    }
+
+    /**
+     * Post one `/translate` call. `q` carries either a single text or a batch, and
+     * the response mirrors that shape — the callers narrow it.
+     */
+    private async request<TResult extends string | string[]>(
+        q: string | string[],
+        sourceLang: string,
+        targetLang: string
+    ): Promise<TResult | undefined> {
         if (!this.isAvailable()) {
             throw new TranslationError('LibreTranslate API URL not configured', 'libretranslate');
         }
 
+        const payload: Record<string, string | string[]> = {
+            q,
+            source: this.normalizeLangCode(sourceLang),
+            target: this.normalizeLangCode(targetLang),
+            format: 'text',
+        };
+
+        if (this.apiKey) {
+            payload.api_key = this.apiKey;
+        }
+
         try {
-            const payload: Record<string, string> = {
-                q: text,
-                source: this.normalizeLangCode(sourceLang),
-                target: this.normalizeLangCode(targetLang),
-                format: 'text',
-            };
-
-            if (this.apiKey) {
-                payload.api_key = this.apiKey;
-            }
-
-            const response = await http.post<{ translatedText: string }>(this.apiUrl, payload, {
+            const response = await http.post<{ translatedText: TResult }>(this.apiUrl, payload, {
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 timeout: REQUEST_TIMEOUT_MS,
             });
 
-            if (response.data && response.data.translatedText) {
-                return response.data.translatedText;
-            }
-
-            throw new TranslationError('Invalid response from LibreTranslate API', 'libretranslate');
+            return response.data?.translatedText;
         } catch (error) {
             if (isHttpError(error)) {
                 const message = describeHttpError(error, 'LibreTranslate API', LIBRETRANSLATE_STATUS_MESSAGES);
@@ -74,17 +113,6 @@ export class LibreTranslateService implements TranslationService {
             }
             throw error;
         }
-    }
-
-    /**
-     * Translate a batch of texts.
-     *
-     * LibreTranslate exposes no batch endpoint, so this fans out to one request
-     * per text. `maxConcurrency` on AutoTranslate bounds how many batches run at once.
-     */
-    async translateBatch(texts: string[], sourceLang: string, targetLang: string, context?: string): Promise<string[]> {
-        if (texts.length === 0) return [];
-        return Promise.all(texts.map((text: string) => this.translate(text, sourceLang, targetLang, context)));
     }
 
     /**

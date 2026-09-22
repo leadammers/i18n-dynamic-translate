@@ -334,15 +334,43 @@ describe('LibreTranslateService', () => {
             expect(result).toEqual([]);
         });
 
-        it('should translate texts individually via Promise.all', async () => {
+        it('should send the whole batch as one request', async () => {
             const service = new LibreTranslateService(baseConfig);
-            mockPost
-                .mockResolvedValueOnce({ data: { translatedText: 'Bonjour' }, status: 200 })
-                .mockResolvedValueOnce({ data: { translatedText: 'Au revoir' }, status: 200 });
+            mockPost.mockResolvedValue({ data: { translatedText: ['Bonjour', 'Au revoir'] }, status: 200 });
 
             const result = await service.translateBatch(['Hello', 'Goodbye'], 'en', 'fr');
+
             expect(result).toEqual(['Bonjour', 'Au revoir']);
-            expect(mockPost).toHaveBeenCalledTimes(2);
+            expect(mockPost).toHaveBeenCalledTimes(1);
+            expect(mockPost).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ q: ['Hello', 'Goodbye'], source: 'en', target: 'fr', format: 'text' }),
+                expect.anything()
+            );
+        });
+
+        it('should throw when the response is not an array', async () => {
+            // A single-text response shape coming back for a batch would otherwise
+            // reach the core as a string and be indexed character by character.
+            const service = new LibreTranslateService(baseConfig);
+            mockPost.mockResolvedValue({ data: { translatedText: 'Bonjour' }, status: 200 });
+
+            await expect(service.translateBatch(['Hello', 'Goodbye'], 'en', 'fr')).rejects.toThrow(
+                'Invalid response from LibreTranslate API'
+            );
+        });
+
+        it('should include api_key in a batch payload when configured', async () => {
+            const service = new LibreTranslateService({ ...baseConfig, apiKey: 'test-key' });
+            mockPost.mockResolvedValue({ data: { translatedText: ['Bonjour'] }, status: 200 });
+
+            await service.translateBatch(['Hello'], 'en', 'fr');
+
+            expect(mockPost).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ api_key: 'test-key' }),
+                expect.anything()
+            );
         });
     });
 });
