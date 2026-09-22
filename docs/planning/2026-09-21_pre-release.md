@@ -239,3 +239,27 @@ Captured 2026-09-21, from PR #9 (`chore/review-2026-09-21` → `dev`), all check
 | Tests | 291 passing (262 when this file was written) |
 | `npm audit` | 0 vulnerabilities; `dependencies` empty, all three peers optional |
 | Licence | MIT, `LICENSE` present and matching `package.json` |
+
+---
+
+## 7. Retiring this file
+
+Decided 2026-09-22: this file is **deleted** after 0.1.0 is tagged, not moved to `docs/archive/`.
+The archive step in [docs-workflow](../../AGENTS.md) is deliberately replaced here, because the
+durable half of this plan is a handful of decisions and the rest is a checklist that stops being
+true the moment the package is published.
+
+Before deleting it, extract the decisions that get asked again into `docs/decisions/` — the
+convention defines ADRs and the directory does not exist yet, so these are the first three:
+
+- [ ] `001-keys-are-data.md` — a translation key is untrusted data, never a path into the runtime.
+      Why a colliding key such as `__proto__` is stored as an own property rather than rejected:
+      refusing it silently loses a translation the application asked for. Source: §3.4
+- [ ] `002-open-peer-range.md` — why `i18next >=23.0.0` stays open above the majors actually
+      tested, and what `SUPPORTED_I18NEXT` obliges a maintainer to do instead. Source: §3.3
+- [ ] `003-cache-identity.md` — why `TranslationCache` takes a `TranslationIdentity` rather than a
+      pre-encoded string, and why `CacheEntry` is not public. Source: §2.0, §2.1
+- [ ] Delete this file and drop the `docs/planning/...` line from `AGENTS.md`'s *Known state*
+
+Everything else in here — the `NPM_TOKEN` setup, the provenance decision, the `main`/`dev` merge,
+the pre-flight list — is one-off setup with no second reader. It goes when the file goes.
