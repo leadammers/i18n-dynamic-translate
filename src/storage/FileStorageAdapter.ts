@@ -4,13 +4,8 @@
  */
 
 import { FileFormat, StorageAdapter, StorageSaveEntry } from '@/types';
-import {
-    appendTranslationToFile,
-    getLocaleFilePath,
-    readLocaleFile,
-    setNestedValue,
-    writeLocaleFile,
-} from '@/utils/fileHandler';
+import { appendTranslationToFile, getLocaleFilePath, readLocaleFile, writeLocaleFile } from '@/utils/fileHandler';
+import { setNestedValue } from '@/utils/objectPath';
 import { FileLock } from '@/utils/fileLock';
 
 export interface FileStorageAdapterConfig {

@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
 import { Backend, LocaleData, StorageAdapter, TranslationProvider } from '@/types';
 import { NodeI18nAdapter } from '@/adapters/nodeI18nAdapter';
-import { setNestedValue } from '@/utils/fileHandler';
+import { setNestedValue } from '@/utils/objectPath';
 import { MemoryCache } from '@/utils/cache';
 import { LibreTranslateService } from '@/translators/libreTranslate';
 import { DeepLService } from '@/translators/deepl';

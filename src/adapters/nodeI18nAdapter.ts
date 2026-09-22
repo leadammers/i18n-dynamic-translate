@@ -5,7 +5,7 @@
 
 import { BackendAdapter, MissingKeyCallback, AutoTranslateConfig, LocaleData } from '@/types';
 import { BackendError } from '@/utils/errors';
-import { getNestedValue, setNestedValue } from '@/utils/fileHandler';
+import { getNestedValue, setNestedValue } from '@/utils/objectPath';
 
 // Type for node-i18n instance (minimal interface)
 interface NodeI18nInstance {
