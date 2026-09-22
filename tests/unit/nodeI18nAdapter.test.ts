@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NodeI18nAdapter } from '@/adapters/nodeI18nAdapter';
 import { BackendError } from '@/utils/errors';
-import { Backend, TranslationProvider } from '@/types';
+import { Backend, TranslationProvider, LocaleData } from '@/types';
 
 // Create mock node-i18n instance
 function createMockNodeI18n(overrides = {}) {
-    const catalog: Record<string, Record<string, string>> = {
+    const catalog: Record<string, LocaleData> = {
         en: { hello: 'Hello', world: 'World' },
         de: { hello: 'Hallo' },
     };
@@ -13,7 +13,8 @@ function createMockNodeI18n(overrides = {}) {
     return {
         __: vi.fn((phrase: string) => {
             const locale = 'en';
-            return catalog[locale]?.[phrase] || phrase;
+            const translation = catalog[locale]?.[phrase];
+            return typeof translation === 'string' ? translation : phrase;
         }),
         __n: vi.fn((singular: string, plural: string, count: number) => {
             return count === 1 ? singular : plural;
@@ -35,6 +36,7 @@ function createMockConfig() {
         i18nInstance: {},
         localesPath: '/locales',
         defaultLanguage: 'en',
+        objectNotation: false,
         translationProvider: {
             provider: TranslationProvider.LIBRE_TRANSLATE,
         },
@@ -157,6 +159,52 @@ describe('NodeI18nAdapter', () => {
 
             expect(mockNodeI18n.catalog).toBeDefined();
             expect(mockNodeI18n.catalog['es']['test']).toBe('Prueba');
+        });
+    });
+
+    describe('objectNotation', () => {
+        // `objectNotation` is the only branch in this adapter that nests, on both
+        // the read and the write side, and every other test here runs with it off.
+        let nestedCatalog: Record<string, LocaleData>;
+
+        beforeEach(() => {
+            nestedCatalog = {
+                en: { products: { meta: { carrier: 'Carrier' } } },
+            };
+            mockNodeI18n.catalog = nestedCatalog;
+            mockNodeI18n.getCatalog.mockImplementation((locale: string) => nestedCatalog[locale] ?? {});
+            mockConfig.objectNotation = true;
+            adapter.initialize(mockNodeI18n, mockConfig);
+        });
+
+        describe('setTranslation', () => {
+            it('should create the intermediate branches of a dot path', () => {
+                adapter.setTranslation('products.meta.weight', 'de', 'Gewicht');
+
+                expect(nestedCatalog['de']).toEqual({ products: { meta: { weight: 'Gewicht' } } });
+            });
+
+            it('should keep a sibling already stored under the same branch', () => {
+                adapter.setTranslation('products.meta.weight', 'en', 'Weight');
+
+                expect(nestedCatalog['en']).toEqual({
+                    products: { meta: { carrier: 'Carrier', weight: 'Weight' } },
+                });
+            });
+        });
+
+        describe('getTranslation', () => {
+            it('should read a value through a dot path', () => {
+                expect(adapter.getTranslation('products.meta.carrier', 'en')).toBe('Carrier');
+            });
+
+            it('should return null when an intermediate segment is missing', () => {
+                expect(adapter.getTranslation('products.missing.carrier', 'en')).toBeNull();
+            });
+
+            it('should return null when the path stops on a branch instead of a string', () => {
+                expect(adapter.getTranslation('products.meta', 'en')).toBeNull();
+            });
         });
     });
 
