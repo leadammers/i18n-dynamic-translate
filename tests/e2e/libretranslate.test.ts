@@ -18,8 +18,13 @@ import i18next from 'i18next';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { config } from 'dotenv';
 import { AutoTranslate, Backend, TranslationProvider, FileFormat } from '@/index';
+import { LibreTranslateService } from '@/translators/libreTranslate';
 import { http } from '@/utils/http';
+
+// Same source as the DeepL suite, so one file configures both.
+config({ path: path.join(__dirname, '../..', '.env.dev') });
 
 const LIBRETRANSLATE_URL = process.env.LIBRETRANSLATE_URL;
 const hasInstance = Boolean(LIBRETRANSLATE_URL);
@@ -27,7 +32,7 @@ const hasInstance = Boolean(LIBRETRANSLATE_URL);
 /** Only read while the suite runs, and the suite only runs when the variable is set. */
 const apiUrl = LIBRETRANSLATE_URL ?? 'http://libretranslate.invalid/translate';
 
-/** German for 'Welcome Message' — the instance is deterministic for this pair. */
+/** A key with no translation anywhere in this suite's fixtures. */
 const SOURCE_KEY = 'welcomeMessage';
 
 function createInstance(localesPath: string): AutoTranslate {
@@ -74,17 +79,22 @@ describe.skipIf(!hasInstance)('E2E: LibreTranslate', () => {
         try {
             const translated = await autoTranslate.translateKey(SOURCE_KEY, 'de');
 
-            expect(translated).toBe('Willkommensnachricht');
-            expect(i18next.getFixedT('de', 'translation')(SOURCE_KEY)).toBe('Willkommensnachricht');
+            // Not pinned to an exact German string: which words the model picks is
+            // the model's business and changes between instance versions. What this
+            // suite is here to prove is that a translation came back at all and that
+            // the *same* value reached the live i18next instance and the file.
+            expect(translated).toMatch(/\S/);
+            expect(translated).not.toBe(SOURCE_KEY);
+            expect(i18next.getFixedT('de', 'translation')(SOURCE_KEY)).toBe(translated);
 
             const persisted = JSON.parse(fs.readFileSync(path.join(localesPath, 'de.json'), 'utf-8'));
-            expect(persisted[SOURCE_KEY]).toBe('Willkommensnachricht');
+            expect(persisted[SOURCE_KEY]).toBe(translated);
         } finally {
             await autoTranslate.dispose();
         }
     });
 
-    it('sends a whole batch as one request and keeps the order', async () => {
+    it('sends a whole object as one request', async () => {
         // The reason this suite exists: LibreTranslate accepts `q` as an array, and
         // a stub written from our own assumptions could never have shown that.
         const localesPath = trackedLocalesDir('de.json');
@@ -92,21 +102,41 @@ describe.skipIf(!hasInstance)('E2E: LibreTranslate', () => {
         const postSpy = vi.spyOn(http, 'post');
 
         try {
-            const result = await autoTranslate.translateObject(
-                { carrier: 'x', weight: 'x', shippingTime: 'x', brand: 'x' },
-                'de'
-            );
+            const source = { carrier: 'x', weight: 'x', shippingTime: 'x', brand: 'x' };
+            const result = await autoTranslate.translateObject(source, 'de');
 
-            expect(result).toEqual({
-                carrier: 'Beförderer',
-                weight: 'Gewicht',
-                shippingTime: 'Versandzeit',
-                brand: 'Marke',
-            });
+            expect(Object.keys(result)).toEqual(Object.keys(source));
+            for (const value of Object.values(result)) {
+                expect(value).toMatch(/\S/);
+            }
             expect(postSpy).toHaveBeenCalledTimes(1);
         } finally {
             await autoTranslate.dispose();
         }
+    });
+
+    it('keeps a batch in the order it was sent', async () => {
+        // Order is proven by correlation rather than by pinning the model's word
+        // choice: translating the same texts one at a time has to land the same
+        // values in the same slots. That holds whatever German the instance speaks.
+        const service = new LibreTranslateService({
+            provider: TranslationProvider.LIBRE_TRANSLATE,
+            apiUrl,
+        });
+        const texts = ['Carrier', 'Weight', 'Shipping time', 'Brand'];
+        const postSpy = vi.spyOn(http, 'post');
+
+        const batched = await service.translateBatch(texts, 'en', 'de');
+        expect(postSpy).toHaveBeenCalledTimes(1);
+
+        postSpy.mockClear();
+        const individually: string[] = [];
+        for (const text of texts) {
+            individually.push(await service.translate(text, 'en', 'de'));
+        }
+
+        expect(batched).toEqual(individually);
+        expect(postSpy).toHaveBeenCalledTimes(texts.length);
     });
 
     it('reports an unsupported target language without leaking the request', async () => {
