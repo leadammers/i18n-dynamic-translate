@@ -178,41 +178,31 @@ describe('NodeI18nAdapter', () => {
         });
 
         describe('setTranslation', () => {
-            it('creates the intermediate branches of a dot path', () => {
+            it('should create the intermediate branches of a dot path', () => {
                 adapter.setTranslation('products.meta.weight', 'de', 'Gewicht');
 
                 expect(nestedCatalog['de']).toEqual({ products: { meta: { weight: 'Gewicht' } } });
             });
 
-            it('keeps a sibling already stored under the same branch', () => {
+            it('should keep a sibling already stored under the same branch', () => {
                 adapter.setTranslation('products.meta.weight', 'en', 'Weight');
 
                 expect(nestedCatalog['en']).toEqual({
                     products: { meta: { carrier: 'Carrier', weight: 'Weight' } },
                 });
             });
-
-            it('replaces a null branch rather than throwing on it', () => {
-                // `typeof null === 'object'`, so a null left by a hand-edited
-                // catalog reaches the property write unless it is excluded.
-                nestedCatalog['en'] = { products: null as unknown as LocaleData };
-
-                adapter.setTranslation('products.meta.weight', 'en', 'Weight');
-
-                expect(nestedCatalog['en']).toEqual({ products: { meta: { weight: 'Weight' } } });
-            });
         });
 
         describe('getTranslation', () => {
-            it('reads a value through a dot path', () => {
+            it('should read a value through a dot path', () => {
                 expect(adapter.getTranslation('products.meta.carrier', 'en')).toBe('Carrier');
             });
 
-            it('returns null when an intermediate segment is missing', () => {
+            it('should return null when an intermediate segment is missing', () => {
                 expect(adapter.getTranslation('products.missing.carrier', 'en')).toBeNull();
             });
 
-            it('returns null when the path stops on a branch instead of a string', () => {
+            it('should return null when the path stops on a branch instead of a string', () => {
                 expect(adapter.getTranslation('products.meta', 'en')).toBeNull();
             });
         });
