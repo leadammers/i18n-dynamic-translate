@@ -57,6 +57,13 @@ version is tagged.
   so the translation survives rather than being bought again on every lookup. Found by running the
   adapter against the real package; the unit mock had invented the property and the end-to-end
   test asserted only on the file.
+- An empty translation was treated as no translation. "Already translated" was decided by
+  truthiness, so a provider that legitimately answers `''` — LibreTranslate does, for an empty
+  source text — produced a value that looked missing on every later lookup: translated again,
+  written again and saved again, for the life of the process, on the consumer's provider quota.
+  Cache and backend reads now distinguish an empty value from an absent one. A key whose default
+  language holds `''` is likewise kept empty rather than falling through to the humanised key
+  text, and is resolved without calling the provider at all.
 - Reads went through the same door as writes. `getCatalog` falls back to a related locale when the
   requested one is absent, so with `fallbacks` configured a lookup answered a missing French key
   with the German translation — and `__proto__` or `constructor` as a locale resolved to

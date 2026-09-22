@@ -546,7 +546,10 @@ describe('AutoTranslate', () => {
             await at.translateKey('hello', 'de');
             await at.translateKey('hello', 'de');
 
-            expect(cache.has).toHaveBeenCalled();
+            // Read through `get`, not `has`: `has` cannot distinguish a cached
+            // empty translation from a miss, and the second call has to be served
+            // from the cache rather than translated again.
+            expect(cache.get).toHaveBeenCalled();
             expect(cache.set).toHaveBeenCalledTimes(1);
 
             await at.dispose();

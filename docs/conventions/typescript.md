@@ -64,6 +64,11 @@ src/
   to convert explicitly.
 - No empty constructors — delete them.
 - No business logic in string templates.
+- **A translation is present or absent, never falsy.** `''` is a value a provider returns and a
+  locale file holds, so presence is tested with `!== null` (or `!== undefined`) and never with
+  truthiness. A truthy test turns an empty translation into a permanent miss: re-translated,
+  re-written and re-saved on every lookup, on the consumer's provider quota. The same goes for a
+  source text read out of the default language.
 
 ## Naming
 
