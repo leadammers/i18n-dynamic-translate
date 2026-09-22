@@ -251,7 +251,7 @@ Captured 2026-09-21, from PR #9 (`chore/review-2026-09-21` → `dev`), all check
 | Default branch | `main`, 67 commits behind `dev` after PR #9 merged |
 | Visibility | private |
 | Actions secrets | none |
-| Tests | 291 passing (262 when this file was written) |
+| Tests | 301 passing (262 when this file was written) |
 | `npm audit` | 0 vulnerabilities; `dependencies` empty, all three peers optional |
 | Licence | MIT, `LICENSE` present and matching `package.json` |
 
