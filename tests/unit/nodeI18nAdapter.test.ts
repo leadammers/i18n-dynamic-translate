@@ -58,6 +58,38 @@ function catalogOf(instance: ReturnType<typeof createMockNodeI18n>, locale: stri
     return catalog;
 }
 
+/**
+ * A stand-in for an instance configured with `fallbacks: { fr: 'de' }`.
+ *
+ * This is the branch the plain mock models away, and the reason the adapter
+ * re-checks `getLocales()` after calling `addLocale`: for an unconfigured locale
+ * node-i18n does not answer `false`, it answers with the **fallback's** catalog —
+ * the identical object, not a copy. Code that trusts that return value writes
+ * French into the German catalog, and autoSave then persists it to `de.json`.
+ */
+function createMockNodeI18nWithFallback(fallbacks: Record<string, string>) {
+    const locales: Record<string, LocaleData> = {
+        de: { hallo: 'Hallo' },
+    };
+
+    return {
+        __: vi.fn((phrase: string) => phrase),
+        __n: vi.fn((singular: string) => singular),
+        getLocale: vi.fn(() => 'de'),
+        setLocale: vi.fn(),
+        getLocales: vi.fn((): string[] => Object.keys(locales)),
+        getCatalog: vi.fn((locale: string): LocaleData | false => {
+            const resolved = fallbacks[locale] ?? locale;
+            return locales[resolved] ?? false;
+        }),
+        // `updateFiles` off and no `<locale>.json`: nothing is registered.
+        addLocale: vi.fn(),
+        configure: vi.fn(),
+        options: {},
+        locales,
+    };
+}
+
 function createMockConfig() {
     return {
         backend: Backend.NODE_I18N,
@@ -152,6 +184,27 @@ describe('NodeI18nAdapter', () => {
             expect(mockNodeI18n.setLocale).not.toHaveBeenCalled();
         });
 
+        it("should not read a fallback locale's catalog", () => {
+            // `translateKey` returns early on whatever this hands back, so a German
+            // string answered for `fr` would be stored and served as the French
+            // translation and the provider would never be called.
+            const withFallback = createMockNodeI18nWithFallback({ fr: 'de' });
+            const fallbackAdapter = new NodeI18nAdapter();
+            fallbackAdapter.initialize(withFallback, mockConfig);
+
+            expect(withFallback.getCatalog('fr')).toEqual({ hallo: 'Hallo' });
+            expect(fallbackAdapter.getTranslation('hallo', 'fr')).toBeNull();
+        });
+
+        it('should return null for a locale node-i18n does not know', () => {
+            // Covers `__proto__` and `constructor` too: the real `getCatalog`
+            // resolves those to `Object.prototype` and `Object`, so an inherited
+            // member would otherwise be returned as though it were a translation.
+            expect(adapter.getTranslation('hello', 'zz')).toBeNull();
+            expect(adapter.getTranslation('toString', '__proto__')).toBeNull();
+            expect(adapter.getTranslation('name', 'constructor')).toBeNull();
+        });
+
         it('should return null when getCatalog throws', () => {
             mockNodeI18n.getCatalog.mockImplementation(() => {
                 throw new Error('Error');
@@ -196,6 +249,34 @@ describe('NodeI18nAdapter', () => {
 
             expect(mockNodeI18n.addLocale).toHaveBeenCalledWith('es');
             expect(catalogOf(mockNodeI18n, 'es')['test']).toBe('Prueba');
+        });
+
+        it("should not write into a fallback locale's catalog", () => {
+            // `getCatalog('fr')` hands back the *German* catalog here. Writing into
+            // what it returns would store French under `de` and persist it to
+            // `de.json` — which is what the second `getLocales()` check prevents.
+            const withFallback = createMockNodeI18nWithFallback({ fr: 'de' });
+            const fallbackAdapter = new NodeI18nAdapter();
+            fallbackAdapter.initialize(withFallback, mockConfig);
+
+            expect(() => fallbackAdapter.setTranslation('bonjour', 'fr', 'Bonjour')).toThrow(BackendError);
+            expect(withFallback.locales['de']).toEqual({ hallo: 'Hallo' });
+        });
+
+        it('should refuse an empty locale', () => {
+            // `getCatalog('')` returns node-i18n's whole registry rather than one
+            // entry, so an empty locale would write a key into the locale map.
+            expect(() => adapter.setTranslation('test', '', 'value')).toThrow(BackendError);
+        });
+
+        it('should report a refusal without stuttering the prefix', () => {
+            const refusing = createMockNodeI18n({ addLocale: vi.fn() });
+            const refusingAdapter = new NodeI18nAdapter();
+            refusingAdapter.initialize(refusing, mockConfig);
+
+            expect(() => refusingAdapter.setTranslation('test', 'zz', 'Proba')).not.toThrow(
+                /Failed to set translation in node-i18n: node-i18n/
+            );
         });
 
         it('should report a locale node-i18n refuses to register', () => {

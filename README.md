@@ -241,8 +241,9 @@ language.
 > - **node-i18n**: Set `updateFiles: false` to prevent node-i18n from writing files - DynamicTranslate handles all file
     writes via `autoSave: true`
 > - **node-i18n**: List every target language in `configure({ locales: [...] })`. node-i18n only registers a locale from
-    its own file, so a language it has never seen cannot receive a translation and DynamicTranslate reports it instead of
-    dropping it
+    its own file, so a language it has never seen cannot receive a translation in memory. DynamicTranslate reports that
+    through `onError` and still writes the locale file, so the translation is not lost — but `__()` will not serve it
+    until the locale is configured
 
 ### Translating API Metadata
 

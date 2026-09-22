@@ -124,6 +124,15 @@ export class NodeI18nAdapter implements BackendAdapter {
         }
 
         try {
+            // Same guard as the write path, for the same reason: `getCatalog` falls
+            // back to a related locale, and resolves `__proto__` to `Object.prototype`
+            // and `constructor` to `Object`. Without this, a lookup for an
+            // unregistered locale answers with a neighbour's translation, or with an
+            // inherited member, as though it were this locale's own.
+            if (!this.i18n.getLocales().includes(locale)) {
+                return null;
+            }
+
             const catalog = this.i18n.getCatalog(locale);
             if (!catalog) return null;
 
@@ -163,6 +172,12 @@ export class NodeI18nAdapter implements BackendAdapter {
                 setOwnProperty(catalogForLocale, key, value);
             }
         } catch (error) {
+            // An error raised here already says what went wrong and where; wrapping
+            // it again only stutters the prefix into the message.
+            if (error instanceof BackendError) {
+                throw error;
+            }
+
             throw new BackendError(
                 `Failed to set translation in node-i18n: ${error instanceof Error ? error.message : String(error)}`,
                 'node-i18n'
@@ -181,12 +196,19 @@ export class NodeI18nAdapter implements BackendAdapter {
      *
      * A locale the instance does not know has no entry, and `getCatalog` answers
      * `false` rather than creating one. `addLocale` is the documented way to add
-     * it; it reads `<locale>.json`, which by this point autoSave has usually just
-     * written. When even that registers nothing — no file and `updateFiles` off —
-     * node-i18n offers no further entrance, and saying so beats dropping the
-     * translation in silence.
+     * it, and it registers the locale only if it can read `<locale>.json` or
+     * `updateFiles` lets it create one — this runs before autoSave writes, so on
+     * the first key of a new locale that file does not exist yet. When nothing
+     * registers, node-i18n offers no further entrance, and saying so beats
+     * dropping the translation in silence.
      */
     private resolveCatalog(i18n: NodeI18nInstance, locale: string): LocaleData {
+        // `getCatalog('')` hands back the whole registry rather than one entry, so
+        // an empty locale would write a key straight into node-i18n's locale map.
+        if (!locale) {
+            throw new BackendError('node-i18n locale must be a non-empty string', 'node-i18n');
+        }
+
         if (!i18n.getLocales().includes(locale)) {
             i18n.addLocale(locale);
         }
