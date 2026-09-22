@@ -5,7 +5,7 @@
 
 import { BackendAdapter, MissingKeyCallback, AutoTranslateConfig, LocaleData } from '@/types';
 import { BackendError } from '@/utils/errors';
-import { setNestedValue } from '@/utils/fileHandler';
+import { getNestedValue, setNestedValue } from '@/utils/fileHandler';
 
 // Type for node-i18n instance (minimal interface)
 interface NodeI18nInstance {
@@ -126,22 +126,16 @@ export class NodeI18nAdapter implements BackendAdapter {
             const catalog = this.i18n.getCatalog(locale);
             if (!catalog) return null;
 
-            // If objectNotation is enabled, traverse nested keys
+            // A catalog under `objectNotation` nests exactly like a locale file, so
+            // it is read by the same function that writes it — which is also what
+            // keeps the dot walk from following the prototype chain out of the
+            // catalog on both sides.
             if (this.config?.objectNotation) {
-                const keys = key.split('.');
-                let current: LocaleData | string | undefined = catalog;
-                for (const segment of keys) {
-                    if (current && typeof current === 'object' && segment in current) {
-                        current = current[segment];
-                    } else {
-                        return null;
-                    }
-                }
-                return typeof current === 'string' ? current : null;
+                return getNestedValue(catalog, key);
             }
 
             // Flat key lookup
-            const translation = catalog[key];
+            const translation = Object.prototype.hasOwnProperty.call(catalog, key) ? catalog[key] : undefined;
             return typeof translation === 'string' ? translation : null;
         } catch {
             return null;

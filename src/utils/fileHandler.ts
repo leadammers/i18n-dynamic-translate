@@ -112,14 +112,66 @@ export function setNestedValue(obj: LocaleData, path: string, value: string | Lo
     for (const key of keys) {
         // `typeof null === 'object'`, so null has to be excluded explicitly or the
         // property write below throws on a locale file that holds one.
-        const branch = current[key];
+        const branch = readOwnSegment(current, key);
         if (typeof branch !== 'object' || branch === null) {
-            current[key] = {};
+            writeOwnSegment(current, key, {});
         }
-        current = current[key] as LocaleData;
+        current = readOwnSegment(current, key) as LocaleData;
     }
 
-    current[leafKey] = value;
+    writeOwnSegment(current, leafKey, value);
+}
+
+/**
+ * Read one path segment, ignoring anything inherited from the prototype chain.
+ *
+ * A key arrives here as an arbitrary string — that is the whole point of a
+ * library whose keys come from API metadata rather than a build. Plain indexing
+ * would resolve `__proto__` to `Object.prototype`, and `toString` or `valueOf`
+ * to a function, so a walk could leave the catalog entirely and report whatever
+ * it found there as a translation.
+ */
+function readOwnSegment(target: LocaleData, segment: string): string | LocaleData | undefined {
+    if (!Object.prototype.hasOwnProperty.call(target, segment)) {
+        return undefined;
+    }
+
+    return target[segment];
+}
+
+/**
+ * Write one path segment as an own property.
+ *
+ * `__proto__` is an accessor inherited from `Object.prototype`, so `target[key] =
+ * value` would reassign the prototype of `target` — and of everything sharing it
+ * — instead of storing a key. Defining the property stores the segment as the
+ * data the caller meant, for that name and every other, with no special case.
+ */
+function writeOwnSegment(target: LocaleData, segment: string, value: string | LocaleData): void {
+    Object.defineProperty(target, segment, {
+        value,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+    });
+}
+
+/**
+ * Get a nested value by dot notation, or null if the path does not lead to a string.
+ * @param obj - The object to read from
+ * @param path - Dot-separated path (e.g., 'user.profile.name')
+ */
+export function getNestedValue(obj: LocaleData, path: string): string | null {
+    let current: string | LocaleData | undefined = obj;
+
+    for (const segment of path.split('.')) {
+        if (typeof current !== 'object' || current === null) {
+            return null;
+        }
+        current = readOwnSegment(current, segment);
+    }
+
+    return typeof current === 'string' ? current : null;
 }
 
 /**

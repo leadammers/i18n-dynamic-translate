@@ -37,6 +37,13 @@ version is tagged.
 - Failures are routed to an `onError` hook rather than the console, and provider errors never
   carry the API key, request URL or request body.
 
+### Security
+
+- Dot-notation keys are walked with own properties only. A key containing a `__proto__` segment
+  previously wrote through `Object.prototype`, affecting every object in the host process, and a
+  lookup could return an inherited member as though it were a translation. Such a key is now
+  stored and read back as an ordinary own property. Found in review before the first release.
+
 ### Requirements
 
 - Node.js >= 22.12, tested on 22 and 24. CommonJS, **zero runtime dependencies**.
