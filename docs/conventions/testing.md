@@ -23,6 +23,15 @@
 
 ## Rules
 
+- **A mock is a claim about someone else's contract, and it has to be checked against the
+  real package.** `createMockNodeI18n` used to expose a `catalog` property and answer an
+  unknown locale with a fresh `{}`. The real `i18n` has neither — the registry is closed over
+  in the constructor and `getCatalog` returns the live entry or `false` — so every write the
+  adapter made went into an object nothing read, and the suite was green. Model the surface
+  you actually call, including its failure returns.
+- **Assert on what the consumer observes.** The node-i18n e2e checked the persisted file and
+  not `i18n.__()`, so a backend that never served a translation still passed. Whatever the
+  library promises to update — the live instance *and* the file — is what the test reads back.
 - **Cover new behavior with a test.** A bug fix ships with a test that fails before the fix and
   passes after it — write it first and watch it go red, otherwise you have not proven it tests
   the bug.

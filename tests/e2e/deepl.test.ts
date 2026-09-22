@@ -475,6 +475,12 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         expect(savedData['thankYou']).toBeDefined();
         expect(savedData['thankYou']).not.toBe('thankYou');
 
+        // And that the running instance serves them, not just the file on disk.
+        // Asserting only on the file lets a write-back that node-i18n never sees
+        // pass — which is exactly what happened.
+        expect(i18n.__('helloWorld')).toBe(savedData['helloWorld']);
+        expect(i18n.__('thankYou')).toBe(savedData['thankYou']);
+
         // Verify API was called (should be only 1 call due to batching)
         expect(httpSpy).toHaveBeenCalledTimes(1);
 

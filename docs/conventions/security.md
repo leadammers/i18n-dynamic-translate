@@ -38,9 +38,14 @@ consumer input for the same reason. All of them are **data, never a path into th
   `__proto__` to `Object.prototype` and `toString` to a function, so a key could otherwise
   write through the prototype chain into every object in the process, or have an inherited
   member returned to the application as a translation.
-- **A single segment is not safer than a path.** `catalog[locale]` and a flat `catalog[key]`
-  are the same operation one level up, so they go through `getOwnProperty` / `setOwnProperty`
-  from the same module — hardening only the dot walk leaves the hole where the walk starts.
+- **A single segment is not safer than a path.** A flat `catalog[key]` is the same operation
+  one level up from the dot walk, so it goes through `getOwnProperty` / `setOwnProperty` from
+  the same module — hardening only the walk leaves the hole where the walk starts.
+- `locale` selects a catalog rather than indexing one of our objects: the node-i18n adapter
+  asks `getCatalog(locale)` for the backend's own registry entry and never builds a registry of
+  its own. A locale that node-i18n declines to register — `__proto__` among them, because its
+  own guarded assignment finds the inherited accessor — raises a `BackendError` naming the
+  locale. Losing a translation loudly is the honest outcome when the name is upstream's to hold.
 - `setOwnProperty` defines the property for `__proto__` and assigns for every other name.
   Defining is not a drop-in replacement for assigning: on a sealed target, or over a
   non-configurable property, `Object.defineProperty` throws where an assignment succeeds.

@@ -32,22 +32,26 @@ function createMockI18next() {
 }
 
 // Mock node-i18n instance
+// Mirrors the real `i18n` contract: no `catalog` property, and `getCatalog`
+// hands out the live object or `false`. See the note in nodeI18nAdapter.test.ts.
 function createMockNodeI18n() {
-    const catalog: Record<string, Record<string, string>> = {
+    const locales: Record<string, Record<string, string>> = {
         en: { hello: 'Hello' },
         de: {},
     };
 
     return {
-        __: vi.fn((phrase: string) => catalog['en']?.[phrase] || phrase),
+        __: vi.fn((phrase: string) => locales['en']?.[phrase] || phrase),
         __n: vi.fn((singular: string) => singular),
         getLocale: vi.fn(() => 'en'),
         setLocale: vi.fn(),
-        getLocales: vi.fn(() => ['en', 'de']),
-        getCatalog: vi.fn((locale: string) => catalog[locale] || {}),
+        getLocales: vi.fn(() => Object.keys(locales)),
+        getCatalog: vi.fn((locale: string) => locales[locale] ?? false),
+        addLocale: vi.fn((locale: string) => {
+            locales[locale] ??= {};
+        }),
         configure: vi.fn(),
         options: {},
-        catalog,
     };
 }
 

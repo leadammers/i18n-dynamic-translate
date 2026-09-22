@@ -46,6 +46,17 @@ version is tagged.
   the translation. Such a name is now stored and read back as an ordinary own property. Found in
   review before the first release.
 
+### Fixed
+
+- The **node-i18n** backend never served what it translated. The adapter wrote into a `catalog`
+  property it created on the instance, but an `i18n` instance has no such property — its registry
+  is closed over in the constructor and `getCatalog(locale)` is the only way to it. Translations
+  were persisted to the locale file and lost from the running process, so `__()` kept returning
+  the key. Writes now go into the object `getCatalog` hands out, and a locale node-i18n will not
+  register raises a `BackendError` naming it instead of disappearing. Found by running the
+  adapter against the real package; the unit mock had invented the property and the end-to-end
+  test asserted only on the file.
+
 ### Requirements
 
 - Node.js >= 22.12, tested on 22 and 24. CommonJS, **zero runtime dependencies**.

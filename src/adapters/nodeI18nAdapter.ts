@@ -14,11 +14,12 @@ interface NodeI18nInstance {
     getLocale: () => string;
     setLocale: (locale: string) => void;
     getLocales: () => string[];
-    getCatalog: (locale: string) => LocaleData | undefined;
+    // The live registry entry, or `false` for a locale node-i18n never registered.
+    // Nested when `objectNotation` is on, flat otherwise — `LocaleData` covers both.
+    getCatalog: (locale: string) => LocaleData | false | undefined;
+    addLocale: (locale: string) => void;
     configure: (options: Record<string, unknown>) => void;
     options?: Record<string, unknown>;
-    // Nested when `objectNotation` is on, flat otherwise — `LocaleData` covers both.
-    catalog?: Record<string, LocaleData>;
 }
 
 export class NodeI18nAdapter implements BackendAdapter {
@@ -151,18 +152,7 @@ export class NodeI18nAdapter implements BackendAdapter {
         }
 
         try {
-            // Manually add to catalog (no need to call configure, just update in-memory catalog)
-            if (!this.i18n.catalog) {
-                this.i18n.catalog = {};
-            }
-            // `locale` indexes the catalog exactly like a key indexes a branch, and
-            // it is just as much consumer input, so it goes through the same
-            // own-property pair. Hold the reference rather than re-indexing: a
-            // second lookup would be optional again, and a `?? {}` fallback there
-            // would write into a detached object and silently drop the translation.
-            const existingCatalog = getOwnProperty(this.i18n.catalog, locale);
-            const catalogForLocale: LocaleData = typeof existingCatalog === 'object' ? existingCatalog : {};
-            setOwnProperty(this.i18n.catalog, locale, catalogForLocale);
+            const catalogForLocale = this.resolveCatalog(this.i18n, locale);
 
             // A catalog under `objectNotation` nests exactly like a locale file,
             // down to the null-branch case, so it is written by the same function.
@@ -178,6 +168,46 @@ export class NodeI18nAdapter implements BackendAdapter {
                 'node-i18n'
             );
         }
+    }
+
+    /**
+     * Get the live catalog object node-i18n reads translations out of.
+     *
+     * There is exactly one way in: `getCatalog(locale)` returns the registry entry
+     * itself, so a write into it is what `__()` sees. An instance exposes no
+     * catalog property — the registry is closed over inside the constructor — so
+     * creating one and writing there produces an object nothing ever reads, which
+     * is how every translation through this adapter used to be lost.
+     *
+     * A locale the instance does not know has no entry, and `getCatalog` answers
+     * `false` rather than creating one. `addLocale` is the documented way to add
+     * it; it reads `<locale>.json`, which by this point autoSave has usually just
+     * written. When even that registers nothing — no file and `updateFiles` off —
+     * node-i18n offers no further entrance, and saying so beats dropping the
+     * translation in silence.
+     */
+    private resolveCatalog(i18n: NodeI18nInstance, locale: string): LocaleData {
+        if (!i18n.getLocales().includes(locale)) {
+            i18n.addLocale(locale);
+        }
+
+        // Re-checked rather than trusted: `getCatalog` falls back to a related
+        // locale when the requested one is absent, so an unregistered locale would
+        // otherwise have its translations written into a neighbour's catalog.
+        if (!i18n.getLocales().includes(locale)) {
+            throw new BackendError(
+                `node-i18n has no catalog for locale "${locale}" and would not register one. ` +
+                    `Add it to configure({ locales: [...] }).`,
+                'node-i18n'
+            );
+        }
+
+        const catalog = i18n.getCatalog(locale);
+        if (typeof catalog !== 'object' || catalog === null) {
+            throw new BackendError(`node-i18n returned no catalog for locale "${locale}"`, 'node-i18n');
+        }
+
+        return catalog;
     }
 
     /**

@@ -240,6 +240,9 @@ language.
 > - **i18next**: Set `saveMissing: true` to trigger the missing key handler, but i18next won't write files itself
 > - **node-i18n**: Set `updateFiles: false` to prevent node-i18n from writing files - DynamicTranslate handles all file
     writes via `autoSave: true`
+> - **node-i18n**: List every target language in `configure({ locales: [...] })`. node-i18n only registers a locale from
+    its own file, so a language it has never seen cannot receive a translation and DynamicTranslate reports it instead of
+    dropping it
 
 ### Translating API Metadata
 
