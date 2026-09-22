@@ -10,8 +10,9 @@ but still need to be localized.
 It integrates seamlessly with i18next and node-i18n, uses DeepL or LibreTranslate for translations, and saves results
 directly to your locale files.
 
-> **Note:** This library has currently only been tested with DeepL. LibreTranslate support is implemented but not yet
-> verified in production.
+> **Note:** Both providers are verified end to end against a live server — DeepL against the
+> hosted API, LibreTranslate against a self-hosted instance (`tests/e2e/`). DeepL has by far the
+> most mileage; LibreTranslate is the newer of the two paths.
 
 ## When to use this
 
@@ -531,7 +532,7 @@ try {
 - [x] **Storage abstraction** - Pluggable `StorageAdapter` interface for custom persistence backends
 - [x] **Production mode** - Namespace allowlist for safe production deployment
 - [x] **HTTP retry** - Automatic retry with exponential backoff for transient API failures
-- [ ] **LibreTranslate verification** - Full testing and validation
+- [x] **LibreTranslate verification** - End-to-end suite against a live self-hosted instance
 - [ ] **Google Translate support** - Add Google Cloud Translation API integration
 - [ ] **Azure Translator support** - Add Microsoft Azure Translation API integration
 
