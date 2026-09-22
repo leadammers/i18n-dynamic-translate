@@ -20,7 +20,9 @@ version is tagged.
 - Explicit APIs alongside the hook: `translateKey()` and `translateObject()`.
 - Backends: **i18next** and **node-i18n**, behind a `BackendAdapter` interface.
 - Translation providers: **DeepL** (with `context` and a latency/quality model choice) and
-  **LibreTranslate**, behind a `TranslationService` interface.
+  **LibreTranslate**, behind a `TranslationService` interface. Both send a batch as a single
+  request; both are covered by an end-to-end suite against a live server, LibreTranslate's
+  against a self-hosted instance so it needs no credentials.
 - Persistence: `FileStorageAdapter` for JSON and YAML locale files, behind a `StorageAdapter`
   interface. All three extension points are documented and implementable from outside.
 - Debounced batching — missing keys are collected into one provider request, with a maximum
