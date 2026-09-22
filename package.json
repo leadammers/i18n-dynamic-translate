@@ -41,6 +41,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:deepl-e2e": "vitest run tests/e2e/deepl.test.ts",
+    "test:libre-e2e": "vitest run tests/e2e/libretranslate.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
     "compat:types": "node tools/compat/check.mjs",
     "compat:package": "attw --pack . --profile node16 && publint",

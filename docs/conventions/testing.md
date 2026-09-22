@@ -3,7 +3,7 @@
 | Layer | Choice |
 |---|---|
 | Runner | Vitest 4 (`vitest run`) |
-| Layout | `tests/unit/` (mocked, always run) · `tests/e2e/` (real DeepL API, opt-in) |
+| Layout | `tests/unit/` (mocked, always run) · `tests/e2e/` (real provider, opt-in) |
 | Aliases | `@/*` → `src/*`, `@tests/*` → `tests/*` (see `vitest.config.ts`) |
 | Typecheck | `tests/tsconfig.json`, run by `npm run typecheck` and in CI |
 
@@ -17,6 +17,16 @@
 - `tests/e2e/deepl.test.ts` — hits the real DeepL API. **Skipped automatically when
   `DEEPL_API_KEY` is unset**, which is how CI runs it. Run locally with
   `npm run test:deepl-e2e` after putting the key in `.env.dev`.
+- `tests/e2e/libretranslate.test.ts` — hits a **self-hosted** LibreTranslate instance, so it
+  needs no credentials, only a server. **Skipped automatically when `LIBRETRANSLATE_URL` is
+  unset**, which is how CI runs it. Run locally with:
+
+  ```bash
+  docker run --rm -p 5555:5000 -e LT_LOAD_ONLY=en,de libretranslate/libretranslate
+  LIBRETRANSLATE_URL=http://127.0.0.1:5555/translate npm run test:libre-e2e
+  ```
+
+  `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses.
 - `tests/fixtures/` — committed input locale files. The e2e suite *writes* into
   `tests/fixtures/node-i18n-locales/<locale>/`; those output directories are gitignored and
   must never be committed.
@@ -32,6 +42,11 @@
 - **Assert on what the consumer observes.** The node-i18n e2e checked the persisted file and
   not `i18n.__()`, so a backend that never served a translation still passed. Whatever the
   library promises to update — the live instance *and* the file — is what the test reads back.
+- **A provider contract is only observable against a real server.** Unit tests mock `http`,
+  so they assert the payload we *believe* the API takes — a wrong belief passes. Every
+  provider therefore gets an e2e suite against a live instance before it is called supported.
+  LibreTranslate's array batching was found exactly this way; the mocked test had encoded the
+  opposite assumption and was green.
 - **Cover new behavior with a test.** A bug fix ships with a test that fails before the fix and
   passes after it — write it first and watch it go red, otherwise you have not proven it tests
   the bug.
