@@ -18,6 +18,7 @@ import { MemoryCache } from '@/utils/cache';
 import { convertKeyToText } from '@/utils/keyConverter';
 import { ConfigurationError, TranslationError } from '@/utils/errors';
 import { Semaphore } from '@/utils/semaphore';
+import { setOwnProperty } from '@/utils/objectPath';
 import { FileStorageAdapter } from '@/storage/FileStorageAdapter';
 
 /**
@@ -665,7 +666,7 @@ export class AutoTranslate {
             if (this.cache?.has(identity)) {
                 const cached = this.cache.get(identity);
                 if (cached) {
-                    translations[key] = cached;
+                    setOwnProperty(translations, key, cached);
                     continue;
                 }
             }
@@ -674,7 +675,7 @@ export class AutoTranslate {
             const targetKey = this.targetKeyFor(key, parentKey);
             const existing = this.readFromBackend(targetKey, targetLocale, namespace);
             if (existing) {
-                translations[key] = existing;
+                setOwnProperty(translations, key, existing);
                 continue;
             }
 
@@ -704,7 +705,7 @@ export class AutoTranslate {
 
         // Update backend for all translated keys
         translated.forEach(([{ key }, translatedValue]: [{ key: string }, string]) => {
-            translations[key] = translatedValue;
+            setOwnProperty(translations, key, translatedValue);
 
             if (this.cache) {
                 this.cache.set(this.identityFor(key, targetLocale, namespace, parentKey, context), translatedValue);

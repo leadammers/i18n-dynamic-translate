@@ -45,7 +45,7 @@ factory — not special-casing `AutoTranslate`.
 | `src/translators/` | DeepL and LibreTranslate |
 | `src/storage/` | `FileStorageAdapter`, the default persistence |
 | `src/types/` | shared interfaces, config types, enums |
-| `src/utils/` | `cache` · `errors` · `http` · `fileHandler` · `fileLock` · `semaphore` · `keyConverter` |
+| `src/utils/` | `cache` · `errors` · `http` · `fileHandler` · `fileLock` · `objectPath` · `semaphore` · `keyConverter` |
 | `tools/compat/` | not shipped — proves the README's TypeScript and packaging claims in CI |
 | `tools/smoke/` | not shipped — installs the packed tarball and drives it end to end in CI |
 

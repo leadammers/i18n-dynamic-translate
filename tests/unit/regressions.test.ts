@@ -3,9 +3,11 @@
  * See docs/reviews/2026-09-21_full.md — each test is named after its finding.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
-import { Backend, StorageAdapter, TranslationProvider } from '@/types';
+import { Backend, LocaleData, StorageAdapter, TranslationProvider } from '@/types';
+import { NodeI18nAdapter } from '@/adapters/nodeI18nAdapter';
+import { setNestedValue } from '@/utils/objectPath';
 import { MemoryCache } from '@/utils/cache';
 import { LibreTranslateService } from '@/translators/libreTranslate';
 import { DeepLService } from '@/translators/deepl';
@@ -507,6 +509,140 @@ describe('review regressions', () => {
             expect(translate).toHaveBeenCalledTimes(1);
             expect(translateBatch).not.toHaveBeenCalled();
             await instance.dispose();
+        });
+    });
+    describe('S-2 prototype pollution through a dot path', () => {
+        // A key reaches these functions as an arbitrary string — that is the point
+        // of the library, whose keys come from API metadata rather than a build.
+        // `__proto__` is an accessor on Object.prototype, so descending into it or
+        // assigning to it reaches every object in the process instead of the catalog.
+        const POLLUTED_PROPERTY = 'pollutedByRegressionTest';
+
+        function createAdapter(
+            overrides: Record<string, unknown>,
+            catalog: Record<string, LocaleData> = {}
+        ): NodeI18nAdapter {
+            const adapter = new NodeI18nAdapter();
+            adapter.initialize(
+                {
+                    getCatalog: (locale: string) => catalog[locale] ?? {},
+                    catalog,
+                    __: (phrase: string) => phrase,
+                    __n: (singular: string) => singular,
+                },
+                { ...createConfig(createMockI18next()), backend: Backend.NODE_I18N, ...overrides }
+            );
+            return adapter;
+        }
+
+        afterEach(() => {
+            // Runs even when an assertion below fails, so one red test cannot
+            // corrupt every object in the rest of the suite.
+            delete (Object.prototype as Record<string, unknown>)[POLLUTED_PROPERTY];
+        });
+
+        it('does not reach Object.prototype through a __proto__ segment', () => {
+            const catalog: LocaleData = {};
+
+            setNestedValue(catalog, `__proto__.${POLLUTED_PROPERTY}`, 'polluted');
+
+            expect(({} as Record<string, unknown>)[POLLUTED_PROPERTY]).toBeUndefined();
+        });
+
+        it('stores a key literally named __proto__ instead of dropping it', () => {
+            // The inverse assertion: a guard that refused the segment outright
+            // would lose a translation the application legitimately asked for.
+            const catalog: LocaleData = {};
+
+            setNestedValue(catalog, `__proto__.${POLLUTED_PROPERTY}`, 'kept');
+
+            const branch = Object.getOwnPropertyDescriptor(catalog, '__proto__')?.value as LocaleData;
+            expect(branch?.[POLLUTED_PROPERTY]).toBe('kept');
+            expect(Object.getPrototypeOf(catalog)).toBe(Object.prototype);
+        });
+
+        it('leaves an ordinary nested write unchanged', () => {
+            const catalog: LocaleData = { products: { meta: { carrier: 'Carrier' } } };
+
+            setNestedValue(catalog, 'products.meta.weight', 'Weight');
+
+            expect(catalog).toEqual({ products: { meta: { carrier: 'Carrier', weight: 'Weight' } } });
+        });
+
+        it('does not reach Object.prototype through the locale argument', () => {
+            // `locale` indexes the catalog exactly like a key indexes a branch, so
+            // hardening only the key leaves the same hole one level further up —
+            // and this one is reachable straight from `translateKey`.
+            const adapter = createAdapter({ objectNotation: true });
+
+            adapter.setTranslation(`${POLLUTED_PROPERTY}`, '__proto__', 'polluted');
+
+            expect(({} as Record<string, unknown>)[POLLUTED_PROPERTY]).toBeUndefined();
+        });
+
+        it('stores a locale literally named __proto__ instead of dropping it', () => {
+            const catalog: Record<string, LocaleData> = {};
+            const adapter = createAdapter({ objectNotation: true }, catalog);
+
+            adapter.setTranslation(POLLUTED_PROPERTY, '__proto__', 'kept');
+
+            const branch = Object.getOwnPropertyDescriptor(catalog, '__proto__')?.value as LocaleData;
+            expect(branch?.[POLLUTED_PROPERTY]).toBe('kept');
+            expect(Object.getPrototypeOf(catalog)).toBe(Object.prototype);
+        });
+
+        it('stores a flat key named __proto__ instead of dropping it', () => {
+            // Without `objectNotation` the catalog is written by a plain assignment,
+            // which for this one name stores nothing at all — a paid translation lost.
+            const catalog: Record<string, LocaleData> = {};
+            const adapter = createAdapter({ objectNotation: false }, catalog);
+
+            adapter.setTranslation('__proto__', 'en', 'kept');
+
+            expect(Object.getOwnPropertyDescriptor(catalog.en, '__proto__')?.value).toBe('kept');
+            expect(({} as Record<string, unknown>).kept).toBeUndefined();
+        });
+
+        it('keeps a key named __proto__ in the object translateObject returns', async () => {
+            // Keys arrive as JSON from an API, and `JSON.parse` makes `__proto__` an
+            // ordinary own property — so the accumulator has to store it as one too.
+            // The value in the input is ignored: `translateObject` translates key
+            // paths, so the source text comes from the key itself.
+            const instance = new AutoTranslate(createConfig(createMockI18next()));
+
+            const result = await instance.translateObject(JSON.parse('{"__proto__": "ignored"}'), 'de');
+
+            expect(Object.getOwnPropertyDescriptor(result, '__proto__')?.value).toBe('X(Proto)');
+            expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+            await instance.dispose();
+        });
+
+        it('writes into a sealed catalog exactly as a plain assignment would', () => {
+            // Defining a property is not a drop-in replacement for assigning one:
+            // on a sealed or non-configurable target `defineProperty` throws where
+            // the assignment this replaced simply succeeded.
+            const sealed: LocaleData = Object.seal({ carrier: 'Carrier' });
+
+            expect(() => setNestedValue(sealed, 'carrier', 'Frachtfuhrer')).not.toThrow();
+            expect(sealed.carrier).toBe('Frachtfuhrer');
+        });
+
+        it('does not read a value off the prototype chain', () => {
+            (Object.prototype as Record<string, unknown>)[POLLUTED_PROPERTY] = 'inherited';
+            const adapter = new NodeI18nAdapter();
+            const catalog: Record<string, LocaleData> = { en: {} };
+            adapter.initialize(
+                {
+                    getCatalog: (locale: string) => catalog[locale] ?? {},
+                    catalog,
+                    __: (phrase: string) => phrase,
+                    __n: (singular: string) => singular,
+                },
+                { ...createConfig(createMockI18next()), backend: Backend.NODE_I18N, objectNotation: true }
+            );
+
+            expect(adapter.getTranslation(POLLUTED_PROPERTY, 'en')).toBeNull();
+            expect(adapter.getTranslation(`__proto__.${POLLUTED_PROPERTY}`, 'en')).toBeNull();
         });
     });
 });

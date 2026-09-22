@@ -16,6 +16,7 @@ async function getYaml(): Promise<typeof import('js-yaml')> {
     return yaml;
 }
 import { FileSystemError } from '@/utils/errors';
+import { setNestedValue } from '@/utils/objectPath';
 
 /**
  * Detect file format from file path
@@ -95,31 +96,6 @@ export async function writeLocaleFile(filePath: string, data: LocaleData): Promi
     } catch (error) {
         throw new FileSystemError(`Failed to write locale file: ${filePath}`, filePath, error as Error);
     }
-}
-
-/**
- * Set a nested value in an object using dot notation
- * @param obj - The object to modify
- * @param path - Dot-separated path (e.g., 'user.profile.name')
- * @param value - Value to set
- */
-export function setNestedValue(obj: LocaleData, path: string, value: string | LocaleData): void {
-    const keys = path.split('.');
-    // `split` never returns an empty array, so the leaf key always exists.
-    const leafKey = keys.pop() ?? path;
-    let current: LocaleData = obj;
-
-    for (const key of keys) {
-        // `typeof null === 'object'`, so null has to be excluded explicitly or the
-        // property write below throws on a locale file that holds one.
-        const branch = current[key];
-        if (typeof branch !== 'object' || branch === null) {
-            current[key] = {};
-        }
-        current = current[key] as LocaleData;
-    }
-
-    current[leafKey] = value;
 }
 
 /**

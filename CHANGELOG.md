@@ -37,6 +37,15 @@ version is tagged.
 - Failures are routed to an `onError` hook rather than the console, and provider errors never
   carry the API key, request URL or request body.
 
+### Security
+
+- Keys, locales and parent keys are used as own properties only. A `__proto__` segment in a
+  dot-notation key — or a locale of that name — previously wrote through `Object.prototype`,
+  affecting every object in the host process, and a lookup could return an inherited member as
+  though it were a translation. On the flat write path the same name was silently dropped, losing
+  the translation. Such a name is now stored and read back as an ordinary own property. Found in
+  review before the first release.
+
 ### Requirements
 
 - Node.js >= 22.12, tested on 22 and 24. CommonJS, **zero runtime dependencies**.

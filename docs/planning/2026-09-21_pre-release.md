@@ -105,10 +105,11 @@ carries a placeholder and is untracked and gitignored.
 
 ---
 
-## 3. What CI proves about the support claims — settled on `feature/release-hardening`
+## 3. What CI proves about the support claims
 
 Every claim a consumer reads was a hand-written assertion. Three of them are now checked on every
-pull request, and the last of them found a bug that would have shipped.
+pull request, and the last of them found a bug that would have shipped. Sections 3.1-3.3 were
+settled on `feature/release-hardening`; 3.4 came out of reviewing the branch that followed it.
 
 ### 3.1 The Node floor is the floor that runs
 
@@ -158,6 +159,45 @@ into `SUPPORTED_I18NEXT` and the claim is re-proven.
 
 - [x] Majors 23–26 driven end to end from an installed tarball
 - [x] Decision recorded: open range, tested list, documented in the README
+
+### 3.4 A key is data, not a path into the runtime — settled on `fix/prototype-pollution-nested-write`
+
+Reviewing the `setNestedValue` dedup surfaced a defect older than that branch. A translation key
+arrives as an arbitrary string — the entire premise of the library is that the key set is not known
+at build time — and the dot walk indexed objects with it directly. `__proto__` is an inherited
+accessor on `Object.prototype`, so a key containing that segment wrote **through** the catalog into
+every object in the host process, and the read side returned inherited members to the application as
+though they were translations.
+
+Both walks now use own-property lookups only. A colliding key is kept as an ordinary own property
+rather than rejected — refusing it would silently lose a translation the application asked for,
+which is the failure mode a translation library can least afford.
+
+**The first fix was incomplete, and the way it was incomplete is the lesson.** Review of the fix
+found that hardening the dot walk left the hole where the walk *starts*: `catalog[locale]` and the
+flat `catalog[key]` are the same operation one level up, and `locale` reaches them straight from
+`translateKey`. The object `translateObject` returns had the same defect. The same review found
+that `Object.defineProperty` is not a drop-in replacement for an assignment — on a sealed or
+non-configurable target it throws where the assignment it replaced succeeded — so the write
+primitive now defines only for `__proto__` and assigns for every other name. The convention text
+was written asserting an invariant the adapter did not yet satisfy; it has been corrected to say
+that a single segment is not safer than a path.
+
+Worth recording *why this is a pre-release item* rather than a deferred one: it is the only finding
+this round that would have been a **breaking** change to fix after publication. Rejecting or
+reshaping a key is observable to a consumer, so the window to choose the semantics closes at 0.1.0.
+
+- [x] `setNestedValue` / `getNestedValue` walk own properties only, on both sides
+- [x] `locale`, the flat key path and the `translateObject` accumulator go through the same
+      own-property primitives — a single segment is not safer than a path
+- [x] The dot walks moved to `src/utils/objectPath.ts`, which also stops the core pulling
+      `node:fs` in transitively through `fileHandler`
+- [x] Nine `S-2` regression tests, written red first, including the inverse assertions that a key
+      or locale named `__proto__` is still stored and retrievable, and that a sealed catalog is
+      still writable
+- [x] Recorded as a *Keys and locales as data* section in `docs/conventions/security.md`, so the
+      next dot walk or dynamic property write in this repo goes through that module instead of
+      re-deriving the loop
 
 ---
 
@@ -211,6 +251,30 @@ Captured 2026-09-21, from PR #9 (`chore/review-2026-09-21` → `dev`), all check
 | Default branch | `main`, 67 commits behind `dev` after PR #9 merged |
 | Visibility | private |
 | Actions secrets | none |
-| Tests | 281 passing (262 when this file was written) |
+| Tests | 301 passing (262 when this file was written) |
 | `npm audit` | 0 vulnerabilities; `dependencies` empty, all three peers optional |
 | Licence | MIT, `LICENSE` present and matching `package.json` |
+
+---
+
+## 7. Retiring this file
+
+Decided 2026-09-22: this file is **deleted** after 0.1.0 is tagged, not moved to `docs/archive/`.
+The archive step in [docs-workflow](../../AGENTS.md) is deliberately replaced here, because the
+durable half of this plan is a handful of decisions and the rest is a checklist that stops being
+true the moment the package is published.
+
+Before deleting it, extract the decisions that get asked again into `docs/decisions/` — the
+convention defines ADRs and the directory does not exist yet, so these are the first three:
+
+- [ ] `001-keys-are-data.md` — a translation key is untrusted data, never a path into the runtime.
+      Why a colliding key such as `__proto__` is stored as an own property rather than rejected:
+      refusing it silently loses a translation the application asked for. Source: §3.4
+- [ ] `002-open-peer-range.md` — why `i18next >=23.0.0` stays open above the majors actually
+      tested, and what `SUPPORTED_I18NEXT` obliges a maintainer to do instead. Source: §3.3
+- [ ] `003-cache-identity.md` — why `TranslationCache` takes a `TranslationIdentity` rather than a
+      pre-encoded string, and why `CacheEntry` is not public. Source: §2.0, §2.1
+- [ ] Delete this file and drop the `docs/planning/...` line from `AGENTS.md`'s *Known state*
+
+Everything else in here — the `NPM_TOKEN` setup, the provenance decision, the `main`/`dev` merge,
+the pre-flight list — is one-off setup with no second reader. It goes when the file goes.

@@ -6,7 +6,6 @@ import {
     fileExists,
     readLocaleFile,
     writeLocaleFile,
-    setNestedValue,
     getLocaleFilePath,
     appendTranslationToFile,
 } from '@/utils/fileHandler';
@@ -174,65 +173,6 @@ describe('FileHandler', () => {
         });
     });
 
-    describe('setNestedValue', () => {
-        it('should set simple key', () => {
-            const obj: Record<string, any> = {};
-            setNestedValue(obj, 'hello', 'Hello');
-            expect(obj).toEqual({ hello: 'Hello' });
-        });
-
-        it('should set nested key', () => {
-            const obj: Record<string, any> = {};
-            setNestedValue(obj, 'user.name', 'John');
-            expect(obj).toEqual({ user: { name: 'John' } });
-        });
-
-        it('should set deeply nested key', () => {
-            const obj: Record<string, any> = {};
-            setNestedValue(obj, 'user.profile.settings.theme', 'dark');
-            expect(obj).toEqual({
-                user: {
-                    profile: {
-                        settings: {
-                            theme: 'dark',
-                        },
-                    },
-                },
-            });
-        });
-
-        it('should preserve existing sibling keys', () => {
-            const obj: Record<string, any> = { user: { name: 'John' } };
-            setNestedValue(obj, 'user.email', 'john@example.com');
-            expect(obj).toEqual({
-                user: {
-                    name: 'John',
-                    email: 'john@example.com',
-                },
-            });
-        });
-
-        it('should overwrite existing values', () => {
-            const obj: Record<string, any> = { user: { name: 'John' } };
-            setNestedValue(obj, 'user.name', 'Jane');
-            expect(obj).toEqual({ user: { name: 'Jane' } });
-        });
-
-        it('should overwrite non-object intermediate values', () => {
-            const obj: Record<string, any> = { user: 'string' };
-            setNestedValue(obj, 'user.name', 'John');
-            expect(obj).toEqual({ user: { name: 'John' } });
-        });
-
-        // `typeof null === 'object'`, so a null left in a hand-edited locale file
-        // used to pass the intermediate guard and then throw on the property write.
-        it('should overwrite a null intermediate value', () => {
-            const obj: Record<string, any> = { user: null };
-            setNestedValue(obj, 'user.name', 'John');
-            expect(obj).toEqual({ user: { name: 'John' } });
-        });
-    });
-
     describe('getLocaleFilePath', () => {
         it('should generate path for node-i18n style (no namespace)', async () => {
             const result = await getLocaleFilePath('/locales', 'en');
@@ -258,6 +198,20 @@ describe('FileHandler', () => {
     });
 
     describe('appendTranslationToFile', () => {
+        // `parentKey` is consumer input that becomes a path segment, and a locale
+        // file is JSON, so `__proto__` survives the round trip as an own property.
+        it('should nest under a parentKey named __proto__ without polluting', async () => {
+            const filePath = path.join(TEST_DIR, 'proto.json');
+            await writeLocaleFile(filePath, {});
+
+            await appendTranslationToFile(filePath, 'carrier', 'Frachtfuhrer', '__proto__');
+
+            const written = await readLocaleFile(filePath);
+            const branch = Object.getOwnPropertyDescriptor(written, '__proto__')?.value as Record<string, string>;
+            expect(branch?.carrier).toBe('Frachtfuhrer');
+            expect(({} as Record<string, unknown>).carrier).toBeUndefined();
+        });
+
         it('should append to new file', async () => {
             const filePath = path.join(TEST_DIR, 'new.json');
 
