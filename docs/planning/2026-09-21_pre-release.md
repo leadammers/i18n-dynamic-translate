@@ -169,20 +169,35 @@ accessor on `Object.prototype`, so a key containing that segment wrote **through
 every object in the host process, and the read side returned inherited members to the application as
 though they were translations.
 
-Both walks now use own-property lookups only and store segments with `Object.defineProperty`. A
-colliding key is kept as an ordinary own property rather than rejected — refusing it would silently
-lose a translation the application asked for, which is the failure mode a translation library can
-least afford.
+Both walks now use own-property lookups only. A colliding key is kept as an ordinary own property
+rather than rejected — refusing it would silently lose a translation the application asked for,
+which is the failure mode a translation library can least afford.
+
+**The first fix was incomplete, and the way it was incomplete is the lesson.** Review of the fix
+found that hardening the dot walk left the hole where the walk *starts*: `catalog[locale]` and the
+flat `catalog[key]` are the same operation one level up, and `locale` reaches them straight from
+`translateKey`. The object `translateObject` returns had the same defect. The same review found
+that `Object.defineProperty` is not a drop-in replacement for an assignment — on a sealed or
+non-configurable target it throws where the assignment it replaced succeeded — so the write
+primitive now defines only for `__proto__` and assigns for every other name. The convention text
+was written asserting an invariant the adapter did not yet satisfy; it has been corrected to say
+that a single segment is not safer than a path.
 
 Worth recording *why this is a pre-release item* rather than a deferred one: it is the only finding
 this round that would have been a **breaking** change to fix after publication. Rejecting or
 reshaping a key is observable to a consumer, so the window to choose the semantics closes at 0.1.0.
 
 - [x] `setNestedValue` / `getNestedValue` walk own properties only, on both sides
-- [x] Four `S-2` regression tests, written red first, including the inverse assertion that a key
-      named `__proto__` is still stored and retrievable
-- [x] Recorded as a *Keys as data* section in `docs/conventions/security.md`, so the next dot walk
-      written in this repo goes through those two functions instead of re-deriving the loop
+- [x] `locale`, the flat key path and the `translateObject` accumulator go through the same
+      own-property primitives — a single segment is not safer than a path
+- [x] The dot walks moved to `src/utils/objectPath.ts`, which also stops the core pulling
+      `node:fs` in transitively through `fileHandler`
+- [x] Nine `S-2` regression tests, written red first, including the inverse assertions that a key
+      or locale named `__proto__` is still stored and retrievable, and that a sealed catalog is
+      still writable
+- [x] Recorded as a *Keys and locales as data* section in `docs/conventions/security.md`, so the
+      next dot walk or dynamic property write in this repo goes through that module instead of
+      re-deriving the loop
 
 ---
 
