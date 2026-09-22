@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { setNestedValue } from '@/utils/objectPath';
+import { getNestedValue, setNestedValue } from '@/utils/objectPath';
+import { LocaleData } from '@/types';
 
 describe('ObjectPath', () => {
     describe('setNestedValue', () => {
@@ -58,6 +59,30 @@ describe('ObjectPath', () => {
             const obj: Record<string, any> = { user: null };
             setNestedValue(obj, 'user.name', 'John');
             expect(obj).toEqual({ user: { name: 'John' } });
+        });
+    });
+
+    describe('getNestedValue', () => {
+        it('should read a nested value', () => {
+            expect(getNestedValue({ user: { name: 'John' } }, 'user.name')).toBe('John');
+        });
+
+        it('should return null for a missing path', () => {
+            expect(getNestedValue({ user: { name: 'John' } }, 'user.email')).toBeNull();
+        });
+
+        it('should return null when the path stops on an object', () => {
+            expect(getNestedValue({ user: { name: 'John' } }, 'user')).toBeNull();
+        });
+
+        it('should return null when an intermediate segment is a string', () => {
+            expect(getNestedValue({ user: 'John' }, 'user.name')).toBeNull();
+        });
+
+        it('should read back what setNestedValue wrote', () => {
+            const obj: LocaleData = {};
+            setNestedValue(obj, 'products.meta.carrier', 'Carrier');
+            expect(getNestedValue(obj, 'products.meta.carrier')).toBe('Carrier');
         });
     });
 });

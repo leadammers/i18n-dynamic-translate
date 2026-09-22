@@ -41,7 +41,14 @@ export function writeJsonFile(filePath: string, data: Record<string, unknown>, t
 // Object Helpers
 // ============================================================================
 
-export function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+/**
+ * Reads any node — object or leaf — out of a fixture that was written to disk.
+ *
+ * Deliberately not the library's `getNestedValue`: this is an assertion helper
+ * over trusted test data, and it returns branches as well as strings. The
+ * hardened walk in `@/utils/objectPath` is the one every runtime path uses.
+ */
+export function readFixturePath(obj: Record<string, unknown>, path: string): unknown {
     return path.split('.').reduce<unknown>((curr, key) => {
         if (curr && typeof curr === 'object' && key in curr) {
             return (curr as Record<string, unknown>)[key];
@@ -98,7 +105,7 @@ export async function translateObjectAndReadFile({
     });
 
     const savedData = readJsonFile(localeFilePath);
-    const savedTranslations = getNestedValue(savedData, parentKey) as Record<string, string>;
+    const savedTranslations = readFixturePath(savedData, parentKey) as Record<string, string>;
 
     return { translations, savedData, savedTranslations };
 }

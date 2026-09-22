@@ -18,7 +18,7 @@ import {
     loadLocaleResources,
     readJsonFile,
     writeJsonFile,
-    getNestedValue,
+    readFixturePath,
     deleteNestedKey,
     translateObjectAndReadFile,
     fetchExistingTranslationsWithSpy,
@@ -193,7 +193,7 @@ describe.skipIf(!hasApi)('E2E: i18next - Translate API metadata', () => {
 
         // Verify translations exist in fixture
         for (const { parentKey, key, expectedValue } of fixtures) {
-            expect(getNestedValue(fixtureData, `${parentKey}.${key}`)).toBe(expectedValue);
+            expect(readFixturePath(fixtureData, `${parentKey}.${key}`)).toBe(expectedValue);
         }
 
         // Verify correct values returned
@@ -361,7 +361,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         expect(translation).not.toBe('Category');
 
         const savedData = readJsonFile(path.join(NODE_I18N_LOCALES_PATH, 'de.json'));
-        expect(getNestedValue(savedData, 'products.meta.category')).toBe(translation);
+        expect(readFixturePath(savedData, 'products.meta.category')).toBe(translation);
 
         console.log('node-i18n - Saved translation (DE):', translation);
     }, 60000);
@@ -376,7 +376,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         expect(translation).not.toBe('Brand');
 
         const savedData = readJsonFile(path.join(NODE_I18N_LOCALES_PATH, 'es.json'));
-        expect(getNestedValue(savedData, 'products.meta.brand')).toBe(translation);
+        expect(readFixturePath(savedData, 'products.meta.brand')).toBe(translation);
 
         console.log('node-i18n - Saved translation (ES):', translation);
     }, 60000);
@@ -391,7 +391,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
 
         // Verify translations exist in fixture
         for (const { parentKey, key, expectedValue } of batTranslations) {
-            expect(getNestedValue(fixtureData, `${parentKey}.${key}`)).toBe(expectedValue);
+            expect(readFixturePath(fixtureData, `${parentKey}.${key}`)).toBe(expectedValue);
         }
 
         // Verify correct values returned

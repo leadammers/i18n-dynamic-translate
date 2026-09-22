@@ -39,10 +39,12 @@ version is tagged.
 
 ### Security
 
-- Dot-notation keys are walked with own properties only. A key containing a `__proto__` segment
-  previously wrote through `Object.prototype`, affecting every object in the host process, and a
-  lookup could return an inherited member as though it were a translation. Such a key is now
-  stored and read back as an ordinary own property. Found in review before the first release.
+- Keys, locales and parent keys are used as own properties only. A `__proto__` segment in a
+  dot-notation key — or a locale of that name — previously wrote through `Object.prototype`,
+  affecting every object in the host process, and a lookup could return an inherited member as
+  though it were a translation. On the flat write path the same name was silently dropped, losing
+  the translation. Such a name is now stored and read back as an ordinary own property. Found in
+  review before the first release.
 
 ### Requirements
 

@@ -27,25 +27,28 @@ while writing code.
 - Concurrent writes to one file go through `FileLock`. Read-modify-write on a locale file without the
   lock loses translations under load.
 
-## Keys as data
+## Keys and locales as data
 
 A translation key is an arbitrary string from outside the build — API metadata, product
-attributes, whatever the host application looked up. It is **data, never a path into the
-runtime**.
+attributes, whatever the host application looked up. `locale`, `namespace` and `parentKey` are
+consumer input for the same reason. All of them are **data, never a path into the runtime**.
 
-- Dot paths are walked with **own properties only**, on both the read and the write side, in
-  `setNestedValue` / `getNestedValue` (`@/utils/fileHandler`). Plain indexing resolves
+- Dot paths are walked with **own properties only**, on both the read and the write side, by
+  `setNestedValue` / `getNestedValue` (`@/utils/objectPath`). Plain indexing resolves
   `__proto__` to `Object.prototype` and `toString` to a function, so a key could otherwise
   write through the prototype chain into every object in the process, or have an inherited
   member returned to the application as a translation.
-- A segment is stored with `Object.defineProperty`, not `target[segment] = value`. `__proto__`
-  is an inherited accessor: a plain assignment reassigns the prototype instead of storing the
-  key, which both corrupts the process and loses the translation.
+- **A single segment is not safer than a path.** `catalog[locale]` and a flat `catalog[key]`
+  are the same operation one level up, so they go through `getOwnProperty` / `setOwnProperty`
+  from the same module — hardening only the dot walk leaves the hole where the walk starts.
+- `setOwnProperty` defines the property for `__proto__` and assigns for every other name.
+  Defining is not a drop-in replacement for assigning: on a sealed target, or over a
+  non-configurable property, `Object.defineProperty` throws where an assignment succeeds.
 - A key that collides with an object built-in is kept, not rejected. Dropping it would silently
-  lose a translation the application asked for; the point is to store it as an ordinary own
-  property.
-- Any new dot-path walk goes through those two functions rather than re-deriving the loop —
-  the hardening only holds if there is one implementation of it.
+  lose a translation the application asked for — which is what a plain `target['__proto__'] =
+  'text'` does — and the point is to store it as an ordinary own property.
+- Any new dot-path walk or dynamic property write goes through that module rather than
+  re-deriving the loop — the hardening only holds if there is one implementation of it.
 
 ## Dependencies
 

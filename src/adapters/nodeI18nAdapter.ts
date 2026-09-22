@@ -5,7 +5,7 @@
 
 import { BackendAdapter, MissingKeyCallback, AutoTranslateConfig, LocaleData } from '@/types';
 import { BackendError } from '@/utils/errors';
-import { getNestedValue, setNestedValue } from '@/utils/objectPath';
+import { getNestedValue, getOwnProperty, setNestedValue, setOwnProperty } from '@/utils/objectPath';
 
 // Type for node-i18n instance (minimal interface)
 interface NodeI18nInstance {
@@ -135,7 +135,7 @@ export class NodeI18nAdapter implements BackendAdapter {
             }
 
             // Flat key lookup
-            const translation = Object.prototype.hasOwnProperty.call(catalog, key) ? catalog[key] : undefined;
+            const translation = getOwnProperty(catalog, key);
             return typeof translation === 'string' ? translation : null;
         } catch {
             return null;
@@ -155,11 +155,14 @@ export class NodeI18nAdapter implements BackendAdapter {
             if (!this.i18n.catalog) {
                 this.i18n.catalog = {};
             }
-            // Hold the reference rather than re-indexing: a second lookup would be
-            // optional again, and a `?? {}` fallback there would write into a
-            // detached object and silently drop the translation.
-            const catalogForLocale: LocaleData = this.i18n.catalog[locale] ?? {};
-            this.i18n.catalog[locale] = catalogForLocale;
+            // `locale` indexes the catalog exactly like a key indexes a branch, and
+            // it is just as much consumer input, so it goes through the same
+            // own-property pair. Hold the reference rather than re-indexing: a
+            // second lookup would be optional again, and a `?? {}` fallback there
+            // would write into a detached object and silently drop the translation.
+            const existingCatalog = getOwnProperty(this.i18n.catalog, locale);
+            const catalogForLocale: LocaleData = typeof existingCatalog === 'object' ? existingCatalog : {};
+            setOwnProperty(this.i18n.catalog, locale, catalogForLocale);
 
             // A catalog under `objectNotation` nests exactly like a locale file,
             // down to the null-branch case, so it is written by the same function.
@@ -167,7 +170,7 @@ export class NodeI18nAdapter implements BackendAdapter {
                 setNestedValue(catalogForLocale, key, value);
             } else {
                 // Flat key
-                catalogForLocale[key] = value;
+                setOwnProperty(catalogForLocale, key, value);
             }
         } catch (error) {
             throw new BackendError(

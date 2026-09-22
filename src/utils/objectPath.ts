@@ -11,6 +11,9 @@
 
 import { LocaleData } from '@/types';
 
+/** The only property name that an assignment resolves to an inherited setter. */
+const PROTOTYPE_ACCESSOR = '__proto__';
+
 /**
  * Set a nested value in an object using dot notation
  * @param obj - The object to modify
@@ -26,43 +29,53 @@ export function setNestedValue(obj: LocaleData, path: string, value: string | Lo
     for (const key of keys) {
         // `typeof null === 'object'`, so null has to be excluded explicitly or the
         // property write below throws on a locale file that holds one.
-        const branch = readOwnSegment(current, key);
+        const branch = getOwnProperty(current, key);
         if (typeof branch !== 'object' || branch === null) {
-            writeOwnSegment(current, key, {});
+            setOwnProperty(current, key, {});
         }
-        current = readOwnSegment(current, key) as LocaleData;
+        current = getOwnProperty(current, key) as LocaleData;
     }
 
-    writeOwnSegment(current, leafKey, value);
+    setOwnProperty(current, leafKey, value);
 }
 
 /**
- * Read one path segment, ignoring anything inherited from the prototype chain.
+ * Read one property, ignoring anything inherited from the prototype chain.
  *
  * A key arrives here as an arbitrary string — that is the whole point of a
  * library whose keys come from API metadata rather than a build. Plain indexing
  * would resolve `__proto__` to `Object.prototype`, and `toString` or `valueOf`
- * to a function, so a walk could leave the catalog entirely and report whatever
+ * to a function, so a lookup could leave the catalog entirely and report whatever
  * it found there as a translation.
  */
-function readOwnSegment(target: LocaleData, segment: string): string | LocaleData | undefined {
-    if (!Object.prototype.hasOwnProperty.call(target, segment)) {
+export function getOwnProperty(target: LocaleData, name: string): string | LocaleData | undefined {
+    if (!Object.prototype.hasOwnProperty.call(target, name)) {
         return undefined;
     }
 
-    return target[segment];
+    return target[name];
 }
 
 /**
- * Write one path segment as an own property.
+ * Write one property as an own property.
  *
- * `__proto__` is an accessor inherited from `Object.prototype`, so `target[key] =
- * value` would reassign the prototype of `target` — and of everything sharing it
- * — instead of storing a key. Defining the property stores the segment as the
- * data the caller meant, for that name and every other, with no special case.
+ * `__proto__` is the one name an assignment does not store: it is an accessor
+ * inherited from `Object.prototype`, so `target[name] = value` reassigns the
+ * prototype of `target` — and of everything sharing it — or, for a string, does
+ * nothing at all and loses the translation. Defining the property stores the
+ * data the caller meant.
+ *
+ * Every other name is assigned, because defining is not a drop-in replacement:
+ * on a sealed target, or over a non-configurable property, `defineProperty`
+ * throws where an assignment succeeds.
  */
-function writeOwnSegment(target: LocaleData, segment: string, value: string | LocaleData): void {
-    Object.defineProperty(target, segment, {
+export function setOwnProperty(target: LocaleData, name: string, value: string | LocaleData): void {
+    if (name !== PROTOTYPE_ACCESSOR) {
+        target[name] = value;
+        return;
+    }
+
+    Object.defineProperty(target, name, {
         value,
         writable: true,
         enumerable: true,
@@ -82,7 +95,7 @@ export function getNestedValue(obj: LocaleData, path: string): string | null {
         if (typeof current !== 'object' || current === null) {
             return null;
         }
-        current = readOwnSegment(current, segment);
+        current = getOwnProperty(current, segment);
     }
 
     return typeof current === 'string' ? current : null;

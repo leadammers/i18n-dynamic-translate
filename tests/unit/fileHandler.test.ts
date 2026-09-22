@@ -198,6 +198,20 @@ describe('FileHandler', () => {
     });
 
     describe('appendTranslationToFile', () => {
+        // `parentKey` is consumer input that becomes a path segment, and a locale
+        // file is JSON, so `__proto__` survives the round trip as an own property.
+        it('should nest under a parentKey named __proto__ without polluting', async () => {
+            const filePath = path.join(TEST_DIR, 'proto.json');
+            await writeLocaleFile(filePath, {});
+
+            await appendTranslationToFile(filePath, 'carrier', 'Frachtfuhrer', '__proto__');
+
+            const written = await readLocaleFile(filePath);
+            const branch = Object.getOwnPropertyDescriptor(written, '__proto__')?.value as Record<string, string>;
+            expect(branch?.carrier).toBe('Frachtfuhrer');
+            expect(({} as Record<string, unknown>).carrier).toBeUndefined();
+        });
+
         it('should append to new file', async () => {
             const filePath = path.join(TEST_DIR, 'new.json');
 
