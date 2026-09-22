@@ -1,6 +1,6 @@
 /**
- * Regression tests for bugs found in the 2026-09-21 full code review.
- * See docs/reviews/2026-09-21_full.md — each test is named after its finding.
+ * Regression tests for bugs found in review. Each block is named after the
+ * finding it came from; the 2026-09-21 ones are in docs/reviews/2026-09-21_full.md.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -11,7 +11,7 @@ import { setNestedValue } from '@/utils/objectPath';
 import { MemoryCache } from '@/utils/cache';
 import { LibreTranslateService } from '@/translators/libreTranslate';
 import { DeepLService } from '@/translators/deepl';
-import { TranslationError } from '@/utils/errors';
+import { BackendError, TranslationError } from '@/utils/errors';
 import { http } from '@/utils/http';
 
 const translateBatch = vi.fn((texts: string[]) => Promise.resolve(texts.map((text: string) => `X(${text})`)));
@@ -283,9 +283,9 @@ describe('review regressions', () => {
                 getLocale: vi.fn(() => 'de'),
                 setLocale: vi.fn(),
                 getLocales: vi.fn(() => ['en', 'de']),
-                getCatalog: vi.fn(() => ({})),
+                getCatalog: vi.fn((): LocaleData => ({})),
+                addLocale: vi.fn(),
                 configure: vi.fn(),
-                catalog: {} as Record<string, Record<string, string>>,
             };
             const instance = new AutoTranslate(
                 createConfig(nodeI18n, {
@@ -518,15 +518,29 @@ describe('review regressions', () => {
         // assigning to it reaches every object in the process instead of the catalog.
         const POLLUTED_PROPERTY = 'pollutedByRegressionTest';
 
+        // Models the real `i18n` contract: no catalog property, `getCatalog` hands
+        // out the live registry entry or `false`, and a locale is only registered
+        // through `addLocale` — which registers own properties, exactly as reading
+        // `<locale>.json` into the registry does.
         function createAdapter(
             overrides: Record<string, unknown>,
-            catalog: Record<string, LocaleData> = {}
+            locales: Record<string, LocaleData> = {}
         ): NodeI18nAdapter {
             const adapter = new NodeI18nAdapter();
             adapter.initialize(
                 {
-                    getCatalog: (locale: string) => catalog[locale] ?? {},
-                    catalog,
+                    getLocales: (): string[] => Object.keys(locales),
+                    // Character for character what i18n@0.15 does in `write()`: a
+                    // guarded plain assignment. For `__proto__` the guard reads the
+                    // inherited accessor, finds `Object.prototype`, and registers
+                    // nothing — which is the behaviour under test.
+                    addLocale: (locale: string): void => {
+                        if (!locales[locale]) {
+                            locales[locale] = {};
+                        }
+                    },
+                    getCatalog: (locale: string): LocaleData | false =>
+                        Object.prototype.hasOwnProperty.call(locales, locale) ? (locales[locale] as LocaleData) : false,
                     __: (phrase: string) => phrase,
                     __n: (singular: string) => singular,
                 },
@@ -569,37 +583,31 @@ describe('review regressions', () => {
             expect(catalog).toEqual({ products: { meta: { carrier: 'Carrier', weight: 'Weight' } } });
         });
 
-        it('does not reach Object.prototype through the locale argument', () => {
-            // `locale` indexes the catalog exactly like a key indexes a branch, so
-            // hardening only the key leaves the same hole one level further up —
-            // and this one is reachable straight from `translateKey`.
-            const adapter = createAdapter({ objectNotation: true });
+        it('says so when node-i18n will not register the locale', () => {
+            // `locale` selects a catalog rather than indexing anything this library
+            // owns, so there is no locale hardening here left to prove — the whole
+            // assertion is that a name upstream refuses to hold is reported by name
+            // instead of dropped in silence. An implementation falling back to
+            // `getCatalog(locale) ?? {}` would not throw and would fail this.
+            const locales: Record<string, LocaleData> = {};
+            const adapter = createAdapter({ objectNotation: true }, locales);
 
-            adapter.setTranslation(`${POLLUTED_PROPERTY}`, '__proto__', 'polluted');
+            expect(() => adapter.setTranslation(POLLUTED_PROPERTY, '__proto__', 'polluted')).toThrow(BackendError);
+            expect(() => adapter.setTranslation(POLLUTED_PROPERTY, '__proto__', 'polluted')).toThrow(/__proto__/);
 
             expect(({} as Record<string, unknown>)[POLLUTED_PROPERTY]).toBeUndefined();
-        });
-
-        it('stores a locale literally named __proto__ instead of dropping it', () => {
-            const catalog: Record<string, LocaleData> = {};
-            const adapter = createAdapter({ objectNotation: true }, catalog);
-
-            adapter.setTranslation(POLLUTED_PROPERTY, '__proto__', 'kept');
-
-            const branch = Object.getOwnPropertyDescriptor(catalog, '__proto__')?.value as LocaleData;
-            expect(branch?.[POLLUTED_PROPERTY]).toBe('kept');
-            expect(Object.getPrototypeOf(catalog)).toBe(Object.prototype);
+            expect(Object.getPrototypeOf(locales)).toBe(Object.prototype);
         });
 
         it('stores a flat key named __proto__ instead of dropping it', () => {
             // Without `objectNotation` the catalog is written by a plain assignment,
             // which for this one name stores nothing at all — a paid translation lost.
-            const catalog: Record<string, LocaleData> = {};
-            const adapter = createAdapter({ objectNotation: false }, catalog);
+            const locales: Record<string, LocaleData> = { en: {} };
+            const adapter = createAdapter({ objectNotation: false }, locales);
 
             adapter.setTranslation('__proto__', 'en', 'kept');
 
-            expect(Object.getOwnPropertyDescriptor(catalog.en, '__proto__')?.value).toBe('kept');
+            expect(Object.getOwnPropertyDescriptor(locales.en, '__proto__')?.value).toBe('kept');
             expect(({} as Record<string, unknown>).kept).toBeUndefined();
         });
 
@@ -629,20 +637,81 @@ describe('review regressions', () => {
 
         it('does not read a value off the prototype chain', () => {
             (Object.prototype as Record<string, unknown>)[POLLUTED_PROPERTY] = 'inherited';
-            const adapter = new NodeI18nAdapter();
-            const catalog: Record<string, LocaleData> = { en: {} };
-            adapter.initialize(
-                {
-                    getCatalog: (locale: string) => catalog[locale] ?? {},
-                    catalog,
-                    __: (phrase: string) => phrase,
-                    __n: (singular: string) => singular,
-                },
-                { ...createConfig(createMockI18next()), backend: Backend.NODE_I18N, objectNotation: true }
-            );
+            const adapter = createAdapter({ objectNotation: true }, { en: {} });
 
             expect(adapter.getTranslation(POLLUTED_PROPERTY, 'en')).toBeNull();
             expect(adapter.getTranslation(`__proto__.${POLLUTED_PROPERTY}`, 'en')).toBeNull();
+        });
+    });
+
+    describe('N-1 backend refusal', () => {
+        // A backend can decline a write it cannot make. Raising that out of
+        // `updateTranslation` used to take the file write and the cache entry with
+        // it, so a provider call that had already been paid for was lost entirely —
+        // on `updateFiles: false`, the configuration the README recommends.
+        function createRefusingNodeI18n() {
+            return {
+                __: vi.fn((phrase: string) => phrase),
+                __n: vi.fn((singular: string) => singular),
+                getLocale: vi.fn(() => 'en'),
+                setLocale: vi.fn(),
+                getLocales: vi.fn((): string[] => ['en']),
+                getCatalog: vi.fn((locale: string): LocaleData | false => (locale === 'en' ? {} : false)),
+                // `updateFiles` off and no `es.json`: nothing is registered.
+                addLocale: vi.fn(),
+                configure: vi.fn(),
+            };
+        }
+
+        it('still persists a translation the backend would not take', async () => {
+            const saved: Array<{ locale: string; key: string; value: string }> = [];
+            const storageAdapter: StorageAdapter = {
+                async save(locale: string, key: string, value: string): Promise<void> {
+                    saved.push({ locale, key, value });
+                },
+            };
+            const onError = vi.fn();
+            const instance = new AutoTranslate(
+                createConfig(createRefusingNodeI18n(), {
+                    backend: Backend.NODE_I18N,
+                    autoSave: true,
+                    storageAdapter,
+                    onError,
+                })
+            );
+
+            await expect(instance.translateKey('greeting', 'es')).resolves.toBe('X(Greeting)');
+
+            expect(saved).toEqual([{ locale: 'es', key: 'greeting', value: 'X(Greeting)' }]);
+            expect(onError).toHaveBeenCalledOnce();
+            expect((onError.mock.calls[0]?.[0] as Error).message).toMatch(/es/);
+            await instance.dispose();
+        });
+
+        it('translates the rest of an object after one key is refused', async () => {
+            // The write loop was unguarded, so the first refusal aborted it and
+            // skipped the autoSave block for every key in the batch, not just one.
+            const saved: string[] = [];
+            const storageAdapter: StorageAdapter = {
+                async save(_locale: string, key: string): Promise<void> {
+                    saved.push(key);
+                },
+            };
+            const nodeI18n = createRefusingNodeI18n();
+            const instance = new AutoTranslate(
+                createConfig(nodeI18n, {
+                    backend: Backend.NODE_I18N,
+                    autoSave: true,
+                    storageAdapter,
+                    onError: vi.fn(),
+                })
+            );
+
+            const result = await instance.translateObject({ one: 'a', two: 'b' }, 'es');
+
+            expect(result).toEqual({ one: 'X(One)', two: 'X(Two)' });
+            expect(saved).toEqual(['one', 'two']);
+            await instance.dispose();
         });
     });
 });

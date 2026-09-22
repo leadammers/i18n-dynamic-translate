@@ -48,6 +48,23 @@ version is tagged.
   the translation. Such a name is now stored and read back as an ordinary own property. Found in
   review before the first release.
 
+### Fixed
+
+- The **node-i18n** backend never served what it translated. The adapter wrote into a `catalog`
+  property it created on the instance, but an `i18n` instance has no such property — its registry
+  is closed over in the constructor and `getCatalog(locale)` is the only way to it. Translations
+  were persisted to the locale file and lost from the running process, so `__()` kept returning
+  the key. Writes now go into the object `getCatalog` hands out. A locale node-i18n will not
+  register is reported through `onError` naming the locale, and the locale file is still written,
+  so the translation survives rather than being bought again on every lookup. Found by running the
+  adapter against the real package; the unit mock had invented the property and the end-to-end
+  test asserted only on the file.
+- Reads went through the same door as writes. `getCatalog` falls back to a related locale when the
+  requested one is absent, so with `fallbacks` configured a lookup answered a missing French key
+  with the German translation — and `__proto__` or `constructor` as a locale resolved to
+  `Object.prototype` and `Object`, returning an inherited member as a translation. Both paths now
+  check that node-i18n actually holds the locale first.
+
 ### Requirements
 
 - Node.js >= 22.12, tested on 22 and 24. CommonJS, **zero runtime dependencies**.

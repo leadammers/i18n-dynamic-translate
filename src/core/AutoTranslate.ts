@@ -533,8 +533,7 @@ export class AutoTranslate {
         parentKey?: string
     ): Promise<void> {
         // Update in backend
-        const targetKey = this.targetKeyFor(key, parentKey);
-        this.adapter.setTranslation(targetKey, locale, value, namespace);
+        this.writeToBackend(key, locale, value, namespace, parentKey);
 
         // Persist to storage if autoSave is enabled
         if (this.config.autoSave) {
@@ -542,6 +541,26 @@ export class AutoTranslate {
                 namespace,
                 parentKey,
             });
+        }
+    }
+
+    /**
+     * Hand a translation to the backend, reporting a refusal rather than raising it.
+     *
+     * A backend can decline a write it cannot make — node-i18n has no entrance for a
+     * locale it was never configured with. That is worth telling the consumer about,
+     * but it must not take the rest of the call with it: the provider has already
+     * been called and paid for, and the file write that follows is what makes the
+     * translation survive a restart. Throwing here would lose the translation from
+     * disk and from the cache as well, leaving every later lookup to buy it again.
+     */
+    private writeToBackend(key: string, locale: string, value: string, namespace?: string, parentKey?: string): void {
+        const targetKey = this.targetKeyFor(key, parentKey);
+
+        try {
+            this.adapter.setTranslation(targetKey, locale, value, namespace);
+        } catch (error: unknown) {
+            this.reportError(error as Error, targetKey, locale);
         }
     }
 
@@ -711,8 +730,7 @@ export class AutoTranslate {
                 this.cache.set(this.identityFor(key, targetLocale, namespace, parentKey, context), translatedValue);
             }
 
-            const targetKey = this.targetKeyFor(key, parentKey);
-            this.adapter.setTranslation(targetKey, targetLocale, translatedValue, namespace);
+            this.writeToBackend(key, targetLocale, translatedValue, namespace, parentKey);
         });
 
         // Persist to storage
