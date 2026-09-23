@@ -101,6 +101,12 @@ refactor moves, which would go red on pull requests this repo's own floor passes
 real status too, because "the lines this change adds are tested" is not something a project-wide
 floor can say. The `changes` status is off: here it fires on test ordering, not on regressions.
 
+The same file configures the pull-request comment. It posts on every pull request, including
+ones that leave coverage untouched (`require_changes: false`) and ones whose base commit has no
+report yet (`require_base: false`), and its `diff` section carries the project and patch numbers
+with the delta — the current state belongs on the pull request, not only in the app. Codecov
+updates the existing comment rather than adding one per push.
+
 **The two gates measure different things and neither replaces the other.** The vitest thresholds
 are an absolute floor for the whole project; Codecov's statuses are relative to the base commit and
 to the diff. A change can pass the floor while dropping coverage, and vice versa.
