@@ -6,7 +6,8 @@ on:
   release:
     types: [published]
 
-# Least privilege by default; the publish job elevates id-token for provenance.
+# Least privilege by default; the publish job elevates id-token to authenticate
+# to npm over OIDC.
 permissions:
   contents: read
 
@@ -16,7 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Required by `npm publish --provenance` to mint a Sigstore OIDC token.
+      # npm authenticates this workflow as the package's trusted publisher over
+      # OIDC, and mints the provenance attestation from the same token. No npm
+      # credential exists to leak; the publisher is pinned to this filename in
+      # the package's npmjs.com settings, so a job added elsewhere cannot publish.
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -72,7 +76,7 @@ jobs:
             exit 1
           fi
 
-      - name: Publish with provenance
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # No flags: provenance is automatic under trusted publishing, and
+      # `publishConfig.access` in package.json already says `public`.
+      - name: Publish
+        run: npm publish
