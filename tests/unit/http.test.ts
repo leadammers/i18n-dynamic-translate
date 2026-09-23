@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { HttpError, isHttpError, http } from '@/utils/http';
+import { describeHttpError, HttpError, isHttpError, http } from '@/utils/http';
 
 describe('HttpError', () => {
     it('should create error with message, status, and code', () => {
@@ -184,5 +184,55 @@ describe('http.post', () => {
         });
 
         expect(fetchSpy).toHaveBeenCalledTimes(3); // 1 initial + 2 default retries
+    });
+
+    it('should retry a timed-out request', async () => {
+        const fetchSpy = vi
+            .spyOn(globalThis, 'fetch')
+            .mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+            .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+        const response = await http.post('https://api.example.com/data', {}, { retries: 1 });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+        expect(response.data).toEqual({ ok: true });
+    });
+
+    it('should not cancel the request when no timeout is configured', async () => {
+        let capturedSignal: AbortSignal | undefined;
+        vi.spyOn(globalThis, 'fetch').mockImplementation((_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+            capturedSignal = init?.signal ?? undefined;
+            return new Promise((resolve: (value: Response) => void) => {
+                setTimeout(() => resolve(new Response(JSON.stringify({ ok: true }), { status: 200 })), 30);
+            });
+        });
+
+        const response = await http.post('https://api.example.com/data', {});
+
+        expect(response.data).toEqual({ ok: true });
+        expect(capturedSignal?.aborted).toBe(false);
+    });
+});
+
+describe('describeHttpError', () => {
+    it('should prefer a provider-specific message for a known status', () => {
+        const message = describeHttpError(new HttpError('Quota', 456), 'DeepL API', { 456: 'Quota exceeded' });
+        expect(message).toBe('Quota exceeded');
+    });
+
+    it('should fall back to the generic message when the status is unknown', () => {
+        const message = describeHttpError(new HttpError('Teapot', 418), 'DeepL API', { 456: 'Quota exceeded' });
+        expect(message).toBe('Request failed with status 418');
+    });
+
+    it('should describe an error that carries neither status nor a known code', () => {
+        const message = describeHttpError(new HttpError('Something broke'), 'DeepL API');
+        expect(message).toBe('Request failed with status unknown');
+    });
+
+    it('should never leak the original error text', () => {
+        const message = describeHttpError(new HttpError('auth_key=secret rejected', 401), 'DeepL API');
+        expect(message).toBe('Authentication failed - check your API key');
+        expect(message).not.toContain('secret');
     });
 });

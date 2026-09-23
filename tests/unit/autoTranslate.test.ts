@@ -3,12 +3,25 @@ import { AutoTranslate } from '@/core/AutoTranslate';
 import { Backend, StorageAdapter, TranslationCache, TranslationIdentity, TranslationProvider } from '@/types';
 import { ConfigurationError } from '@/utils/errors';
 
-// Mock the translators module so translateKey / translateObject don't make real HTTP calls
+// Mock the translators module so translateKey / translateObject don't make real HTTP calls.
+// The hoisted record lets a test steer the fake service and see what it was asked to
+// translate; `beforeEach` resets it.
+const translatorMock = vi.hoisted(() => ({
+    isServiceAvailable: true,
+    translatedTexts: [] as string[],
+}));
+
 vi.mock('@/translators', () => ({
     createTranslationService: () => ({
-        isAvailable: () => true,
-        translate: vi.fn().mockResolvedValue('mocked'),
-        translateBatch: vi.fn().mockImplementation((texts: string[]) => Promise.resolve(texts.map(() => 'mocked'))),
+        isAvailable: () => translatorMock.isServiceAvailable,
+        translate: vi.fn().mockImplementation((text: string) => {
+            translatorMock.translatedTexts.push(text);
+            return Promise.resolve('mocked');
+        }),
+        translateBatch: vi.fn().mockImplementation((texts: string[]) => {
+            translatorMock.translatedTexts.push(...texts);
+            return Promise.resolve(texts.map(() => 'mocked'));
+        }),
     }),
 }));
 
@@ -74,6 +87,8 @@ describe('AutoTranslate', () => {
 
     beforeEach(() => {
         mockI18next = createMockI18next();
+        translatorMock.isServiceAvailable = true;
+        translatorMock.translatedTexts.length = 0;
     });
 
     afterEach(() => {
@@ -675,6 +690,211 @@ describe('AutoTranslate', () => {
 
             expect(keyToText).toHaveBeenCalledWith('carrier');
             await at.dispose();
+        });
+    });
+
+    describe('translation service availability', () => {
+        it('should throw ConfigurationError when the provider reports itself unavailable', () => {
+            translatorMock.isServiceAvailable = false;
+
+            expect(() => new AutoTranslate(createValidConfig(mockI18next))).toThrow(ConfigurationError);
+            expect(() => new AutoTranslate(createValidConfig(mockI18next))).toThrow(
+                'Translation service is not properly configured'
+            );
+        });
+    });
+
+    describe('missing-key hook guards', () => {
+        it('should drop a missing key reported through a handler captured before dispose', async () => {
+            const instance = new AutoTranslate(createValidConfig(mockI18next));
+            // `dispose()` restores i18next's original handler, so a host app that kept
+            // a reference to ours is the only way this call can still arrive.
+            const handler = mockI18next.options.missingKeyHandler;
+            expect(handler).not.toBeNull();
+
+            await instance.dispose();
+            handler?.(['de'], 'translation', 'products.meta.carrier', '');
+
+            // The adapter clears its callback in `destroy()`, so the report stops there;
+            // the core's own `disposed` guard sits behind that as defence in depth.
+            expect(translatorMock.translatedTexts).toEqual([]);
+            expect(mockI18next.addResource).not.toHaveBeenCalled();
+        });
+
+        it('should ignore a missing key for the default language', async () => {
+            const instance = new AutoTranslate(createValidConfig(mockI18next));
+
+            mockI18next.options.missingKeyHandler?.(['en'], 'translation', 'products.meta.carrier', '');
+            await instance.waitForPendingTranslations(2000);
+
+            expect(translatorMock.translatedTexts).toEqual([]);
+            expect(mockI18next.addResource).not.toHaveBeenCalled();
+
+            await instance.dispose();
+        });
+
+        it('should translate a missing key for any other locale', async () => {
+            const instance = new AutoTranslate(createValidConfig(mockI18next));
+
+            mockI18next.options.missingKeyHandler?.(['de'], 'translation', 'products.meta.carrier', '');
+            await instance.waitForPendingTranslations(2000);
+
+            expect(translatorMock.translatedTexts).toEqual(['Carrier']);
+            expect(mockI18next.addResource).toHaveBeenCalledWith(
+                'de',
+                'translation',
+                'products.meta.carrier',
+                'mocked'
+            );
+
+            await instance.dispose();
+        });
+    });
+
+    describe('translateObject with existing translations', () => {
+        it('should return what the backend already holds without asking the provider', async () => {
+            const backendInstance = createMockI18next();
+            backendInstance.getFixedT = vi.fn((locale: string, _namespace: string) => {
+                return (key: string): string => {
+                    if (locale === 'de' && key === 'title') {
+                        return 'Titel';
+                    }
+                    return key;
+                };
+            });
+
+            const instance = new AutoTranslate(createValidConfig(backendInstance));
+
+            const translations = await instance.translateObject({ title: 'x', subtitle: 'y' }, 'de');
+
+            expect(translations).toEqual({ title: 'Titel', subtitle: 'mocked' });
+            expect(translatorMock.translatedTexts).toEqual(['Subtitle']);
+
+            await instance.dispose();
+        });
+    });
+
+    describe('dispose with a batch in flight', () => {
+        it('should wait for the active batch before tearing down', async () => {
+            let releaseSave: () => void = () => {};
+            let markSaveCalled: () => void = () => {};
+            const saveCalled = new Promise<void>((resolve: () => void) => {
+                markSaveCalled = resolve;
+            });
+            const saveGate = new Promise<void>((resolve: () => void) => {
+                releaseSave = resolve;
+            });
+
+            const blockingSave = (): Promise<void> => {
+                markSaveCalled();
+                return saveGate;
+            };
+            const storageAdapter: StorageAdapter = {
+                save: vi.fn(blockingSave),
+                saveBatch: vi.fn(blockingSave),
+            };
+
+            const instance = new AutoTranslate({
+                ...createValidConfig(mockI18next),
+                autoSave: true,
+                storageAdapter,
+            });
+
+            mockI18next.options.missingKeyHandler?.(['de'], 'translation', 'products.meta.carrier', '');
+
+            // The batch has reached persistence, so it is in flight when dispose starts.
+            await saveCalled;
+
+            const disposal = instance.dispose();
+            releaseSave();
+            await expect(disposal).resolves.toBeUndefined();
+
+            expect(mockI18next.addResource).toHaveBeenCalledWith(
+                'de',
+                'translation',
+                'products.meta.carrier',
+                'mocked'
+            );
+            expect(instance.isDisposed()).toBe(true);
+        });
+    });
+
+    describe('translating into the default language', () => {
+        it('should send the key rendered as text when the backend has no value for it', async () => {
+            // Asking for the default language is not rejected: with nothing in the
+            // backend the provider still gets the key as human-readable text.
+            // `resolveSourceText`'s same-locale guard only skips a lookup that
+            // `translateKey` has already made, so it changes no outcome here.
+            const instance = new AutoTranslate(createValidConfig(mockI18next));
+
+            const translation = await instance.translateKey('carrier', 'en');
+
+            expect(translation).toBe('mocked');
+            expect(translatorMock.translatedTexts).toEqual(['Carrier']);
+
+            await instance.dispose();
+        });
+    });
+
+    describe('clearCache without a cache', () => {
+        it('should be a no-op when caching is disabled', async () => {
+            const instance = new AutoTranslate({ ...createValidConfig(mockI18next), enableCache: false });
+
+            expect(() => instance.clearCache()).not.toThrow();
+            expect(instance.getCacheStats()).toBeNull();
+
+            await instance.dispose();
+        });
+    });
+
+    describe('getConfig with provider options', () => {
+        it('should hand out a copy of deeplOptions', async () => {
+            const instance = new AutoTranslate({
+                ...createValidConfig(mockI18next),
+                translationProvider: {
+                    provider: TranslationProvider.DEEPL,
+                    apiKey: 'test-key',
+                    deeplOptions: { formality: 'less' },
+                },
+            });
+
+            const firstRead = instance.getConfig();
+            // `deeplOptions` was just passed into the constructor, so the copy has it.
+            firstRead.translationProvider.deeplOptions!.formality = 'more';
+
+            expect(instance.getConfig().translationProvider.deeplOptions?.formality).toBe('less');
+
+            await instance.dispose();
+        });
+    });
+
+    describe('waitForPendingTranslations timeout', () => {
+        it('should throw rather than wait forever while new keys keep arriving', async () => {
+            // A steady stream of misses must not make the wait hang: every save
+            // reports the next one while the previous is still being persisted.
+            const followUpKeys = ['products.meta.weight', 'products.meta.width', 'products.meta.height'];
+            const storageAdapter: StorageAdapter = {
+                save: vi.fn(async (): Promise<void> => {
+                    const nextKey = followUpKeys.shift();
+                    if (nextKey) {
+                        mockI18next.options.missingKeyHandler?.(['de'], 'translation', nextKey, '');
+                    }
+                }),
+            };
+
+            const instance = new AutoTranslate({
+                ...createValidConfig(mockI18next),
+                autoSave: true,
+                storageAdapter,
+            });
+
+            mockI18next.options.missingKeyHandler?.(['de'], 'translation', 'products.meta.carrier', '');
+
+            await expect(instance.waitForPendingTranslations(1)).rejects.toThrow(
+                /waitForPendingTranslations timed out after 1ms/
+            );
+
+            await instance.dispose();
         });
     });
 });
