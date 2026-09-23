@@ -67,7 +67,10 @@ export function describeHttpError(
     return `Request failed with status ${status ?? 'unknown'}`;
 }
 
-const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+// 529 sits with 429 deliberately: it is not a standard code, but every provider
+// that returns it means "overloaded, resend later" — DeepL maps it to the same
+// rate-limit response as 429.
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504, 529]);
 
 function isRetryable(error: unknown): boolean {
     if (error instanceof HttpError) {

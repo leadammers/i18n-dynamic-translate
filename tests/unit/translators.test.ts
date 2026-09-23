@@ -107,6 +107,13 @@ describe('DeepLService', () => {
             await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(/Rate limit exceeded/);
         });
 
+        it('should throw TranslationError with sanitized message for 529 error', async () => {
+            const service = new DeepLService(baseConfig);
+            mockPost.mockRejectedValue(new HttpError('Too Many Requests', 529));
+
+            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(/Rate limit exceeded/);
+        });
+
         it('should throw TranslationError for network errors (ECONNREFUSED)', async () => {
             const service = new DeepLService(baseConfig);
             mockPost.mockRejectedValue(new HttpError('Network error', undefined, 'ECONNREFUSED'));
