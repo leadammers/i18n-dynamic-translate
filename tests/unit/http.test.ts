@@ -130,6 +130,20 @@ describe('http.post', () => {
         expect(response.data).toEqual({ ok: true });
     });
 
+    // DeepL documents 529 as its second rate-limit code, mapped to the same
+    // "too many requests, please wait and resend" response as 429.
+    it('should retry on 529 and succeed', async () => {
+        const fetchSpy = vi
+            .spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(new Response('', { status: 529 }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+        const response = await http.post('https://api.example.com/data', {}, { retries: 1 });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+        expect(response.data).toEqual({ ok: true });
+    });
+
     it('should retry on network errors and succeed', async () => {
         const fetchSpy = vi
             .spyOn(globalThis, 'fetch')

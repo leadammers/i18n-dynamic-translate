@@ -21,6 +21,13 @@ While the version stays below 1.0.0 the public API may change in a minor release
 - `tests/unit/publicApi.test.ts` — the runtime half of `src/index.ts` is asserted: every documented
   value is still exported, and nothing new is.
 
+### Fixed
+
+- A `529` from a translation provider is retried and reported as a rate limit, not as an unknown
+  failure. DeepL's API maps `529` to the same "too many requests, please wait and resend" response
+  as `429`, but it was in neither the retry set nor the status-message map, so a rate-limited batch
+  was dropped where a backoff would have succeeded.
+
 ### Changed
 
 - Publishing to npm authenticates over OIDC as a trusted publisher instead of a long-lived token.
