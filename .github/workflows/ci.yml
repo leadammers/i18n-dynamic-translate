@@ -29,10 +29,17 @@ jobs:
       contents: read
     strategy:
       matrix:
-        # The two ends of the supported range: 22.12 is the floor from `engines`,
-        # pinned exactly because plain `22` resolves to the latest 22.x and would
-        # let a newer API pass unnoticed, and 24 is the current LTS. A third leg on
-        # latest 22.x only caught regressions that 24 shows too.
+        # The declared floor and the current Active LTS. 22.12 is pinned exactly
+        # because plain `22` resolves to the latest 22.x, which would run an API
+        # added after the floor without complaint — and npm enforces `engines` on
+        # the consumer's side, so that break is theirs, not ours.
+        #
+        # Nothing covers the span between 22.12 and latest 22.x. That is a known
+        # gap, accepted rather than overlooked: the library touches four Node APIs
+        # (`node:path`, `node:fs/promises`, `fetch`, `AbortController`) and has no
+        # runtime dependencies, so a regression confined to a 22.x patch and absent
+        # from 24 has very little to land on. Add the leg back if that stops being
+        # true.
         node-version: ['22.12', 24]
 
     steps:
