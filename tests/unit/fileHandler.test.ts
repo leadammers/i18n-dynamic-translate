@@ -121,6 +121,37 @@ describe('FileHandler', () => {
             expect(data).toEqual({});
         });
 
+        // js-yaml v4 returned `undefined` for a document with no content and v5 throws
+        // instead. Both peer-supported majors have to yield `{}` here, or an empty
+        // locale file would reach the consumer as a FileSystemError.
+        it('should handle empty YAML file', async () => {
+            const filePath = path.join(TEST_DIR, 'empty.yaml');
+            await fs.writeFile(filePath, '');
+
+            const data = await readLocaleFile(filePath);
+
+            expect(data).toEqual({});
+        });
+
+        it('should handle a YAML file holding only whitespace and comments', async () => {
+            const filePath = path.join(TEST_DIR, 'comments.yml');
+            await fs.writeFile(filePath, '# nothing here yet\n\n   \n');
+
+            const data = await readLocaleFile(filePath);
+
+            expect(data).toEqual({});
+        });
+
+        // A `#` inside a value must not make the line read as a comment.
+        it('should not mistake a hash inside a value for an empty document', async () => {
+            const filePath = path.join(TEST_DIR, 'hash.yaml');
+            await fs.writeFile(filePath, 'greeting: "a # b"\n');
+
+            const data = await readLocaleFile(filePath);
+
+            expect(data).toEqual({ greeting: 'a # b' });
+        });
+
         it('should throw FileSystemError for invalid JSON', async () => {
             const filePath = path.join(TEST_DIR, 'invalid.json');
             await fs.writeFile(filePath, '{ invalid json }');
