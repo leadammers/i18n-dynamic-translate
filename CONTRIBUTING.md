@@ -131,7 +131,8 @@ The translation providers are paid APIs and this repo is public.
   no values.
 - Scratch `.http` request files and editor REST environments must use a `{{DEEPL_API_KEY}}`
   placeholder, never the literal key.
-- CI runs gitleaks over the full history on every push, and a hit fails the build.
+- CI runs gitleaks over the full history on every pull request and on every push to `main`, and
+  a hit fails the build.
 - If a key does get committed: **rotate it first**, then clean the history. Rotation is the fix;
   removing the commit is cleanup.
 

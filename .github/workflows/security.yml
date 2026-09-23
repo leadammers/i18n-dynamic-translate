@@ -1,10 +1,15 @@
 name: Security
 
 on:
+  # No branch filter: `branches:` matches the BASE, so filtering it would
+  # leave a stacked PR — one based on another feature branch — with zero
+  # checks. Every pull request is checked, whatever it targets.
   pull_request:
-    branches: [main, dev]
+  # `main` only. A push to `dev` is always a merge of a PR that was already
+  # checked against `dev`, so listing it here only re-ran the same commit —
+  # twice over on a release PR, whose head branch IS `dev`.
   push:
-    branches: [main, dev]
+    branches: [main]
   schedule:
     # Weekly full re-scan so newly published advisories surface without a push.
     - cron: "17 4 * * 1"
@@ -16,7 +21,10 @@ permissions:
 
 concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded pull-request runs are cancelled; a push to `main`, the weekly
+  # re-scan and a manual dispatch are not, so every commit on the published
+  # branch keeps its own completed run.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ---------------------------------------------------------------------------
