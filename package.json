@@ -80,7 +80,7 @@
     "dotenv": "^18.0.1",
     "i18n": "^0.15.3",
     "i18next": "^26.0.0",
-    "js-yaml": "^4.3.2",
+    "js-yaml": "^5.4.2",
     "prettier": "^3.8.1",
     "publint": "^0.3.24",
     "tsc-alias": "^1.8.16",
@@ -90,7 +90,7 @@
   "peerDependencies": {
     "i18n": "^0.15.0",
     "i18next": ">=23.0.0",
-    "js-yaml": "^4.3.2"
+    "js-yaml": "^5.4.2"
   },
   "peerDependenciesMeta": {
     "i18n": {
