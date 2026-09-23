@@ -22,6 +22,25 @@ Consider extracting:
 Deferred deliberately: it is a large, behaviour-preserving refactor and belongs on its own
 branch rather than mixed into the review fixes.
 
+## Testing
+
+### Cover the adapter lifecycle paths
+The two backend adapters are the last cluster of untested behaviour: 24 uncovered branch
+outcomes, all of them lifecycle and error handling rather than translation logic.
+
+- `getTranslation` / `setTranslation` / `destroy` before `initialize` — the "not initialized"
+  guards and the `BackendError` they throw.
+- `initialize` called twice — the guard that stops the missing-key hook from being stacked.
+- The missing-key callback rejecting: `reportError` routes to the consumer's `onError` when one
+  is configured and falls back to `console.error` when none is. Both sides are untested, and
+  this is the one place library code is allowed to touch the console.
+- node-i18n only: a catalog the instance reports as `false`, and `addLocale` for an unknown
+  locale.
+
+Do this with the adapter work rather than on its own: the tests are lifecycle assertions against
+the very structure that would change, so writing them first only to rewrite them is wasted.
+Together they are worth roughly 5 points of branch coverage.
+
 ## Type Safety
 
 ### Enable `exactOptionalPropertyTypes`
