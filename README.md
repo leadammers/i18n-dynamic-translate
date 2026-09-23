@@ -4,11 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-**DynamicTranslate** automatically translates missing i18n keys in your application without manual work. Perfect for
-translating dynamic content like API metadata or dynamic product attributes where the keys are not known beforehand
-but still need to be localized.
-It integrates with i18next and node-i18n, uses DeepL or LibreTranslate for translations, and saves results
-directly to your locale files.
+**DynamicTranslate** automatically translates missing i18n keys in your application without manual work. It
+integrates with i18next and node-i18n, uses DeepL or LibreTranslate for translations, and saves results directly to
+your locale files.
 
 > **Note:** Both providers are verified end to end against a live server — DeepL against the
 > hosted API, LibreTranslate against a self-hosted instance (`tests/e2e/`). DeepL has by far the
@@ -233,9 +231,8 @@ t('welcomeMessage'); // i18next fires missing key handler
 // 4. Adds it to i18next's runtime store
 ```
 
-This is useful for catching missing translations during development, as well as dynamic scenarios where keys may not be
-pre-defined or automatically populating locale files over time when you already have source content in your default
-language.
+This is useful for catching missing translations during development, as well as automatically populating locale files
+over time when you already have source content in your default language.
 
 > **Configuration notes**
 > - **i18next**: Set `saveMissing: true` to trigger the missing key handler, but i18next won't write files itself
@@ -427,13 +424,11 @@ Both `translateKey()` and `translateObject()` accept an optional `options` param
 #### `parentKey` (string, optional)
 
 - Nests the translation under a specific key path
-- Useful for organizing related translations
 - Example: `{ parentKey: 'product.meta' }` creates nested structure
 
 #### `context` (string, optional)
 
 - Provides additional context to improve translation accuracy
-- Helps disambiguate words with multiple meanings
 - Example: `{ context: 'e-commerce' }` helps translate "bank" correctly
 
 </details>
@@ -526,7 +521,6 @@ try {
 
 - **API Key Errors**: Ensure your API key is set in your environment and has sufficient quota.
 - **File Permissions**: Verify that your application has write access to the locale files.
-- **Conflicting i18n settings**: Ensure `saveMissing` (i18next) or `updateFiles` (node-i18n) are set correctly.
 - **Invalid locale codes**: Use standard locale codes (e.g., 'en', 'de', 'fr', 'es').
 - **Rate Limits**: Be aware of rate limits imposed by translation providers, adjust `maxConcurrency` as needed.
 - **Unsupported Languages**: Check if your translation provider supports the target language.

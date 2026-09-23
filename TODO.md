@@ -34,15 +34,6 @@ config fields. Worth doing, but as a dedicated branch.
 ## API Design
 
 ### Improve convertKeyToText robustness
-Corrected on 2026-09-21: two of the three items here were already done, and the example was
-wrong. A custom key-to-text function is supported through `keyToText`, and acronyms are kept
-grouped — `"apiURL"` yields `"Api URL"`, not `"Api U R L"`. Digit boundaries were fixed in the
-same pass (`"order2Status"` → `"Order 2 Status"`).
-
-Both remaining items were fixed on `feature/cache-contract`: a key made only of words and spaces
-is passed through untouched, and a single lowercase letter in front of an acronym stays attached
-to it (`"iOSDevice"` → `"iOS Device"`).
-
 One known rough edge, left as is: the acronym rule preserves any word containing a run of two or
 more capitals, so a contrived key can now keep a lowercase first letter (`"vATRate"` → `"vAT
 Rate"`, where the old code gave `"V AT Rate"`). Telling that apart from `"iOS"` needs a

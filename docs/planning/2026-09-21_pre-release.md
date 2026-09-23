@@ -67,34 +67,21 @@ code from *before* this review round, and the version-equals-tag guard would hap
 
 `src/index.ts` is frozen until a major bump. These cost minutes now and a major version later.
 
-### 2.0 The cache contract — settled on `feature/cache-contract`
+### 2.0 The cache contract
 
-`TranslationCache` addressed an entry through positional parameters (`get(key, locale, context?)`)
-that omitted `namespace` entirely, so an implementation could not invalidate by namespace, and the
-interface said nothing about how the pieces compose into a storage key. It now takes a
-`TranslationIdentity` — locale, namespace, full dot path (with any
-`parentKey` already folded in) and provider context. `getCacheStats()` returns `{ size }` and
-works through the optional `TranslationCache.getStats()`, so it no longer reports `null` for
-every custom cache.
+`TranslationCache` now takes a `TranslationIdentity` instead of positional parameters. Why, and
+why before 0.1.0: [docs/decisions/003-cache-identity.md](../decisions/003-cache-identity.md).
 
 - [x] `TranslationIdentity` and `CacheStats` added to the public surface, documented in the
       README's *Custom Cache* section
 - [x] `getCacheStats()` reads the configured cache, not only the built-in one
 
-The point of doing this before 0.1.0: the `cache` option is advertised as an extension point, and
-an extension point nobody can implement is worse than none.
-
 ### 2.1 `CacheEntry` is exported but nothing needs it
 
-`TranslationCache` became usable this round through the new `cache` config option, so its export now
-earns its place. `CacheEntry` did not: it appears in no public signature — `TranslationCache`'s
-methods deal only in strings and `null` — and is used solely inside `MemoryCache`. A consumer
-implementing a custom cache never has to name it.
+Unexported — reasoning in [docs/decisions/003-cache-identity.md](../decisions/003-cache-identity.md).
 
 - [x] Unexported from `src/index.ts`. It stays exported from `@/types` for `MemoryCache`'s own use
       and carries a comment saying why it is not public
-
-Removing it after publication would have been a breaking change; adding it back later is not.
 
 ### 2.2 Rotate the DeepL API key — optional
 
@@ -152,40 +139,23 @@ regression tests using a mock that reports misses the way i18next does.
 `getFixedT` and `addResource`, stable since v19 — but nothing had run against it. The smoke check
 now repeats for every entry in `SUPPORTED_I18NEXT`: majors 23, 24, 25 and 26 all pass.
 
-The range **stays open above 26** rather than being capped at what is tested. An upper bound would
-mark every fresh i18next major unsupported until this package released again, which is a worse
-failure mode for a four-method surface than an untested-but-likely-fine major. A new major goes
-into `SUPPORTED_I18NEXT` and the claim is re-proven.
+The range stays open above 26 rather than being capped at what is tested. Why:
+[docs/decisions/002-open-peer-range.md](../decisions/002-open-peer-range.md).
 
 - [x] Majors 23–26 driven end to end from an installed tarball
 - [x] Decision recorded: open range, tested list, documented in the README
 
-### 3.4 A key is data, not a path into the runtime — settled on `fix/prototype-pollution-nested-write`
+### 3.4 A key is data, not a path into the runtime
 
-Reviewing the `setNestedValue` dedup surfaced a defect older than that branch. A translation key
-arrives as an arbitrary string — the entire premise of the library is that the key set is not known
-at build time — and the dot walk indexed objects with it directly. `__proto__` is an inherited
-accessor on `Object.prototype`, so a key containing that segment wrote **through** the catalog into
-every object in the host process, and the read side returned inherited members to the application as
-though they were translations.
+A translation key arrives as an arbitrary string, and the dot walk indexed objects with it
+directly — a key containing `__proto__` reached the inherited accessor on `Object.prototype`,
+reading and writing through the catalog into the whole host process. Full reasoning, including why
+a colliding key is stored rather than rejected:
+[docs/decisions/001-keys-are-data.md](../decisions/001-keys-are-data.md).
 
-Both walks now use own-property lookups only. A colliding key is kept as an ordinary own property
-rather than rejected — refusing it would silently lose a translation the application asked for,
-which is the failure mode a translation library can least afford.
-
-**The first fix was incomplete, and the way it was incomplete is the lesson.** Review of the fix
-found that hardening the dot walk left the hole where the walk *starts*: `catalog[locale]` and the
-flat `catalog[key]` are the same operation one level up, and `locale` reaches them straight from
-`translateKey`. The object `translateObject` returns had the same defect. The same review found
-that `Object.defineProperty` is not a drop-in replacement for an assignment — on a sealed or
-non-configurable target it throws where the assignment it replaced succeeded — so the write
-primitive now defines only for `__proto__` and assigns for every other name. The convention text
-was written asserting an invariant the adapter did not yet satisfy; it has been corrected to say
-that a single segment is not safer than a path.
-
-Worth recording *why this is a pre-release item* rather than a deferred one: it is the only finding
-this round that would have been a **breaking** change to fix after publication. Rejecting or
-reshaping a key is observable to a consumer, so the window to choose the semantics closes at 0.1.0.
+This is the only finding this round that would have been a **breaking** change to fix after
+publication — rejecting or reshaping a key is observable to a consumer, so the window to choose
+the semantics closes at 0.1.0. That is why it is a pre-release item rather than a deferred one.
 
 - [x] `setNestedValue` / `getNestedValue` walk own properties only, on both sides
 - [x] `locale`, the flat key path and the `translateObject` accumulator go through the same
