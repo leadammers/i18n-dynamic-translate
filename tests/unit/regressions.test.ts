@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
 import { Backend, LocaleData, StorageAdapter, TranslationProvider } from '@/types';
 import { NodeI18nAdapter } from '@/adapters/nodeI18nAdapter';
-import { setNestedValue } from '@/utils/objectPath';
+import { getNestedValue, setNestedValue } from '@/utils/objectPath';
 import { MemoryCache } from '@/utils/cache';
 import { LibreTranslateService } from '@/translators/libreTranslate';
 import { DeepLService } from '@/translators/deepl';
@@ -573,6 +573,37 @@ describe('review regressions', () => {
             const branch = Object.getOwnPropertyDescriptor(catalog, '__proto__')?.value as LocaleData;
             expect(branch?.[POLLUTED_PROPERTY]).toBe('kept');
             expect(Object.getPrototypeOf(catalog)).toBe(Object.prototype);
+        });
+
+        // `__proto__` is the name an assignment resolves to an inherited setter, but
+        // it is not the only route to the prototype: `constructor.prototype.x` walks
+        // there by reading, and plain indexing would hand out the real constructor.
+        // What blocks it is `getOwnProperty`'s own-property check, not the
+        // `__proto__` guard, so it needs its own test.
+        it('does not reach Object.prototype through a constructor segment', () => {
+            const catalog: LocaleData = {};
+
+            setNestedValue(catalog, `constructor.prototype.${POLLUTED_PROPERTY}`, 'polluted');
+
+            expect(({} as Record<string, unknown>)[POLLUTED_PROPERTY]).toBeUndefined();
+            expect(Object.getPrototypeOf(catalog)).toBe(Object.prototype);
+        });
+
+        it('stores a key named constructor as an own branch', () => {
+            const catalog: LocaleData = {};
+
+            setNestedValue(catalog, `constructor.prototype.${POLLUTED_PROPERTY}`, 'kept');
+
+            const branch = Object.getOwnPropertyDescriptor(catalog, 'constructor')?.value as LocaleData;
+            expect((branch?.prototype as LocaleData)?.[POLLUTED_PROPERTY]).toBe('kept');
+            expect(catalog.constructor).not.toBe(Object);
+        });
+
+        it('does not read an inherited member as a translation', () => {
+            const catalog: LocaleData = {};
+
+            expect(getNestedValue(catalog, 'constructor.prototype.toString')).toBeNull();
+            expect(getNestedValue(catalog, 'toString')).toBeNull();
         });
 
         it('leaves an ordinary nested write unchanged', () => {
