@@ -7,7 +7,7 @@
 **DynamicTranslate** automatically translates missing i18n keys in your application without manual work. Perfect for
 translating dynamic content like API metadata or dynamic product attributes where the keys are not known beforehand
 but still need to be localized.
-It integrates seamlessly with i18next and node-i18n, uses DeepL or LibreTranslate for translations, and saves results
+It integrates with i18next and node-i18n, uses DeepL or LibreTranslate for translations, and saves results
 directly to your locale files.
 
 > **Note:** Both providers are verified end to end against a live server — DeepL against the

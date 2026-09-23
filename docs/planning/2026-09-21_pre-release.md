@@ -109,8 +109,7 @@ carries a placeholder and is untracked and gitignored.
 ## 3. What CI proves about the support claims
 
 Every claim a consumer reads was a hand-written assertion. Three of them are now checked on every
-pull request, and the last of them found a bug that would have shipped. Sections 3.1-3.3 were
-settled on `feature/release-hardening`; 3.4 came out of reviewing the branch that followed it.
+pull request, and the last of them found a bug that would have shipped.
 
 ### 3.1 The Node floor is the floor that runs
 
