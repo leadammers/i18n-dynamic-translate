@@ -20,8 +20,7 @@ function createMockI18next() {
         options: {
             ns: ['translation'],
             missingKeyHandler: null as
-                | ((lngs: string[], ns: string, key: string, fallbackValue: string) => void)
-                | null,
+                ((lngs: string[], ns: string, key: string, fallbackValue: string) => void) | null,
             saveMissing: false,
         },
         getFixedT: vi.fn((_locale: string, _ns: string) => {

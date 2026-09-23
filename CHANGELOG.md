@@ -7,10 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 While the version stays below 1.0.0 the public API may change in a minor release.
 
-## [0.1.0] — unreleased
-
-The initial release. Nothing has been published to npm yet; the date is filled in when the
-version is tagged.
+## [0.1.0] — 2026-09-23
 
 ### Added
 

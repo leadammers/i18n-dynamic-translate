@@ -76,21 +76,21 @@
     "@arethetypeswrong/cli": "^0.18.5",
     "@types/i18n": "^0.13.12",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^22.20.0",
-    "dotenv": "^17.4.1",
-    "i18n": "^0.15.3",
-    "i18next": "^26.0.0",
-    "js-yaml": "^4.3.2",
-    "prettier": "^3.8.1",
+    "@types/node": "^26.6.2",
+    "dotenv": "^18.0.1",
+    "i18n": "^0.15.4",
+    "i18next": "^26.4.2",
+    "js-yaml": "^5.4.2",
+    "prettier": "^3.9.8",
     "publint": "^0.3.24",
-    "tsc-alias": "^1.8.16",
+    "tsc-alias": "^1.9.5",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.1"
   },
   "peerDependencies": {
     "i18n": "^0.15.0",
     "i18next": ">=23.0.0",
-    "js-yaml": "^4.3.2"
+    "js-yaml": ">=4.3.2"
   },
   "peerDependenciesMeta": {
     "i18n": {
