@@ -50,7 +50,7 @@ dictionary, and every real-world shape checked — `apiURL`, `XMLHttpRequest`, `
 `deliveryETA`, `is2FAEnabled` — is unchanged. Supply `keyToText` if your keys look like this.
 
 ### Decide whether `TranslationCache` should allow an async implementation
-`get` and `has` are synchronous, because the lookup sits between the backend reporting a miss and
+`get` and `set` are synchronous, because the lookup sits between the backend reporting a miss and
 the dispatch. That rules out a direct Redis or DynamoDB implementation: those need a local `Map`
 as the synchronous face with the remote copy trailing it, which the README now documents. Widening
 the return types to `string | null | Promise<string | null>` and awaiting at the call sites would
