@@ -14,7 +14,7 @@ SHELL := /bin/bash
 OFFLINE := DEEPL_API_KEY="" LIBRETRANSLATE_URL=""
 
 .PHONY: help install build clean typecheck format format-check test test-offline test-watch \
-	coverage e2e compat compat-types compat-package smoke audit gate \
+	coverage e2e compat compat-types compat-package smoke audit verify-dist gate \
 	version-patch version-minor version-major push-release
 
 help: ## List the available targets
@@ -67,7 +67,10 @@ smoke: ## Pack the tarball, install it into a scratch project and drive it
 audit: ## Audit the runtime dependency surface
 	npm run audit:prod
 
-gate: format-check typecheck build test-offline ## What has to pass before a push
+verify-dist: ## Fail if a @/ alias survived into dist/ (needs a build)
+	! grep -r 'require("@/' dist/
+
+gate: format-check typecheck build verify-dist test-offline ## What has to pass before a push
 
 version-patch: ## Bump the patch version and write the v<version> tag
 	npm version patch
@@ -78,5 +81,5 @@ version-minor: ## Bump the minor version and write the v<version> tag
 version-major: ## Bump the major version and write the v<version> tag
 	npm version major
 
-push-release: ## Push the current branch together with the new tag
+push-release: ## Push the branch with its tag — only once the release merge is on main
 	git push --follow-tags
