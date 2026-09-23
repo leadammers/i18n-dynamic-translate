@@ -23,6 +23,24 @@ already listed in it — if your keys are known when you build, use one of those
 Reach for this when the set of keys cannot be known ahead of time: API metadata, product
 attributes, category trees, anything data-driven.
 
+### What it replaces
+
+The work it takes off your hands, concretely:
+
+- **Hand-adding a key to every locale file** each time the data behind it changes. For keys that
+  come out of a database or an upstream API that loop never ends: a new carrier, a new attribute,
+  a new category — and the same edit again in every language you ship.
+- **The export → translate → re-import round trip** for strings nobody was ever going to review by
+  hand: a carrier name, an attribute label, a unit.
+- **The script someone runs after a deploy** to walk the locale files and fill the gaps — and the
+  locale files that quietly go stale on the day nobody runs it.
+- **Raw keys reaching users.** `products.meta.carrier`, or an English fallback in front of a German
+  visitor, because that one entry does not exist yet.
+
+It does not replace a translator. What it replaces is the mechanical half: getting a usable string
+in place without a deploy, and into your locale file where a human can correct it later. See
+[Honest limits](#honest-limits) for what that costs.
+
 ### Alternatives
 
 - **[locize](https://locize.com)** — the managed service from the i18next authors. It covers the
