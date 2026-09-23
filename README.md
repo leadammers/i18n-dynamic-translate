@@ -4,9 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-**DynamicTranslate** automatically translates missing i18n keys in your application without manual work. It
-integrates with i18next and node-i18n, uses DeepL or LibreTranslate for translations, and saves results directly to
-your locale files.
+**DynamicTranslate** (`i18n-dynamic-translate`) fills missing i18n keys **at runtime** — the moment
+your application asks for a key that is not in the locale file. It hooks the missing-key handler of
+i18next or node-i18n, translates through DeepL or LibreTranslate, writes the result back into the
+live i18n instance and persists it to your locale files. Built for dynamic content — API metadata,
+product attributes, category trees — whose key set is not known at build time.
 
 > **Note:** Both providers are verified end to end against a live server — DeepL against the
 > hosted API, LibreTranslate against a self-hosted instance (`tests/e2e/`). DeepL has by far the

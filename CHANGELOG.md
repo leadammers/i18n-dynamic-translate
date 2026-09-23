@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 While the version stays below 1.0.0 the public API may change in a minor release.
 
+## [Unreleased]
+
+### Changed
+
+- Publishing to npm authenticates over OIDC as a trusted publisher instead of a long-lived token.
+  Nothing changes for consumers: the tarball still carries a provenance attestation, minted from
+  the same token the registry issues to the workflow.
+- The manifest's `description` and `keywords` now name what this does differently — filling a key
+  at runtime — and the providers it talks to. npm search matches both fields, and neither `deepl`
+  nor `libretranslate` was listed. No code change.
+
 ## [0.1.0] — 2026-09-23
 
 ### Added
