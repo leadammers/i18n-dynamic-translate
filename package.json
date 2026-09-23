@@ -1,7 +1,7 @@
 {
   "name": "i18n-dynamic-translate",
   "version": "0.1.0",
-  "description": "Automatic translation library for i18next and Node.js i18n with support for DeepL and LibreTranslate.",
+  "description": "Translates missing i18n keys at runtime with DeepL or LibreTranslate and writes them back into i18next or node-i18n.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/leadammers/i18n-dynamic-translate.git"
@@ -55,12 +55,15 @@
   "keywords": [
     "i18n",
     "i18next",
+    "node-i18n",
+    "deepl",
+    "libretranslate",
     "translation",
+    "machine-translation",
     "auto-translate",
-    "metadata",
-    "api-translation",
-    "dynamic-content",
+    "missing-keys",
     "runtime-translation",
+    "dynamic-content",
     "localization",
     "internationalization"
   ],
