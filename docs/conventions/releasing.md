@@ -29,7 +29,11 @@ Nothing reaches npm until all of these pass:
 - `npm run build`, `npm test`, and the path-alias leak check on `dist/`.
 - **The version in `package.json` must equal the release tag**, so tagging `v1.2.3` against a
   `1.2.2` manifest fails the job instead of publishing the wrong version.
-- `npm publish --provenance --access public`, which attests the build back to this repo and commit.
+- `npm publish`, authenticated over OIDC as the package's **trusted publisher**. npmjs.com pins
+  that right to this repository and to the filename `publish.yml`, so no npm credential exists
+  here to leak and no other workflow can publish. The provenance attestation, which ties the
+  tarball back to this repository and commit, is minted from the same token — hence no
+  `--provenance` flag. `--access public` is gone too; `publishConfig.access` already says it.
 
 `prepublishOnly` re-runs typecheck, build and tests, so a manual publish attempt still gates — it
 just lacks provenance and the tag check.
