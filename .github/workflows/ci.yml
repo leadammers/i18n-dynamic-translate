@@ -67,7 +67,6 @@ jobs:
   # in Codecov and the last writer wins. The thresholds in `vitest.config.ts` are the
   # real gate — this job fails on a coverage drop whether or not the upload succeeds.
   coverage:
-    name: Coverage
     runs-on: ubuntu-latest
     permissions:
       contents: read
