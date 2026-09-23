@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-    convertKeyToText,
-    convertKeyToSentence,
-    isNestedKey,
-    getLastSegment,
-    getParentPath,
-} from '@/utils/keyConverter';
+import { convertKeyToText } from '@/utils/keyConverter';
 
 describe('keyConverter', () => {
     describe('convertKeyToText', () => {
@@ -36,47 +30,39 @@ describe('keyConverter', () => {
             expect(convertKeyToText('settings.account.emailAddress')).toBe('Email Address');
         });
 
-        it('should handle consecutive capitals', () => {
-            expect(convertKeyToText('XMLParser')).toBe('Xml Parser');
-            expect(convertKeyToText('HTMLElement')).toBe('Html Element');
+        it('should preserve acronyms in consecutive capitals', () => {
+            expect(convertKeyToText('XMLParser')).toBe('XML Parser');
+            expect(convertKeyToText('HTMLElement')).toBe('HTML Element');
+            expect(convertKeyToText('apiURL')).toBe('Api URL');
+        });
+
+        it('should split digit boundaries', () => {
+            expect(convertKeyToText('order2Status')).toBe('Order 2 Status');
+            expect(convertKeyToText('heading1')).toBe('Heading 1');
+            expect(convertKeyToText('utf8Encoding')).toBe('Utf 8 Encoding');
+        });
+
+        it('passes an already readable key through untouched', () => {
+            expect(convertKeyToText('already has spaces')).toBe('already has spaces');
+            expect(convertKeyToText('Order confirmed')).toBe('Order confirmed');
+            expect(convertKeyToText('checkout.Payment failed')).toBe('Payment failed');
+        });
+
+        it('still normalizes a key that mixes spaces with identifier separators', () => {
+            expect(convertKeyToText('estimated_delivery date')).toBe('Estimated Delivery Date');
+            expect(convertKeyToText('shipping-address line')).toBe('Shipping Address Line');
+            expect(convertKeyToText('orderStatus label')).toBe('Order Status Label');
+        });
+
+        it('keeps a single lowercase letter attached to the acronym it prefixes', () => {
+            expect(convertKeyToText('iOSDevice')).toBe('iOS Device');
+            expect(convertKeyToText('iOS')).toBe('iOS');
         });
 
         it('should handle empty or invalid input', () => {
             expect(convertKeyToText('')).toBe('');
             expect(convertKeyToText(null as any)).toBe('');
             expect(convertKeyToText(undefined as any)).toBe('');
-        });
-    });
-
-    describe('convertKeyToSentence', () => {
-        it('should convert to sentence case', () => {
-            expect(convertKeyToSentence('userName')).toBe('User name');
-            expect(convertKeyToSentence('firstName')).toBe('First name');
-        });
-    });
-
-    describe('isNestedKey', () => {
-        it('should detect nested keys', () => {
-            expect(isNestedKey('user.name')).toBe(true);
-            expect(isNestedKey('user.profile.name')).toBe(true);
-            expect(isNestedKey('userName')).toBe(false);
-            expect(isNestedKey('user_name')).toBe(false);
-        });
-    });
-
-    describe('getLastSegment', () => {
-        it('should get last segment of nested key', () => {
-            expect(getLastSegment('user.profile.name')).toBe('name');
-            expect(getLastSegment('user.name')).toBe('name');
-            expect(getLastSegment('name')).toBe('name');
-        });
-    });
-
-    describe('getParentPath', () => {
-        it('should get parent path of nested key', () => {
-            expect(getParentPath('user.profile.name')).toBe('user.profile');
-            expect(getParentPath('user.name')).toBe('user');
-            expect(getParentPath('name')).toBe('');
         });
     });
 });

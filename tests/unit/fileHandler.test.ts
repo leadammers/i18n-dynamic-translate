@@ -6,8 +6,6 @@ import {
     fileExists,
     readLocaleFile,
     writeLocaleFile,
-    setNestedValue,
-    getNestedValue,
     getLocaleFilePath,
     appendTranslationToFile,
 } from '@/utils/fileHandler';
@@ -123,15 +121,6 @@ describe('FileHandler', () => {
             expect(data).toEqual({});
         });
 
-        it('should respect format parameter over auto-detection', async () => {
-            const filePath = path.join(TEST_DIR, 'data.txt');
-            await fs.writeFile(filePath, 'hello: World');
-
-            const data = await readLocaleFile(filePath, FileFormat.YAML);
-
-            expect(data).toEqual({ hello: 'World' });
-        });
-
         it('should throw FileSystemError for invalid JSON', async () => {
             const filePath = path.join(TEST_DIR, 'invalid.json');
             await fs.writeFile(filePath, '{ invalid json }');
@@ -145,9 +134,8 @@ describe('FileHandler', () => {
             const filePath = path.join(TEST_DIR, 'output.json');
             const data = { hello: 'Hello', world: 'World' };
 
-            const result = await writeLocaleFile(filePath, data);
+            await writeLocaleFile(filePath, data);
 
-            expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
             expect(JSON.parse(content)).toEqual(data);
         });
@@ -156,9 +144,8 @@ describe('FileHandler', () => {
             const filePath = path.join(TEST_DIR, 'output.yaml');
             const data = { hello: 'Hello', world: 'World' };
 
-            const result = await writeLocaleFile(filePath, data);
+            await writeLocaleFile(filePath, data);
 
-            expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
             expect(content).toContain('hello: Hello');
             expect(content).toContain('world: World');
@@ -175,137 +162,61 @@ describe('FileHandler', () => {
             expect(content.endsWith('\n')).toBe(true);
         });
 
-        it('should respect format parameter', async () => {
+        it('should default to JSON format', async () => {
             const filePath = path.join(TEST_DIR, 'data.txt');
             const data = { hello: 'Hello' };
 
-            const result = await writeLocaleFile(filePath, data, FileFormat.YAML);
+            await writeLocaleFile(filePath, data);
 
-            expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
-            expect(content).toContain('hello: Hello');
-        });
-    });
-
-    describe('setNestedValue', () => {
-        it('should set simple key', () => {
-            const obj: Record<string, any> = {};
-            setNestedValue(obj, 'hello', 'Hello');
-            expect(obj).toEqual({ hello: 'Hello' });
-        });
-
-        it('should set nested key', () => {
-            const obj: Record<string, any> = {};
-            setNestedValue(obj, 'user.name', 'John');
-            expect(obj).toEqual({ user: { name: 'John' } });
-        });
-
-        it('should set deeply nested key', () => {
-            const obj: Record<string, any> = {};
-            setNestedValue(obj, 'user.profile.settings.theme', 'dark');
-            expect(obj).toEqual({
-                user: {
-                    profile: {
-                        settings: {
-                            theme: 'dark',
-                        },
-                    },
-                },
-            });
-        });
-
-        it('should preserve existing sibling keys', () => {
-            const obj: Record<string, any> = { user: { name: 'John' } };
-            setNestedValue(obj, 'user.email', 'john@example.com');
-            expect(obj).toEqual({
-                user: {
-                    name: 'John',
-                    email: 'john@example.com',
-                },
-            });
-        });
-
-        it('should overwrite existing values', () => {
-            const obj: Record<string, any> = { user: { name: 'John' } };
-            setNestedValue(obj, 'user.name', 'Jane');
-            expect(obj).toEqual({ user: { name: 'Jane' } });
-        });
-
-        it('should overwrite non-object intermediate values', () => {
-            const obj: Record<string, any> = { user: 'string' };
-            setNestedValue(obj, 'user.name', 'John');
-            expect(obj).toEqual({ user: { name: 'John' } });
-        });
-    });
-
-    describe('getNestedValue', () => {
-        it('should get simple key', () => {
-            const obj = { hello: 'Hello' };
-            expect(getNestedValue(obj, 'hello')).toBe('Hello');
-        });
-
-        it('should get nested key', () => {
-            const obj = { user: { name: 'John' } };
-            expect(getNestedValue(obj, 'user.name')).toBe('John');
-        });
-
-        it('should get deeply nested key', () => {
-            const obj = { user: { profile: { settings: { theme: 'dark' } } } };
-            expect(getNestedValue(obj, 'user.profile.settings.theme')).toBe('dark');
-        });
-
-        it('should return null for non-existent key', () => {
-            const obj = { hello: 'Hello' };
-            expect(getNestedValue(obj, 'nonexistent')).toBeNull();
-        });
-
-        it('should return null for non-existent nested key', () => {
-            const obj = { user: { name: 'John' } };
-            expect(getNestedValue(obj, 'user.email')).toBeNull();
-        });
-
-        it('should return null for path through non-object', () => {
-            const obj = { user: 'string' };
-            expect(getNestedValue(obj, 'user.name')).toBeNull();
-        });
-
-        it('should return nested object', () => {
-            const obj = { user: { name: 'John', email: 'john@example.com' } };
-            expect(getNestedValue(obj, 'user')).toEqual({ name: 'John', email: 'john@example.com' });
+            expect(JSON.parse(content)).toEqual(data);
         });
     });
 
     describe('getLocaleFilePath', () => {
-        it('should generate path for node-i18n style (no namespace)', () => {
-            const result = getLocaleFilePath('/locales', 'en');
+        it('should generate path for node-i18n style (no namespace)', async () => {
+            const result = await getLocaleFilePath('/locales', 'en');
             expect(result).toBe(path.join('/locales', 'en.json'));
         });
 
-        it('should generate path for i18next style (with namespace)', () => {
-            const result = getLocaleFilePath('/locales', 'en', 'translation');
+        it('should generate path for i18next style (with namespace)', async () => {
+            const result = await getLocaleFilePath('/locales', 'en', 'translation');
             expect(result).toBe(path.join('/locales', 'en', 'translation.json'));
         });
 
-        it('should use YAML extension when specified', () => {
-            const result = getLocaleFilePath('/locales', 'en', 'translation', FileFormat.YAML);
+        it('should use YAML extension when specified', async () => {
+            const result = await getLocaleFilePath('/locales', 'en', 'translation', FileFormat.YAML);
             expect(result).toBe(path.join('/locales', 'en', 'translation.yaml'));
         });
 
-        it('should handle various locale codes', () => {
-            expect(getLocaleFilePath('/locales', 'en-US')).toBe(path.join('/locales', 'en-US.json'));
-            expect(getLocaleFilePath('/locales', 'zh-CN', 'common')).toBe(
+        it('should handle various locale codes', async () => {
+            expect(await getLocaleFilePath('/locales', 'en-US')).toBe(path.join('/locales', 'en-US.json'));
+            expect(await getLocaleFilePath('/locales', 'zh-CN', 'common')).toBe(
                 path.join('/locales', 'zh-CN', 'common.json')
             );
         });
     });
 
     describe('appendTranslationToFile', () => {
+        // `parentKey` is consumer input that becomes a path segment, and a locale
+        // file is JSON, so `__proto__` survives the round trip as an own property.
+        it('should nest under a parentKey named __proto__ without polluting', async () => {
+            const filePath = path.join(TEST_DIR, 'proto.json');
+            await writeLocaleFile(filePath, {});
+
+            await appendTranslationToFile(filePath, 'carrier', 'Frachtfuhrer', '__proto__');
+
+            const written = await readLocaleFile(filePath);
+            const branch = Object.getOwnPropertyDescriptor(written, '__proto__')?.value as Record<string, string>;
+            expect(branch?.carrier).toBe('Frachtfuhrer');
+            expect(({} as Record<string, unknown>).carrier).toBeUndefined();
+        });
+
         it('should append to new file', async () => {
             const filePath = path.join(TEST_DIR, 'new.json');
 
-            const result = await appendTranslationToFile(filePath, 'hello', 'Hello');
+            await appendTranslationToFile(filePath, 'hello', 'Hello');
 
-            expect(result.success).toBe(true);
             const data = await readLocaleFile(filePath);
             expect(data).toEqual({ hello: 'Hello' });
         });
@@ -314,9 +225,8 @@ describe('FileHandler', () => {
             const filePath = path.join(TEST_DIR, 'existing.json');
             await fs.writeFile(filePath, JSON.stringify({ world: 'World' }));
 
-            const result = await appendTranslationToFile(filePath, 'hello', 'Hello');
+            await appendTranslationToFile(filePath, 'hello', 'Hello');
 
-            expect(result.success).toBe(true);
             const data = await readLocaleFile(filePath);
             expect(data).toEqual({ hello: 'Hello', world: 'World' });
         });
@@ -343,9 +253,10 @@ describe('FileHandler', () => {
         it('should work with YAML files', async () => {
             const filePath = path.join(TEST_DIR, 'test.yaml');
 
-            const result = await appendTranslationToFile(filePath, 'greeting', 'Hello', FileFormat.YAML);
+            // No format argument: the .yaml extension already selects the format,
+            // and a fourth argument here would nest the value under a parent key.
+            await appendTranslationToFile(filePath, 'greeting', 'Hello');
 
-            expect(result.success).toBe(true);
             const content = await fs.readFile(filePath, 'utf-8');
             expect(content).toContain('greeting: Hello');
         });

@@ -5,9 +5,18 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as yaml from 'js-yaml';
-import { FileFormat, LocaleData, FileOperationResult } from '@/types';
+import { FileFormat, LocaleData } from '@/types';
+
+let yaml: typeof import('js-yaml') | undefined;
+
+async function getYaml(): Promise<typeof import('js-yaml')> {
+    if (!yaml) {
+        yaml = await import('js-yaml');
+    }
+    return yaml;
+}
 import { FileSystemError } from '@/utils/errors';
+import { setNestedValue } from '@/utils/objectPath';
 
 /**
  * Detect file format from file path
@@ -35,7 +44,7 @@ export async function fileExists(filePath: string): Promise<boolean> {
 /**
  * Read locale file (JSON or YAML)
  */
-export async function readLocaleFile(filePath: string, format?: FileFormat): Promise<LocaleData> {
+export async function readLocaleFile(filePath: string): Promise<LocaleData> {
     try {
         const exists = await fileExists(filePath);
         if (!exists) {
@@ -43,10 +52,11 @@ export async function readLocaleFile(filePath: string, format?: FileFormat): Pro
         }
 
         const content = await fs.readFile(filePath, 'utf-8');
-        const fileFormat = format || detectFileFormat(filePath);
+        const fileFormat = detectFileFormat(filePath);
 
         if (fileFormat === FileFormat.YAML) {
-            const data = yaml.load(content);
+            const yamlLib = await getYaml();
+            const data = yamlLib.load(content);
             return (data as LocaleData) || {};
         } else {
             return JSON.parse(content || '{}');
@@ -57,74 +67,35 @@ export async function readLocaleFile(filePath: string, format?: FileFormat): Pro
 }
 
 /**
+ * Ensure parent directory exists, creating it recursively if needed
+ */
+async function ensureDirectoryExists(filePath: string): Promise<void> {
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+}
+
+/**
  * Write locale file (JSON or YAML)
  */
-export async function writeLocaleFile(
-    filePath: string,
-    data: LocaleData,
-    format?: FileFormat
-): Promise<FileOperationResult> {
+export async function writeLocaleFile(filePath: string, data: LocaleData): Promise<void> {
     try {
-        const fileFormat = format || detectFileFormat(filePath);
+        const fileFormat = detectFileFormat(filePath);
         let content: string;
 
         if (fileFormat === FileFormat.YAML) {
-            content = yaml.dump(data, { indent: 2, lineWidth: -1 });
+            const yamlLib = await getYaml();
+            content = yamlLib.dump(data, { indent: 2, lineWidth: -1 });
         } else {
             content = JSON.stringify(data, null, 2) + '\n';
         }
 
+        // Ensure parent directory exists before writing
+        await ensureDirectoryExists(filePath);
+
         await fs.writeFile(filePath, content, 'utf-8');
-
-        return { success: true };
     } catch (error) {
-        return {
-            success: false,
-            error: new FileSystemError(`Failed to write locale file: ${filePath}`, filePath, error as Error),
-        };
+        throw new FileSystemError(`Failed to write locale file: ${filePath}`, filePath, error as Error);
     }
-}
-
-/**
- * Set a nested value in an object using dot notation
- * @param obj - The object to modify
- * @param path - Dot-separated path (e.g., 'user.profile.name')
- * @param value - Value to set
- */
-export function setNestedValue(obj: LocaleData, path: string, value: string | LocaleData): void {
-    const keys = path.split('.');
-    let current: LocaleData = obj;
-
-    for (let i = 0; i < keys.length - 1; i++) {
-        const key = keys[i];
-        if (!(key in current) || typeof current[key] !== 'object') {
-            current[key] = {};
-        }
-        current = current[key] as LocaleData;
-    }
-
-    current[keys[keys.length - 1]] = value;
-}
-
-/**
- * Get a nested value from an object using dot notation
- * @param obj - The object to read from
- * @param path - Dot-separated path
- * @returns The value or null if not found
- */
-export function getNestedValue(obj: LocaleData, path: string): string | LocaleData | null {
-    const keys = path.split('.');
-    let current: string | LocaleData = obj;
-
-    for (const key of keys) {
-        if (current && typeof current === 'object' && key in current) {
-            current = current[key];
-        } else {
-            return null;
-        }
-    }
-
-    return current;
 }
 
 /**
@@ -134,21 +105,36 @@ export function getNestedValue(obj: LocaleData, path: string): string | LocaleDa
  * @param namespace - Optional namespace for i18next
  * @param format - File format
  */
-export function getLocaleFilePath(
+export async function getLocaleFilePath(
     localesPath: string,
     locale: string,
     namespace?: string,
-    format: FileFormat = FileFormat.JSON
-): string {
+    format?: FileFormat
+): Promise<string> {
+    // Determine file extension, defaulting to JSON if format is not specified
     const ext = format === FileFormat.YAML ? 'yaml' : 'json';
+    const basePath = namespace ? path.join(localesPath, locale, namespace) : path.join(localesPath, locale);
 
-    if (namespace) {
-        // i18next style: locales/en/translation.json
-        return path.join(localesPath, locale, `${namespace}.${ext}`);
-    } else {
-        // node-i18n style: locales/en.json
-        return path.join(localesPath, `${locale}.${ext}`);
+    // Validate the resolved path stays within localesPath to prevent path traversal
+    const resolvedBase = path.resolve(basePath);
+    const resolvedLocales = path.resolve(localesPath);
+    if (!resolvedBase.startsWith(resolvedLocales + path.sep) && resolvedBase !== resolvedLocales) {
+        throw new FileSystemError(`Path traversal detected: locale or namespace escapes localesPath`, resolvedBase);
     }
+
+    if (format) {
+        return `${basePath}.${ext}`;
+    }
+
+    // Auto-detect format by checking for existing files
+    for (const candidate of ['yaml', 'yml', 'json']) {
+        const filePath = `${basePath}.${candidate}`;
+        if (await fileExists(filePath)) {
+            return filePath;
+        }
+    }
+
+    return `${basePath}.${ext}`;
 }
 
 /**
@@ -156,25 +142,16 @@ export function getLocaleFilePath(
  * @param filePath - Path to the locale file
  * @param key - Translation key
  * @param value - Translation value
- * @param format - File format (JSON or YAML)
  * @param parentKey - Optional parent key to nest translations under
  */
 export async function appendTranslationToFile(
     filePath: string,
     key: string,
     value: string,
-    format?: FileFormat,
     parentKey?: string
-): Promise<FileOperationResult> {
-    try {
-        const data = await readLocaleFile(filePath, format);
-        const fullKey = parentKey ? `${parentKey}.${key}` : key;
-        setNestedValue(data, fullKey, value);
-        return await writeLocaleFile(filePath, data, format);
-    } catch (error) {
-        return {
-            success: false,
-            error: error as Error,
-        };
-    }
+): Promise<void> {
+    const data = await readLocaleFile(filePath);
+    const fullKey = parentKey ? `${parentKey}.${key}` : key;
+    setNestedValue(data, fullKey, value);
+    await writeLocaleFile(filePath, data);
 }

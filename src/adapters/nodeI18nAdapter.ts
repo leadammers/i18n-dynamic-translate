@@ -5,6 +5,7 @@
 
 import { BackendAdapter, MissingKeyCallback, AutoTranslateConfig, LocaleData } from '@/types';
 import { BackendError } from '@/utils/errors';
+import { getNestedValue, getOwnProperty, setNestedValue, setOwnProperty } from '@/utils/objectPath';
 
 // Type for node-i18n instance (minimal interface)
 interface NodeI18nInstance {
@@ -13,10 +14,12 @@ interface NodeI18nInstance {
     getLocale: () => string;
     setLocale: (locale: string) => void;
     getLocales: () => string[];
-    getCatalog: (locale: string) => Record<string, string> | undefined;
+    // The live registry entry, or `false` for a locale node-i18n never registered.
+    // Nested when `objectNotation` is on, flat otherwise — `LocaleData` covers both.
+    getCatalog: (locale: string) => LocaleData | false | undefined;
+    addLocale: (locale: string) => void;
     configure: (options: Record<string, unknown>) => void;
     options?: Record<string, unknown>;
-    catalog?: Record<string, Record<string, string>>;
 }
 
 export class NodeI18nAdapter implements BackendAdapter {
@@ -54,21 +57,26 @@ export class NodeI18nAdapter implements BackendAdapter {
     private setupMissingKeyHandler(): void {
         if (!this.i18n) return;
 
+        // Captured after the guard: the closures below outlive the narrowing, so without a
+        // local they would each need a non-null assertion.
+        const i18n = this.i18n;
+
         // Store original __ method
-        this.original__ = this.i18n.__.bind(this.i18n);
+        this.original__ = i18n.__.bind(i18n);
 
         // Override __ method to detect missing keys
         const original__ = this.original__;
-        this.i18n.__ = (phrase: string, ...args: unknown[]) => {
-            const locale = this.i18n!.getLocale();
+        i18n.__ = (phrase: string, ...args: unknown[]) => {
+            const locale = i18n.getLocale();
             const translation = original__(phrase, ...args);
 
-            // If translation equals the phrase, it's likely missing
-            // (node-i18n returns the phrase when translation is not found)
+            // node-i18n returns the phrase itself when a translation is not found.
+            // Limitation: if a translation intentionally equals its key (e.g. "OK" -> "OK"),
+            // this will produce a false positive and trigger an unnecessary API call.
             if (translation === phrase && this.missingKeyCallback) {
                 // Handle async callback with proper error handling
-                Promise.resolve(this.missingKeyCallback(phrase, locale)).catch((error) => {
-                    console.error(`AutoTranslate: Error in missing key callback for "${phrase}":`, error);
+                Promise.resolve(this.missingKeyCallback(phrase, locale)).catch((error: unknown) => {
+                    this.reportError(error as Error, phrase, locale);
                 });
             }
 
@@ -76,22 +84,35 @@ export class NodeI18nAdapter implements BackendAdapter {
         };
 
         // Also override __n for plural forms
-        this.original__n = this.i18n.__n.bind(this.i18n);
+        this.original__n = i18n.__n.bind(i18n);
         const original__n = this.original__n;
-        this.i18n.__n = (singular: string, plural: string, count: number, ...args: unknown[]) => {
-            const locale = this.i18n!.getLocale();
+        i18n.__n = (singular: string, plural: string, count: number, ...args: unknown[]) => {
+            const locale = i18n.getLocale();
             const translation = original__n(singular, plural, count, ...args);
 
             // Check if translation is missing
             if ((translation === singular || translation === plural) && this.missingKeyCallback) {
                 // Handle async callback with proper error handling
-                Promise.resolve(this.missingKeyCallback(singular, locale)).catch((error) => {
-                    console.error(`AutoTranslate: Error in missing key callback for "${singular}":`, error);
+                Promise.resolve(this.missingKeyCallback(singular, locale)).catch((error: unknown) => {
+                    this.reportError(error as Error, singular, locale);
                 });
             }
 
             return translation;
         };
+    }
+
+    /**
+     * Report a callback failure through the configured hook, falling back to
+     * stderr only when the host application has not provided one.
+     */
+    private reportError(error: Error, key: string, locale: string): void {
+        if (this.config?.onError) {
+            this.config.onError(error, key, locale);
+            return;
+        }
+
+        console.error(`AutoTranslate: Error in missing key callback for "${key}":`, error);
     }
 
     /**
@@ -102,43 +123,32 @@ export class NodeI18nAdapter implements BackendAdapter {
             return null;
         }
 
-        const currentLocale = this.i18n.getLocale();
-
         try {
-            // Temporarily set locale
-            this.i18n.setLocale(locale);
+            // Same guard as the write path, for the same reason: `getCatalog` falls
+            // back to a related locale, and resolves `__proto__` to `Object.prototype`
+            // and `constructor` to `Object`. Without this, a lookup for an
+            // unregistered locale answers with a neighbour's translation, or with an
+            // inherited member, as though it were this locale's own.
+            if (!this.i18n.getLocales().includes(locale)) {
+                return null;
+            }
 
             const catalog = this.i18n.getCatalog(locale);
             if (!catalog) return null;
 
-            // If objectNotation is enabled, traverse nested keys
+            // A catalog under `objectNotation` nests exactly like a locale file, so
+            // it is read by the same function that writes it — which is also what
+            // keeps the dot walk from following the prototype chain out of the
+            // catalog on both sides.
             if (this.config?.objectNotation) {
-                const keys = key.split('.');
-                let current: LocaleData | string | undefined = catalog;
-                for (const k of keys) {
-                    if (current && typeof current === 'object' && k in current) {
-                        current = current[k];
-                    } else {
-                        return null;
-                    }
-                }
-                return typeof current === 'string' ? current : null;
+                return getNestedValue(catalog, key);
             }
 
             // Flat key lookup
-            const translation = catalog[key];
+            const translation = getOwnProperty(catalog, key);
             return typeof translation === 'string' ? translation : null;
         } catch {
             return null;
-        } finally {
-            // Always restore locale, even on error
-            // Note: If setLocale fails here, the locale state may be inconsistent,
-            // but we log the error instead of silently ignoring it
-            try {
-                this.i18n.setLocale(currentLocale);
-            } catch (restoreError) {
-                console.error('AutoTranslate: Failed to restore locale after getTranslation:', restoreError);
-            }
         }
     }
 
@@ -151,31 +161,23 @@ export class NodeI18nAdapter implements BackendAdapter {
         }
 
         try {
-            // Manually add to catalog (no need to call configure, just update in-memory catalog)
-            if (!this.i18n.catalog) {
-                this.i18n.catalog = {};
-            }
-            if (!this.i18n.catalog[locale]) {
-                this.i18n.catalog[locale] = {};
-            }
+            const catalogForLocale = this.resolveCatalog(this.i18n, locale);
 
-            // If objectNotation is enabled, set nested value
+            // A catalog under `objectNotation` nests exactly like a locale file,
+            // down to the null-branch case, so it is written by the same function.
             if (this.config?.objectNotation) {
-                const keys = key.split('.');
-                let current: LocaleData = this.i18n.catalog[locale];
-                for (let i = 0; i < keys.length - 1; i++) {
-                    const k = keys[i];
-                    if (!(k in current) || typeof current[k] !== 'object') {
-                        current[k] = {};
-                    }
-                    current = current[k] as LocaleData;
-                }
-                current[keys[keys.length - 1]] = value;
+                setNestedValue(catalogForLocale, key, value);
             } else {
                 // Flat key
-                this.i18n.catalog[locale][key] = value;
+                setOwnProperty(catalogForLocale, key, value);
             }
         } catch (error) {
+            // An error raised here already says what went wrong and where; wrapping
+            // it again only stutters the prefix into the message.
+            if (error instanceof BackendError) {
+                throw error;
+            }
+
             throw new BackendError(
                 `Failed to set translation in node-i18n: ${error instanceof Error ? error.message : String(error)}`,
                 'node-i18n'
@@ -184,24 +186,57 @@ export class NodeI18nAdapter implements BackendAdapter {
     }
 
     /**
+     * Get the live catalog object node-i18n reads translations out of.
+     *
+     * There is exactly one way in: `getCatalog(locale)` returns the registry entry
+     * itself, so a write into it is what `__()` sees. An instance exposes no
+     * catalog property — the registry is closed over inside the constructor — so
+     * creating one and writing there produces an object nothing ever reads, which
+     * is how every translation through this adapter used to be lost.
+     *
+     * A locale the instance does not know has no entry, and `getCatalog` answers
+     * `false` rather than creating one. `addLocale` is the documented way to add
+     * it, and it registers the locale only if it can read `<locale>.json` or
+     * `updateFiles` lets it create one — this runs before autoSave writes, so on
+     * the first key of a new locale that file does not exist yet. When nothing
+     * registers, node-i18n offers no further entrance, and saying so beats
+     * dropping the translation in silence.
+     */
+    private resolveCatalog(i18n: NodeI18nInstance, locale: string): LocaleData {
+        // `getCatalog('')` hands back the whole registry rather than one entry, so
+        // an empty locale would write a key straight into node-i18n's locale map.
+        if (!locale) {
+            throw new BackendError('node-i18n locale must be a non-empty string', 'node-i18n');
+        }
+
+        if (!i18n.getLocales().includes(locale)) {
+            i18n.addLocale(locale);
+        }
+
+        // Re-checked rather than trusted: `getCatalog` falls back to a related
+        // locale when the requested one is absent, so an unregistered locale would
+        // otherwise have its translations written into a neighbour's catalog.
+        if (!i18n.getLocales().includes(locale)) {
+            throw new BackendError(
+                `node-i18n has no catalog for locale "${locale}" and would not register one. ` +
+                    `Add it to configure({ locales: [...] }).`,
+                'node-i18n'
+            );
+        }
+
+        const catalog = i18n.getCatalog(locale);
+        if (typeof catalog !== 'object' || catalog === null) {
+            throw new BackendError(`node-i18n returned no catalog for locale "${locale}"`, 'node-i18n');
+        }
+
+        return catalog;
+    }
+
+    /**
      * Register callback for missing keys
      */
     onMissingKey(callback: MissingKeyCallback): void {
         this.missingKeyCallback = callback;
-    }
-
-    /**
-     * Get current locale
-     */
-    getCurrentLocale(): string {
-        return this.i18n?.getLocale() || this.config?.defaultLanguage || 'en';
-    }
-
-    /**
-     * Get available locales
-     */
-    getLocales(): string[] {
-        return this.i18n?.getLocales() || [this.config?.defaultLanguage || 'en'];
     }
 
     /**

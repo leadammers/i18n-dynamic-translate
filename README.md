@@ -4,14 +4,40 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-**DynamicTranslate** automatically translates missing i18n keys in your application without manual work. Perfect for
-translating dynamic content like API metadata or dynamic product attributes where the keys are not known beforehand
-but still need to be localized.
-It integrates seamlessly with i18next and node-i18n, uses DeepL or LibreTranslate for translations, and saves results
-directly to your locale files.
+**DynamicTranslate** automatically translates missing i18n keys in your application without manual work. It
+integrates with i18next and node-i18n, uses DeepL or LibreTranslate for translations, and saves results directly to
+your locale files.
 
-> **Note:** This library has currently only been tested with DeepL. LibreTranslate support is implemented but not yet
-> verified in production.
+> **Note:** Both providers are verified end to end against a live server — DeepL against the
+> hosted API, LibreTranslate against a self-hosted instance (`tests/e2e/`). DeepL has by far the
+> most mileage; LibreTranslate is the newer of the two paths.
+
+## When to use this
+
+DynamicTranslate fills keys **at runtime**, inside the process serving the request. That is a
+different job from the build-time CLI translators that walk a locale file and fill in what is
+already listed in it — if your keys are known when you build, use one of those instead.
+
+Reach for this when the set of keys cannot be known ahead of time: API metadata, product
+attributes, category trees, anything data-driven.
+
+### Alternatives
+
+- **[locize](https://locize.com)** — the managed service from the i18next authors. It covers the
+  same runtime missing-key flow and adds a translation-management UI, human review and a CDN.
+  Choose it if you want a product. DynamicTranslate is the self-hosted take on the same idea: your
+  own DeepL or LibreTranslate key, your own locale files in your own repository, no subscription
+  and no third party holding your content.
+- **Build-time translation CLIs** — a better fit whenever your keys are static.
+
+### Honest limits
+
+- **Translation is asynchronous.** The request that first encounters a missing key gets the
+  fallback. The translation is written to the locale file and served from the next request on.
+- **Every genuinely new key costs a provider API call.** Cached and persisted keys do not.
+- **Machine translation of short UI fragments is often mediocre** without surrounding context.
+  Use the `context` option and review what lands in your locale files.
+- **Server-side only** — see [Prerequisites](#prerequisites).
 
 ## Features
 
@@ -29,8 +55,19 @@ directly to your locale files.
 
 ## Prerequisites
 
-- Node.js 22+
-- An i18next or node-i18n instance already configured
+- Node.js 22.12+, tested on 22 and 24 (current LTS) — **server-side only.** The library holds your provider API key and writes locale
+  files, so it needs a trusted process and a filesystem. It is not usable in a browser, and it is
+  not meant to be: shipping a DeepL key to a client would expose it. Edge runtimes without `node:fs`
+  are unsupported for the same reason.
+- TypeScript 5.0+, if you use TypeScript. Every release compiles the shipped declarations under
+  5.0, 5.9, 6 and 7 in CI, so the range is checked rather than claimed. `npm` enforces the Node
+  floor from `engines`; there is no equivalent field for TypeScript, which is why it is a build
+  step instead.
+- An i18next or node-i18n instance already configured. The peer range is `i18next >=23.0.0`, and
+  every release drives a real instance of majors 23, 24, 25 and 26 end to end from an installed
+  tarball. The range stays open above that: the adapter uses four stable i18next entry points, and
+  pinning an upper bound would make every new major look unsupported until this package released
+  again.
 - DeepL API key (free tier available at [deepl.com](https://www.deepl.com/pro-api)) or a self-hosted LibreTranslate
   instance
 
@@ -62,7 +99,7 @@ const autoTranslate = new AutoTranslate({
 <details><summary>All configuration options</summary>
 
 ```typescript
-import {AutoTranslate, Backend, TranslationProvider, FileFormat} from 'i18n-dynamic-translate';
+import {AutoTranslate, Backend, TranslationProvider, FileFormat, DeepLModelType} from 'i18n-dynamic-translate';
 
 const autoTranslate = new AutoTranslate({
     // ===== Required =====
@@ -99,7 +136,10 @@ const autoTranslate = new AutoTranslate({
             context: 'e-commerce',
 
             // How to split sentences
-            splitSentences: '1'                 // '0' | '1' | 'nonewlines'
+            splitSentences: '1',                // '0' | '1' | 'nonewlines'
+
+            // Specifies which DeepL model should be used for translation, default is latency
+            modelType: DeepLModelType.QUALITY,  // 'QUALITY' | 'LATENCY'
         }
     },
 
@@ -128,6 +168,32 @@ const autoTranslate = new AutoTranslate({
 
     // Maximum number of cached entries (default: 1000)
     maxCacheSize: 1000,
+
+    // Custom cache (default: built-in in-memory cache)
+    // Implement the TranslationCache interface for Redis/Memcached/etc.
+    // Supplying one enables caching regardless of enableCache. See "Custom Cache" below.
+    // cache: myRedisCache,
+
+    // Operating mode (default: 'development')
+    // 'development' — auto-translate all missing keys
+    // 'production' — only auto-translate within allowedNamespaces
+    mode: 'production',
+
+    // Namespaces allowed for auto-translation in production mode
+    allowedNamespaces: ['products.metaData', 'api.labels'],
+
+    // Custom key-to-text conversion function (overrides built-in converter).
+    // Receives the last key segment, never the full dotted path.
+    keyToText: (key) => key.replace(/_/g, ' '),
+
+    // Error callback for the automatic missing-key handler (default: console.error)
+    onError: (error, key, locale) => {
+        myLogger.warn(`Translation failed for ${key} (${locale}):`, error);
+    },
+
+    // Custom storage adapter (default: FileStorageAdapter)
+    // Implement the StorageAdapter interface for database/Redis/etc.
+    // storageAdapter: new MyDatabaseAdapter(),
 });
 ```
 
@@ -136,6 +202,46 @@ spec [here](https://developers.deepl.com/api-reference/translate#request-body-de
 set for your use-case
 
 </details>
+
+### Automatic Translation of Missing Keys
+
+Once configured, DynamicTranslate automatically intercepts missing translation keys at runtime. When your app requests a
+translation that doesn't exist, it's translated and saved automatically:
+
+```typescript
+// Setup (once at app startup)
+const autoTranslate = new AutoTranslate({
+    backend: Backend.I18NEXT,
+    i18nInstance: i18next,
+    localesPath: './locales',
+    defaultLanguage: 'en',
+    translationProvider: {
+        provider: TranslationProvider.DEEPL,
+        apiKey: process.env.DEEPL_API_KEY,
+    },
+});
+
+// Later in your app - this key doesn't exist yet
+t('welcomeMessage'); // i18next fires missing key handler
+
+// DynamicTranslate automatically:
+// 1. Detects the missing key
+// 2. Translates "welcome message" to the current locale (if present in default language, otherwise uses the key itself)
+// 3. Saves it to your locale file
+// 4. Adds it to i18next's runtime store
+```
+
+This is useful for catching missing translations during development, as well as automatically populating locale files
+over time when you already have source content in your default language.
+
+> **Configuration notes**
+> - **i18next**: Set `saveMissing: true` to trigger the missing key handler, but i18next won't write files itself
+> - **node-i18n**: Set `updateFiles: false` to prevent node-i18n from writing files - DynamicTranslate handles all file
+    writes via `autoSave: true`
+> - **node-i18n**: List every target language in `configure({ locales: [...] })`. node-i18n only registers a locale from
+    its own file, so a language it has never seen cannot receive a translation in memory. DynamicTranslate reports that
+    through `onError` and still writes the locale file, so the translation is not lost — but `__()` will not serve it
+    until the locale is configured
 
 ### Translating API Metadata
 
@@ -191,6 +297,106 @@ function ProductMeta({meta}) {
 // Renders: "Spediteur: DHL Express"
 ```
 
+### Production Mode
+
+In production, you typically only want auto-translation for specific namespaces (e.g., dynamic API metadata), not all missing keys. Use `mode: 'production'` with `allowedNamespaces`:
+
+```typescript
+const autoTranslate = new AutoTranslate({
+    // ...
+    mode: 'production',
+    allowedNamespaces: ['products.metaData'],
+});
+```
+
+In production mode:
+- The **automatic missing-key handler** only processes keys within `allowedNamespaces` — all others are silently skipped
+- **Explicit calls** (`translateKey()`, `translateObject()`) are never restricted and work for any namespace
+
+### Custom Storage
+
+By default, translations are saved to locale files. You can provide a custom `StorageAdapter` to persist to a database, Redis, or any other backend:
+
+```typescript
+import { AutoTranslate, StorageAdapter } from 'i18n-dynamic-translate';
+
+const myAdapter: StorageAdapter = {
+    async save(locale, key, value, options) {
+        await db.upsert('translations', { locale, key, value, ...options });
+    },
+    // Optional: optimize bulk writes
+    async saveBatch(entries) {
+        await db.bulkUpsert('translations', entries);
+    },
+};
+
+const autoTranslate = new AutoTranslate({
+    // ...
+    storageAdapter: myAdapter,
+});
+```
+
+### Custom Cache
+
+The built-in cache is in-memory and per-process. Supply a `TranslationCache` to share
+translations across instances or survive a restart — supplying one enables caching regardless of
+`enableCache`.
+
+**The interface is synchronous.** The lookup sits in the missing-key path, between the backend
+reporting a miss and the translation being dispatched, so `get` returns a value rather
+than a promise. A store with a blocking client fits directly:
+
+```typescript
+import Database from 'better-sqlite3';
+import { AutoTranslate, CacheStats, TranslationCache, TranslationIdentity } from 'i18n-dynamic-translate';
+
+const db = new Database('translations.db');
+db.exec('CREATE TABLE IF NOT EXISTS translations (id TEXT PRIMARY KEY, value TEXT NOT NULL)');
+
+// Every field of the identity changes the translation, so all of them belong in the
+// storage key. Encode rather than join: a namespace or context may contain your separator.
+const storageKey = (identity: TranslationIdentity): string =>
+    JSON.stringify([identity.locale, identity.namespace ?? '', identity.key, identity.context ?? null]);
+
+const sqliteCache: TranslationCache = {
+    get: (identity: TranslationIdentity): string | null => {
+        const row = db.prepare('SELECT value FROM translations WHERE id = ?').get(storageKey(identity)) as
+            | { value: string }
+            | undefined;
+        return row?.value ?? null;
+    },
+    set: (identity: TranslationIdentity, value: string): void => {
+        db.prepare('INSERT OR REPLACE INTO translations (id, value) VALUES (?, ?)').run(storageKey(identity), value);
+    },
+    // Optional — the library reads presence through get(), because a boolean cannot tell
+    // a cached empty translation from a miss. Implement it only for your own callers.
+    has: (identity: TranslationIdentity): boolean =>
+        db.prepare('SELECT 1 FROM translations WHERE id = ?').get(storageKey(identity)) !== undefined,
+    clear: (): void => {
+        db.exec('DELETE FROM translations');
+    },
+    // Optional — without it, getCacheStats() reports null
+    getStats: (): CacheStats => ({
+        size: (db.prepare('SELECT COUNT(*) AS count FROM translations').get() as { count: number }).count,
+    }),
+};
+
+const autoTranslate = new AutoTranslate({
+    // ...
+    cache: sqliteCache,
+});
+```
+
+For an asynchronous store such as Redis, keep a local `Map` as the synchronous face of the cache
+and let the remote copy trail it: `get` reads the map, `set` writes the map and fires the
+remote write without awaiting it, and the map is warmed from Redis at startup. Returning a promise
+from `get` does not work — the caller writes whatever it receives straight into the i18n instance,
+so every lookup would hand your application a `Promise` object instead of a string.
+
+`identity.key` is the full dot path the translation occupies (`meta.name`, with any `parentKey`
+already folded in), so it matches what the backend and the locale file use. That makes
+namespace-scoped invalidation straightforward.
+
 ## API
 
 ### `translateObject(obj, targetLocale, options?)`
@@ -218,13 +424,11 @@ Both `translateKey()` and `translateObject()` accept an optional `options` param
 #### `parentKey` (string, optional)
 
 - Nests the translation under a specific key path
-- Useful for organizing related translations
 - Example: `{ parentKey: 'product.meta' }` creates nested structure
 
 #### `context` (string, optional)
 
 - Provides additional context to improve translation accuracy
-- Helps disambiguate words with multiple meanings
 - Example: `{ context: 'e-commerce' }` helps translate "bank" correctly
 
 </details>
@@ -250,11 +454,12 @@ autoTranslate.clearCache();
 
 ### `getCacheStats()`
 
-Returns cache statistics (size and keys).
+Returns the number of cached entries, or `null` when caching is off — or when a custom cache
+does not implement the optional `getStats()`.
 
 ```typescript
 const stats = autoTranslate.getCacheStats();
-// { size: 42, keys: ['de:hello', 'fr:hello', ...] }
+// { size: 42 }
 ```
 
 ### `getConfig()`
@@ -277,10 +482,10 @@ if (!autoTranslate.isDisposed()) {
 
 ### `dispose()`
 
-Clean up resources when done. This stops cache cleanup timers and restores original i18n handlers.
+Clean up resources when done. Waits for in-flight translations to complete, then stops cache cleanup timers and restores original i18n handlers.
 
 ```typescript
-autoTranslate.dispose();
+await autoTranslate.dispose();
 ```
 
 ## Error Handling
@@ -318,14 +523,23 @@ try {
 - **File Permissions**: Verify that your application has write access to the locale files.
 - **Invalid locale codes**: Use standard locale codes (e.g., 'en', 'de', 'fr', 'es').
 - **Rate Limits**: Be aware of rate limits imposed by translation providers, adjust `maxConcurrency` as needed.
+- **Unsupported Languages**: Check if your translation provider supports the target language.
 
 ## Roadmap
 
-- [ ] **Batch translation support** - Translate multiple keys in a single API call if supported by translation provider
-- [ ] **File format auto-detection** - Automatically detect JSON/YAML based on existing files
-- [ ] **LibreTranslate verification** - Full testing and validation
+- [x] **Batch translation support** - Translate multiple keys in a single API call if supported by translation provider
+- [x] **File format auto-detection** - Automatically detect JSON/YAML based on existing files
+- [x] **Storage abstraction** - Pluggable `StorageAdapter` interface for custom persistence backends
+- [x] **Production mode** - Namespace allowlist for safe production deployment
+- [x] **HTTP retry** - Automatic retry with exponential backoff for transient API failures
+- [x] **LibreTranslate verification** - End-to-end suite against a live self-hosted instance
 - [ ] **Google Translate support** - Add Google Cloud Translation API integration
 - [ ] **Azure Translator support** - Add Microsoft Azure Translation API integration
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching, commit and review workflow, and
+[AGENTS.md](AGENTS.md) for an architecture overview and the convention index.
 
 ## License
 

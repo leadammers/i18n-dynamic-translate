@@ -1,0 +1,78 @@
+name: Publish
+
+# Release-triggered only. A workflow_dispatch run carries no tag, so it would
+# skip the version/tag check below and could publish arbitrary branch content.
+on:
+  release:
+    types: [published]
+
+# Least privilege by default; the publish job elevates id-token for provenance.
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required by `npm publish --provenance` to mint a Sigstore OIDC token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # --ignore-scripts: no dependency here declares an install lifecycle script,
+      # so refusing to run them removes an injection path into dist/ at no cost.
+      # It is deliberately not passed to `npm publish`, which must still run the
+      # prepublishOnly gate.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      # Registry signatures and provenance attestations for everything that went
+      # into this build. Full tree: the production tree is empty and npm treats an
+      # empty audit target as an error.
+      - name: Verify registry signatures
+        run: npm audit signatures
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+        env:
+          # E2E tests are skipped when DEEPL_API_KEY is not set
+          DEEPL_API_KEY: ""
+
+      - name: Verify no path aliases in dist
+        run: "! grep -r 'require(\"@/' dist/"
+
+      # The same packaging checks CI runs on every pull request. They belong here
+      # too: a broken `exports` map or a mismatched `types` entry is only visible
+      # once the tarball is assembled, and this is the last point before npm.
+      - name: Check the published package resolves for every consumer shape
+        run: npm run compat:package
+
+      # Guards against tagging v1.2.3 while package.json still says 1.2.2.
+      - name: Verify package version matches release tag
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "package.json version ($PACKAGE_VERSION) does not match release tag ($TAG_VERSION)" >&2
+            exit 1
+          fi
+
+      - name: Publish with provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

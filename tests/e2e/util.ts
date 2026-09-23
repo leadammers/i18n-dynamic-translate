@@ -5,7 +5,7 @@
 import { vi, type MockInstance } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import axios from 'axios';
+import { http } from '@/utils/http';
 import { AutoTranslate } from '@/index';
 
 // ============================================================================
@@ -14,20 +14,14 @@ import { AutoTranslate } from '@/index';
 
 import type { Resource } from 'i18next';
 
-export function loadLocaleResources(
-    localesPath: string,
-    locales: string[],
-    namespaces: string[]
-): Resource {
+export function loadLocaleResources(localesPath: string, locales: string[], namespaces: string[]): Resource {
     const resources: Resource = {};
 
     for (const locale of locales) {
         resources[locale] = {};
         for (const ns of namespaces) {
             const filePath = path.join(localesPath, locale, `${ns}.json`);
-            resources[locale][ns] = fs.existsSync(filePath)
-                ? JSON.parse(fs.readFileSync(filePath, 'utf-8'))
-                : {};
+            resources[locale][ns] = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf-8')) : {};
         }
     }
 
@@ -47,7 +41,14 @@ export function writeJsonFile(filePath: string, data: Record<string, unknown>, t
 // Object Helpers
 // ============================================================================
 
-export function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+/**
+ * Reads any node — object or leaf — out of a fixture that was written to disk.
+ *
+ * Deliberately not the library's `getNestedValue`: this is an assertion helper
+ * over trusted test data, and it returns branches as well as strings. The
+ * hardened walk in `@/utils/objectPath` is the one every runtime path uses.
+ */
+export function readFixturePath(obj: Record<string, unknown>, path: string): unknown {
     return path.split('.').reduce<unknown>((curr, key) => {
         if (curr && typeof curr === 'object' && key in curr) {
             return (curr as Record<string, unknown>)[key];
@@ -104,7 +105,7 @@ export async function translateObjectAndReadFile({
     });
 
     const savedData = readJsonFile(localeFilePath);
-    const savedTranslations = getNestedValue(savedData, parentKey) as Record<string, string>;
+    const savedTranslations = readFixturePath(savedData, parentKey) as Record<string, string>;
 
     return { translations, savedData, savedTranslations };
 }
@@ -127,7 +128,7 @@ export interface ExistingTranslationsParams {
 export interface ExistingTranslationsResult {
     fixtureData: Record<string, unknown>;
     results: string[];
-    axiosSpy: MockInstance;
+    httpSpy: MockInstance;
 }
 
 export async function fetchExistingTranslationsWithSpy({
@@ -137,13 +138,13 @@ export async function fetchExistingTranslationsWithSpy({
     targetLocale,
 }: ExistingTranslationsParams): Promise<ExistingTranslationsResult> {
     const fixtureData = readJsonFile(localeFilePath);
-    const axiosSpy = vi.spyOn(axios, 'post');
+    const httpSpy = vi.spyOn(http, 'post');
 
     const results: string[] = [];
     for (const { key, parentKey, context, namespace } of translations) {
-        const result = await autoTranslate.translateKey(key, targetLocale, { parentKey, namespace }, context);
+        const result = await autoTranslate.translateKey(key, targetLocale, { parentKey, namespace, context });
         results.push(result);
     }
 
-    return { fixtureData, results, axiosSpy };
+    return { fixtureData, results, httpSpy };
 }

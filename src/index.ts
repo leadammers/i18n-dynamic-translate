@@ -15,32 +15,22 @@ export {
     Backend,
     TranslationProvider,
     FileFormat,
+    DeepLModelType,
     TranslationProviderConfig,
     BackendAdapter,
     TranslationService,
     MissingKeyCallback,
     TranslationCache,
-    CacheEntry,
+    TranslationIdentity,
+    CacheStats,
     LocaleData,
+    StorageAdapter,
+    StorageSaveEntry,
+    AutoTranslateMode,
 } from '@/types';
 
-// Export utilities
-export {
-    convertKeyToText,
-    convertKeyToSentence,
-    isNestedKey,
-    getLastSegment,
-    getParentPath,
-} from '@/utils/keyConverter';
-
-export {
-    readLocaleFile,
-    writeLocaleFile,
-    appendTranslationToFile,
-    getLocaleFilePath,
-    setNestedValue,
-    getNestedValue,
-} from '@/utils/fileHandler';
+// Storage
+export { FileStorageAdapter } from '@/storage/FileStorageAdapter';
 
 // Export errors
 export {

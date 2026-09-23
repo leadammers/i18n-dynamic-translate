@@ -4,6 +4,12 @@
  */
 
 /**
+ * Placeholder that survives the split passes and is stripped afterwards. A control
+ * character cannot occur in a translation key, so it can never collide with one.
+ */
+const ACRONYM_GLUE = '\u0000';
+
+/**
  * Convert a camelCase or snake_case key to readable English text
  * @param key - The key to convert
  * @returns Readable English text
@@ -12,6 +18,10 @@
  * convertKeyToText('userName') // 'User Name'
  * convertKeyToText('user_name') // 'User Name'
  * convertKeyToText('user-name') // 'User Name'
+ * convertKeyToText('apiURL') // 'Api URL'
+ * convertKeyToText('order2Status') // 'Order 2 Status'
+ * convertKeyToText('iOSDevice') // 'iOS Device'
+ * convertKeyToText('Order confirmed') // 'Order confirmed' — already readable
  */
 export function convertKeyToText(key: string): string {
     if (!key || typeof key !== 'string') {
@@ -20,9 +30,24 @@ export function convertKeyToText(key: string): string {
 
     // Handle dot notation (e.g., 'user.profile.userName')
     const parts = key.split('.');
-    const lastPart = parts[parts.length - 1];
+    // `split` never returns an empty array, so the last part always exists.
+    const lastPart = (parts[parts.length - 1] ?? key).trim();
+
+    // A key made only of words and spaces is a sentence someone wrote by hand, not a
+    // programmatic identifier. Title-casing it ('order confirmed' -> 'Order Confirmed')
+    // damages text that was already fine, so pass it through. A separator or a camelCase
+    // boundary means it is an identifier after all, spaces or not, and still needs the
+    // full pipeline — otherwise 'estimated_delivery date' would reach the provider raw.
+    const hasIdentifierShape = /[_-]/.test(lastPart) || /[a-z][A-Z]/.test(lastPart);
+    if (/\s/.test(lastPart) && !hasIdentifierShape) {
+        return lastPart.replace(/\s+/g, ' ');
+    }
 
     let result = lastPart
+        // Keep `iOS` together: a single lowercase letter in front of an acronym belongs
+        // to it, so the camelCase split below must not cut there. The marker is removed
+        // again once every split has run.
+        .replace(/(?<![A-Za-z0-9])([a-z])([A-Z]{2,})/g, `$1${ACRONYM_GLUE}$2`)
         // Handle snake_case: user_name -> user name
         .replaceAll('_', ' ')
         // Handle kebab-case: user-name -> user name
@@ -31,66 +56,27 @@ export function convertKeyToText(key: string): string {
         .replace(/([a-z])([A-Z])/g, '$1 $2')
         // Handle PascalCase and consecutive capitals: XMLParser -> XML Parser
         .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+        // Handle digit boundaries: order2Status -> order 2 Status. Without this
+        // the whole run stays one word and its inner capital is lowercased away.
+        .replace(/([A-Za-z])(\d)/g, '$1 $2')
+        .replace(/(\d)([A-Za-z])/g, '$1 $2')
         // Trim and normalize spaces
         .trim()
-        .replace(/\s+/g, ' ');
+        .replace(/\s+/g, ' ')
+        .replaceAll(ACRONYM_GLUE, '');
 
-    // Capitalize first letter of each word
+    // Capitalize first letter of each word, preserving acronyms
     result = result
         .split(' ')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .map((word: string) => {
+            // Any run of two or more capitals is an acronym the author meant: "URL",
+            // "XML", and the "OS" inside "iOS". Lowercasing it would destroy the word.
+            if (/[A-Z]{2,}/.test(word)) {
+                return word;
+            }
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        })
         .join(' ');
 
     return result;
-}
-
-/**
- * Convert a key to a sentence (first letter capitalized only)
- * @param key - The key to convert
- * @returns Sentence-style text
- *
- * @example
- * convertKeyToSentence('userName') // 'User name'
- */
-export function convertKeyToSentence(key: string): string {
-    const text = convertKeyToText(key);
-    if (!text) return '';
-
-    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
-}
-
-/**
- * Check if a key is likely a nested path
- * @param key - The key to check
- * @returns True if the key contains dots
- */
-export function isNestedKey(key: string): boolean {
-    return key.includes('.');
-}
-
-/**
- * Get the last segment of a nested key
- * @param key - The key to extract from
- * @returns The last segment
- *
- * @example
- * getLastSegment('user.profile.name') // 'name'
- */
-export function getLastSegment(key: string): string {
-    const parts = key.split('.');
-    return parts[parts.length - 1];
-}
-
-/**
- * Get the parent path of a nested key
- * @param key - The key to extract from
- * @returns The parent path or empty string
- *
- * @example
- * getParentPath('user.profile.name') // 'user.profile'
- */
-export function getParentPath(key: string): string {
-    const parts = key.split('.');
-    if (parts.length <= 1) return '';
-    return parts.slice(0, -1).join('.');
 }
