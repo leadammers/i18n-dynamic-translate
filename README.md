@@ -6,7 +6,7 @@
 
 **DynamicTranslate** (`i18n-dynamic-translate`) fills missing i18n keys **at runtime** — the moment
 your application asks for a key that is not in the locale file. It hooks the missing-key handler of
-i18next or node-i18n, translates through DeepL or LibreTranslate, writes the result back into the
+i18next or i18n-node, translates through DeepL or LibreTranslate, writes the result back into the
 live i18n instance and persists it to your locale files. Built for dynamic content — API metadata,
 product attributes, category trees — whose key set is not known at build time.
 
@@ -62,7 +62,7 @@ in place without a deploy, and into your locale file where a human can correct i
 ## Features
 
 - 🚀 **Automatic translation** of missing i18n keys
-- 🔌 **Multiple backends** - Works with i18next and node-i18n (the `i18n` package)
+- 🔌 **Multiple backends** - Works with i18next and i18n-node (the `i18n` package)
 - 🌐 **Multiple providers** - DeepL and LibreTranslate support
 - 🧠 **Context-aware translations** - Disambiguate meanings (e.g., "bank" → "Bank" (financial) vs "Ufer" (river) based on
   context)
@@ -83,11 +83,13 @@ in place without a deploy, and into your locale file where a human can correct i
   5.0, 5.9, 6 and 7 in CI, so the range is checked rather than claimed. `npm` enforces the Node
   floor from `engines`; there is no equivalent field for TypeScript, which is why it is a build
   step instead.
-- An i18next or node-i18n instance already configured. **"node-i18n" here means
-  [`i18n`](https://www.npmjs.com/package/i18n)** — mashpie's
+- An i18next or i18n-node instance already configured. **i18n-node is the
+  [`i18n`](https://www.npmjs.com/package/i18n) package** — mashpie's
   [i18n-node](https://github.com/mashpie/i18n-node), installed with `npm install i18n`, peer range
-  `^0.15.0`. It is not the unrelated `node-i18n` package on npm, which has not been published since
-  2022. The peer range is `i18next >=23.0.0`, and
+  `^0.15.0`. These docs used to call it "node-i18n"; that name belongs to an unrelated npm package
+  last published in 2022. The `Backend.NODE_I18N` enum value still spells it the old way because it
+  is published API — see [005](docs/decisions/005-the-i18n-node-name.md). The peer range for i18next
+  is `>=23.0.0`, and
   every release drives a real instance of majors 23, 24, 25 and 26 end to end from an installed
   tarball. The range stays open above that: the adapter uses four stable i18next entry points, and
   pinning an upper bound would make every new major look unsupported until this package released
@@ -184,7 +186,7 @@ const autoTranslate = new AutoTranslate({
     // Default namespace for i18next (default: 'translation')
     defaultNamespace: 'translation',
 
-    // Use dot notation for nested keys in node-i18n (default: false)
+    // Use dot notation for nested keys in i18n-node (default: false)
     objectNotation: false,
 
     // Cache time-to-live in milliseconds (default: 86400000 = 24 hours)
@@ -260,9 +262,9 @@ over time when you already have source content in your default language.
 
 > **Configuration notes**
 > - **i18next**: Set `saveMissing: true` to trigger the missing key handler, but i18next won't write files itself
-> - **node-i18n**: Set `updateFiles: false` to prevent node-i18n from writing files - DynamicTranslate handles all file
+> - **i18n-node**: Set `updateFiles: false` to prevent i18n-node from writing files - DynamicTranslate handles all file
     writes via `autoSave: true`
-> - **node-i18n**: List every target language in `configure({ locales: [...] })`. node-i18n only registers a locale from
+> - **i18n-node**: List every target language in `configure({ locales: [...] })`. i18n-node only registers a locale from
     its own file, so a language it has never seen cannot receive a translation in memory. DynamicTranslate reports that
     through `onError` and still writes the locale file, so the translation is not lost — but `__()` will not serve it
     until the locale is configured
@@ -285,7 +287,7 @@ const product = await fetchProduct();
 await autoTranslate.translateObject(product.meta, 'de', {parentKey: 'product.meta', context: 'e-commerce'});
 ```
 
-To generate translations in `locales/de/translation.json` (or `locales/de.json` for node-i18n):
+To generate translations in `locales/de/translation.json` (or `locales/de.json` for i18n-node):
 
 ```json
 {

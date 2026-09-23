@@ -48,7 +48,7 @@
   in the constructor and `getCatalog` returns the live entry or `false` — so every write the
   adapter made went into an object nothing read, and the suite was green. Model the surface
   you actually call, including its failure returns.
-- **Assert on what the consumer observes.** The node-i18n e2e checked the persisted file and
+- **Assert on what the consumer observes.** The i18n-node e2e checked the persisted file and
   not `i18n.__()`, so a backend that never served a translation still passed. Whatever the
   library promises to update — the live instance *and* the file — is what the test reads back.
 - **A provider contract is only observable against a real server.** Unit tests mock `http`,

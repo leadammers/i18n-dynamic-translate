@@ -35,7 +35,7 @@ outcomes, all of them lifecycle and error handling rather than translation logic
 - The missing-key callback rejecting: `reportError` routes to the consumer's `onError` when one
   is configured and falls back to `console.error` when none is. Both sides are untested, and
   this is the one place library code is allowed to touch the console.
-- node-i18n only: a catalog the instance reports as `false`, and `addLocale` for an unknown
+- i18n-node only: a catalog the instance reports as `false`, and `addLocale` for an unknown
   locale.
 
 Do this with the adapter work rather than on its own: the tests are lifecycle assertions against
@@ -58,6 +58,15 @@ more capitals, so a contrived key can now keep a lowercase first letter (`"vATRa
 Rate"`, where the old code gave `"V AT Rate"`). Telling that apart from `"iOS"` needs a
 dictionary, and every real-world shape checked — `apiURL`, `XMLHttpRequest`, `parseHTMLString`,
 `deliveryETA`, `is2FAEnabled` — is unchanged. Supply `keyToText` if your keys look like this.
+
+### Rename the backend identifier to `i18n-node` — scheduled for 0.2.0
+Decided in [docs/decisions/005-the-i18n-node-name.md](docs/decisions/005-the-i18n-node-name.md).
+The prose was renamed in 0.1.1; the published identifier was not. Add
+`Backend.I18N_NODE = 'i18n-node'`, keep `Backend.NODE_I18N` as a `@deprecated` alias, widen the
+factory `switch` (`src/adapters/index.ts:19`) to accept both, and move the adapter's error text and
+`BackendError` backend tag to `i18n-node` so the value read back matches the name configured. The
+alias goes no earlier than 1.0.0. Do it with the `AutoTranslate` breakup and the cache widening —
+all three rewrite the same adapter call sites.
 
 ### Widen `TranslationCache` to sync-or-promise — scheduled for 0.2.0
 Decided in [docs/decisions/004-async-cache.md](docs/decisions/004-async-cache.md): `get` widens to

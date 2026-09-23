@@ -25,7 +25,7 @@ user- or team-level TypeScript convention; do not apply both.
 src/
   index.ts          public surface — the ONLY file consumers import from
   core/             AutoTranslate, the orchestrator
-  adapters/         BackendAdapter implementations (i18next, node-i18n) + factory
+  adapters/         BackendAdapter implementations (i18next, i18n-node) + factory
   translators/      TranslationService implementations (DeepL, LibreTranslate) + factory
   storage/          StorageAdapter implementations
   types/            shared interfaces, enums and config types

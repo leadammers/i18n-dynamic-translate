@@ -41,9 +41,9 @@ consumer input for the same reason. All of them are **data, never a path into th
 - **A single segment is not safer than a path.** A flat `catalog[key]` is the same operation
   one level up from the dot walk, so it goes through `getOwnProperty` / `setOwnProperty` from
   the same module — hardening only the walk leaves the hole where the walk starts.
-- `locale` selects a catalog rather than indexing one of our objects: the node-i18n adapter
+- `locale` selects a catalog rather than indexing one of our objects: the i18n-node adapter
   asks `getCatalog(locale)` for the backend's own registry entry and never builds a registry of
-  its own. A locale that node-i18n declines to register — `__proto__` among them, because its
+  its own. A locale that i18n-node declines to register — `__proto__` among them, because its
   own guarded assignment finds the inherited accessor — raises a `BackendError` naming the
   locale. Losing a translation loudly is the honest outcome when the name is upstream's to hold.
 - `setOwnProperty` defines the property for `__proto__` and assigns for every other name.
