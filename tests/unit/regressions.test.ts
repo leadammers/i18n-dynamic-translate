@@ -821,4 +821,43 @@ describe('review regressions', () => {
             await instance.dispose();
         });
     });
+    describe('N-3 a non-string backend lookup read as a translation', () => {
+        // The core tells a translation from an absent one with `!== null`, which
+        // holds only as long as an adapter honours its declared `string | null`.
+        // The i18next adapter handed back whatever `t()` returned, so an instance
+        // whose `t()` yields `undefined` — a `parseMissingKeyHandler` that answers
+        // nothing will — served `undefined` as though it were a translation.
+
+        /** An i18next whose lookups answer `undefined`, as a `parseMissingKeyHandler` can. */
+        function createSilentI18next(): MockI18next {
+            return {
+                language: 'en',
+                languages: ['en', 'de'],
+                options: { ns: ['translation'], missingKeyHandler: null, saveMissing: false },
+                getFixedT: () => (): string => undefined as unknown as string,
+                addResource: vi.fn(),
+            };
+        }
+
+        it('treats a lookup that answers nothing as a miss, not as a translation', async () => {
+            const i18next = createSilentI18next();
+            const instance = new AutoTranslate(createConfig(i18next, { enableCache: false }));
+
+            await expect(instance.translateKey('greeting', 'de')).resolves.toBe('X(Greeting)');
+
+            expect(translate).toHaveBeenCalledOnce();
+            await instance.dispose();
+        });
+
+        it('does not write a non-string into an object translation', async () => {
+            const i18next = createSilentI18next();
+            const instance = new AutoTranslate(createConfig(i18next, { enableCache: false }));
+
+            const result = await instance.translateObject({ greeting: 'x' }, 'de');
+
+            expect(result).toEqual({ greeting: 'X(Greeting)' });
+            expect(i18next.addResource).toHaveBeenCalledWith('de', 'translation', 'greeting', 'X(Greeting)');
+            await instance.dispose();
+        });
+    });
 });

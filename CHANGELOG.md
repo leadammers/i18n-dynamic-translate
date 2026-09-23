@@ -66,6 +66,12 @@ version is tagged.
   Cache and backend reads now distinguish an empty value from an absent one. A key whose default
   language holds `''` is likewise kept empty rather than falling through to the humanised key
   text, and is resolved without calling the provider at all.
+- The **i18next** backend could serve a non-string as a translation. The adapter returned whatever
+  `t()` gave it, so an instance whose lookups answer `undefined` — a `parseMissingKeyHandler` that
+  returns nothing will — had that `undefined` written into the running instance, into the locale
+  file and into the value `translateKey()` resolves to. It is now read as a miss, which is what the
+  adapter's `string | null` always claimed. Found in review of the empty-translation fix, which is
+  what made a non-string reach the check.
 - Reads went through the same door as writes. `getCatalog` falls back to a related locale when the
   requested one is absent, so with `fallbacks` configured a lookup answered a missing French key
   with the German translation — and `__proto__` or `constructor` as a locale resolved to
