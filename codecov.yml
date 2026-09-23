@@ -4,12 +4,14 @@
 # passes. See docs/conventions/testing.md.
 coverage:
   status:
-    # Overall coverage, against the base commit. Reporting only — the vitest
-    # thresholds are the gate, and `auto` fails on any dip at all, including one
-    # comfortably above the floor.
+    # Overall coverage, against the base commit. A real status, not informational:
+    # a change that drops project coverage should have to say so. `threshold` is
+    # what keeps it from being a tripwire — bare `auto` fails on any dip, including
+    # the fraction of a percent a behaviour-preserving refactor moves.
     project:
       default:
-        informational: true
+        target: auto
+        threshold: 0.5%
 
     # Coverage of the lines this pull request adds. This one stays a real status:
     # new code being tested is the thing worth holding to, and it is not something

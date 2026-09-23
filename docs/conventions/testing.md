@@ -94,11 +94,21 @@ Codecov over OIDC — there is no upload token in the repository. The upload is 
 without failing the build; the thresholds are what protect coverage, the upload only publishes the
 number.
 
-`codecov.yml` keeps the two from fighting. Codecov's default `project` status compares against the
-base commit and fails on *any* dip, which would go red on pull requests this repo's own gate
-passes, so it is `informational: true` — reporting, not gating. `patch` stays a real status,
-because "the lines this change adds are tested" is not something a project-wide floor can say. The
-`changes` status is off: here it fires on test ordering, not on regressions.
+`codecov.yml` sets what Codecov gates on, since its defaults do not fit the two-gate arrangement.
+`project` compares against the base commit and is a real status, but with `threshold: 0.5%`:
+bare `auto` fails on any dip at all, including the fraction of a percent a behaviour-preserving
+refactor moves, which would go red on pull requests this repo's own floor passes. `patch` is a
+real status too, because "the lines this change adds are tested" is not something a project-wide
+floor can say. The `changes` status is off: here it fires on test ordering, not on regressions.
+
+**The two gates measure different things and neither replaces the other.** The vitest thresholds
+are an absolute floor for the whole project; Codecov's statuses are relative to the base commit and
+to the diff. A change can pass the floor while dropping coverage, and vice versa.
+
+The numbers CI reports are lower than a local run, and the CI ones are the ones the thresholds are
+set against. Both e2e suites call `dotenv.config({ path: '.env.dev' })`
+(`tests/e2e/deepl.test.ts:31`), so a machine with a key in that file runs the DeepL e2e for real and
+covers code CI never reaches — CI skips two suites where a developer with a key skips one.
 
 ## Regression tests
 
