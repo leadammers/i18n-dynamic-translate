@@ -705,13 +705,18 @@ describe('AutoTranslate', () => {
     });
 
     describe('missing-key hook guards', () => {
-        it('should ignore a missing key reported after dispose', async () => {
+        it('should drop a missing key reported through a handler captured before dispose', async () => {
             const instance = new AutoTranslate(createValidConfig(mockI18next));
-            const handler = mockI18next.options.missingKeyHandler!;
+            // `dispose()` restores i18next's original handler, so a host app that kept
+            // a reference to ours is the only way this call can still arrive.
+            const handler = mockI18next.options.missingKeyHandler;
+            expect(handler).not.toBeNull();
 
             await instance.dispose();
-            handler(['de'], 'translation', 'products.meta.carrier', '');
+            handler?.(['de'], 'translation', 'products.meta.carrier', '');
 
+            // The adapter clears its callback in `destroy()`, so the report stops there;
+            // the core's own `disposed` guard sits behind that as defence in depth.
             expect(translatorMock.translatedTexts).toEqual([]);
             expect(mockI18next.addResource).not.toHaveBeenCalled();
         });
@@ -815,7 +820,11 @@ describe('AutoTranslate', () => {
     });
 
     describe('translating into the default language', () => {
-        it('should render the key as text instead of looking the source up', async () => {
+        it('should send the key rendered as text when the backend has no value for it', async () => {
+            // Asking for the default language is not rejected: with nothing in the
+            // backend the provider still gets the key as human-readable text.
+            // `resolveSourceText`'s same-locale guard only skips a lookup that
+            // `translateKey` has already made, so it changes no outcome here.
             const instance = new AutoTranslate(createValidConfig(mockI18next));
 
             const translation = await instance.translateKey('carrier', 'en');
@@ -850,6 +859,7 @@ describe('AutoTranslate', () => {
             });
 
             const firstRead = instance.getConfig();
+            // `deeplOptions` was just passed into the constructor, so the copy has it.
             firstRead.translationProvider.deeplOptions!.formality = 'more';
 
             expect(instance.getConfig().translationProvider.deeplOptions?.formality).toBe('less');
