@@ -9,6 +9,15 @@ While the version stays below 1.0.0 the public API may change in a minor release
 
 ## [Unreleased]
 
+### Added
+
+- `tests/unit/errorFlow.test.ts` — a provider failure is now followed from the real translator out
+  to `onError`: authentication, rate limit, timeout, a malformed response, a short batch and a
+  non-string entry inside a well-sized one. One test asserts the API key and the request URL never
+  reach the consumer's error handler.
+- `tests/unit/publicApi.test.ts` — the runtime half of `src/index.ts` is asserted: every documented
+  value is still exported, and nothing new is.
+
 ### Changed
 
 - Publishing to npm authenticates over OIDC as a trusted publisher instead of a long-lived token.

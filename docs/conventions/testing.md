@@ -14,6 +14,15 @@
   everywhere, including CI, with no credentials.
 - `tests/unit/regressions.test.ts` — one `describe` block per review finding ID
   (`C-1 cache identity`, `C-2 dispose`, …). See *Regression tests* below.
+- `tests/unit/errorFlow.test.ts` — the path a provider failure takes out of the library: real
+  translator, real `AutoTranslate`, only `http.post` stubbed. The per-module suites cover the same
+  failures a layer at a time (`http.test.ts` the retries, `translators.test.ts` the
+  status-to-message mapping); what is only observable end to end is that the sanitized message
+  reaches `onError` intact, once per key, with the instance still usable afterwards.
+- `tests/unit/publicApi.test.ts` — asserts the runtime half of `src/index.ts`, which critical
+  rule 1 freezes. `tools/compat/consumer.ts` type-checks the exported *types*; this checks that
+  each value is still exported and that nothing new appeared. An accidental export is the
+  expensive mistake — removing it afterwards is a breaking change.
 - `tests/e2e/deepl.test.ts` — hits the real DeepL API. **Skipped automatically when
   `DEEPL_API_KEY` is unset**, which is how CI runs it. Run locally with
   `npm run test:deepl-e2e` after putting the key in `.env.dev`.
