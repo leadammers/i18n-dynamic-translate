@@ -29,10 +29,11 @@ jobs:
       contents: read
     strategy:
       matrix:
-        # 22.12 is the floor from `engines` — pinned exactly, because plain `22`
-        # resolves to the latest 22.x and would let a newer API pass unnoticed.
-        # 22 and 24 are the current LTS lines.
-        node-version: ['22.12', 22, 24]
+        # The two ends of the supported range: 22.12 is the floor from `engines`,
+        # pinned exactly because plain `22` resolves to the latest 22.x and would
+        # let a newer API pass unnoticed, and 24 is the current LTS. A third leg on
+        # latest 22.x only caught regressions that 24 shows too.
+        node-version: ['22.12', 24]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
