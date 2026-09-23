@@ -5,10 +5,10 @@ index below is maintained on purpose.
 
 ## What this is
 
-An npm library — not yet published; 0.1.0 is being prepared — that fills in missing i18n keys at
-runtime: it hooks a backend's missing-key handler, translates the key through a provider, writes
-the result back into the live i18n instance and persists it. Built for dynamic content (API
-metadata, product attributes) where the set of keys is not known at build time.
+An npm library that fills in missing i18n keys at runtime: it hooks a backend's missing-key
+handler, translates the key through a provider, writes the result back into the live i18n
+instance and persists it. Built for dynamic content (API metadata, product attributes) where
+the set of keys is not known at build time.
 
 **Zero runtime dependencies.** CommonJS, Node >= 22.12, built with TypeScript 7. The shipped
 declarations compile under TypeScript 5.0 and later, so consumers are not forced onto 7.
@@ -105,8 +105,6 @@ need a `dist/`, so build first. See the releasing conventions for what each one 
 
 ## Known state
 
-- `docs/planning/2026-09-21_pre-release.md` — what must be true before the first npm publish:
-  blockers, decisions on the frozen public surface, and what is deliberately deferred past 0.1.0.
 - `TODO.md` — the architecture backlog. `core/AutoTranslate.ts` is over the size guideline and its
   breakup is the main open item.
 - `CHANGELOG.md` — what shipped and what broke.

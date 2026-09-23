@@ -3,8 +3,7 @@
 > Items completed since the last pass were removed on 2026-09-21 — see `CHANGELOG.md`
 > for what landed.
 >
-> Everything below is **post-publish work**. What has to happen *before* 0.1.0 reaches npm is in
-> `docs/planning/2026-09-21_pre-release.md`.
+> Everything below is **post-publish work**.
 
 ## Architecture
 
