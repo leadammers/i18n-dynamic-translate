@@ -39,19 +39,25 @@ Rate"`, where the old code gave `"V AT Rate"`). Telling that apart from `"iOS"` 
 dictionary, and every real-world shape checked — `apiURL`, `XMLHttpRequest`, `parseHTMLString`,
 `deliveryETA`, `is2FAEnabled` — is unchanged. Supply `keyToText` if your keys look like this.
 
-### Decide whether `TranslationCache` should allow an async implementation
-`get` and `set` are synchronous, because the lookup sits between the backend reporting a miss and
-the dispatch. That rules out a direct Redis or DynamoDB implementation: those need a local `Map`
-as the synchronous face with the remote copy trailing it, which the README now documents. Widening
-the return types to `string | null | Promise<string | null>` and awaiting at the call sites would
-remove the workaround at the cost of an await in the missing-key path. Post-0.1.0 — changing it
-later is a breaking change to the public surface, so it is worth a deliberate decision rather than
-a drive-by.
+### Widen `TranslationCache` to sync-or-promise — scheduled for 0.2.0
+Decided in [docs/decisions/004-async-cache.md](docs/decisions/004-async-cache.md): `get` widens to
+`string | null | Promise<string | null>` and `set` to `void | Promise<void>`, awaited at the call
+sites; `has`, `clear` and `getStats` stay synchronous. A union rather than a promise, so every
+existing synchronous implementation keeps working untouched. It breaks the reading side of
+`getConfig().cache`, so it waits for the minor bump. Do it in the same release as the
+`AutoTranslate` breakup above — both rewrite the same call sites.
 
-## Testing
+## Tooling
 
-### Add translator error path tests
-The E2E tests cover happy paths against the real DeepL API, but error scenarios (auth
-failures, rate limits, timeouts, malformed responses) are only tested at the unit level.
-Consider integration-style tests that verify the full error flow from `AutoTranslate`
-through the translator to the `onError` handler.
+### Run the gate locally with husky hooks
+The gate — `format:check`, `typecheck`, `build`, `test` — is only enforced in CI, so a commit that
+fails it is discovered after a push, one CI round-trip later. Add husky with a **pre-commit** hook
+for the fast half (`format:check` and `typecheck`, ideally through lint-staged so it only looks at
+staged files) and a **pre-push** hook for the slow half (`build` and `test`).
+
+Two constraints specific to this repo:
+- `dependencies` must stay empty — husky and lint-staged are `devDependencies`, and `prepare`
+  must not run for a consumer installing the package. `husky` is a no-op outside a git checkout,
+  but the `prepare` script still needs to tolerate that.
+- CI installs with `npm ci --ignore-scripts`, which skips `prepare`; the hooks are a local
+  convenience and must never become the only place a check runs. CI stays the gate of record.

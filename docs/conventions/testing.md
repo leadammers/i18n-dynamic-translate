@@ -14,6 +14,15 @@
   everywhere, including CI, with no credentials.
 - `tests/unit/regressions.test.ts` — one `describe` block per review finding ID
   (`C-1 cache identity`, `C-2 dispose`, …). See *Regression tests* below.
+- `tests/unit/errorFlow.test.ts` — the path a provider failure takes out of the library: real
+  translator, real `AutoTranslate`, only `http.post` stubbed. The per-module suites cover the same
+  failures a layer at a time (`http.test.ts` the retries, `translators.test.ts` the
+  status-to-message mapping); what is only observable end to end is that the sanitized message
+  reaches `onError` intact, once per key, with the instance still usable afterwards.
+- `tests/unit/publicApi.test.ts` — asserts the runtime half of `src/index.ts`, which critical
+  rule 1 freezes. `tools/compat/consumer.ts` type-checks the exported *types*; this checks that
+  each value is still exported and that nothing new appeared. An accidental export is the
+  expensive mistake — removing it afterwards is a breaking change.
 - `tests/e2e/deepl.test.ts` — hits the real DeepL API. **Skipped automatically when
   `DEEPL_API_KEY` is unset**, which is how CI runs it. Run locally with
   `npm run test:deepl-e2e` after putting the key in `.env.dev`.
@@ -64,6 +73,42 @@
 - Assert on observable behavior (what reached the backend, how many provider calls happened), not
   on private internals. `Reflect.get(instance, 'field')` is a last resort, used only where the
   observable effect is a timer that has no public surface.
+
+## Coverage
+
+```bash
+npm run test:coverage      # text table locally, plus coverage/lcov.info
+```
+
+Measured with `@vitest/coverage-v8` over `src/**` minus `src/types/**`, which is interfaces and
+enums and has nothing to execute. `all: true`, so a module no test imports shows up at 0% instead
+of quietly vanishing from the report.
+
+The `thresholds` block in `vitest.config.ts` is the gate: the run **fails** below the floor, in CI
+and locally alike. The floor sits a little under the current numbers — enough that deleting a
+suite is caught, loose enough that one refactored branch is not. Raise it when a run lands
+comfortably above; never lower it to turn a red build green.
+
+CI runs this once, in its own `coverage` job rather than in every matrix leg, and uploads to
+Codecov over OIDC — there is no upload token in the repository. The upload is allowed to fail
+without failing the build; the thresholds are what protect coverage, the upload only publishes the
+number.
+
+`codecov.yml` sets what Codecov gates on, since its defaults do not fit the two-gate arrangement.
+`project` compares against the base commit and is a real status, but with `threshold: 0.5%`:
+bare `auto` fails on any dip at all, including the fraction of a percent a behaviour-preserving
+refactor moves, which would go red on pull requests this repo's own floor passes. `patch` is a
+real status too, because "the lines this change adds are tested" is not something a project-wide
+floor can say. The `changes` status is off: here it fires on test ordering, not on regressions.
+
+**The two gates measure different things and neither replaces the other.** The vitest thresholds
+are an absolute floor for the whole project; Codecov's statuses are relative to the base commit and
+to the diff. A change can pass the floor while dropping coverage, and vice versa.
+
+The numbers CI reports are lower than a local run, and the CI ones are the ones the thresholds are
+set against. Both e2e suites call `dotenv.config({ path: '.env.dev' })`
+(`tests/e2e/deepl.test.ts:31`), so a machine with a key in that file runs the DeepL e2e for real and
+covers code CI never reaches — CI skips two suites where a developer with a key skips one.
 
 ## Regression tests
 

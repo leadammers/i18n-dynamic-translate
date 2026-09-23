@@ -1,0 +1,32 @@
+# Without this file Codecov applies its defaults, which do not fit how coverage is
+# gated here: `thresholds` in `vitest.config.ts` already fails the build on a drop,
+# and a second gate calibrated differently would go red on pull requests the build
+# passes. See docs/conventions/testing.md.
+coverage:
+  status:
+    # Overall coverage, against the base commit. A real status, not informational:
+    # a change that drops project coverage should have to say so. `threshold` is
+    # what keeps it from being a tripwire — bare `auto` fails on any dip, including
+    # the fraction of a percent a behaviour-preserving refactor moves.
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
+
+    # Coverage of the lines this pull request adds. This one stays a real status:
+    # new code being tested is the thing worth holding to, and it is not something
+    # a project-wide floor can express.
+    patch:
+      default:
+        target: auto
+
+    # Coverage that moved in files the diff does not touch. Almost always an
+    # artifact of test ordering or a flaky timing test here, not a real regression.
+    changes: false
+
+comment:
+  layout: condensed_header, condensed_files, condensed_footer
+  hide_project_coverage: true
+  # Update the existing comment instead of adding one per push.
+  behavior: default
+  require_changes: true
