@@ -69,9 +69,10 @@ code from *before* this review round, and the version-equals-tag guard would hap
 
 ### 2.0 The cache contract — settled on `feature/cache-contract`
 
-`TranslationCache` took one pre-encoded string, so an implementation could neither scope by
-locale nor invalidate by namespace, and the orchestrator's encoding was encoded a second time by
-the cache. It now takes a `TranslationIdentity` — locale, namespace, full dot path (with any
+`TranslationCache` addressed an entry through positional parameters (`get(key, locale, context?)`)
+that omitted `namespace` entirely, so an implementation could not invalidate by namespace, and the
+interface said nothing about how the pieces compose into a storage key. It now takes a
+`TranslationIdentity` — locale, namespace, full dot path (with any
 `parentKey` already folded in) and provider context. `getCacheStats()` returns `{ size }` and
 works through the optional `TranslationCache.getStats()`, so it no longer reports `null` for
 every custom cache.
@@ -267,13 +268,13 @@ true the moment the package is published.
 Before deleting it, extract the decisions that get asked again into `docs/decisions/` — the
 convention defines ADRs and the directory does not exist yet, so these are the first three:
 
-- [ ] `001-keys-are-data.md` — a translation key is untrusted data, never a path into the runtime.
+- [x] `001-keys-are-data.md` — a translation key is untrusted data, never a path into the runtime.
       Why a colliding key such as `__proto__` is stored as an own property rather than rejected:
       refusing it silently loses a translation the application asked for. Source: §3.4
-- [ ] `002-open-peer-range.md` — why `i18next >=23.0.0` stays open above the majors actually
+- [x] `002-open-peer-range.md` — why `i18next >=23.0.0` stays open above the majors actually
       tested, and what `SUPPORTED_I18NEXT` obliges a maintainer to do instead. Source: §3.3
-- [ ] `003-cache-identity.md` — why `TranslationCache` takes a `TranslationIdentity` rather than a
-      pre-encoded string, and why `CacheEntry` is not public. Source: §2.0, §2.1
+- [x] `003-cache-identity.md` — why `TranslationCache` takes a `TranslationIdentity` rather than
+      positional arguments, and why `CacheEntry` is not public. Source: §2.0, §2.1
 - [ ] Delete this file and drop the `docs/planning/...` line from `AGENTS.md`'s *Known state*
 
 Everything else in here — the `NPM_TOKEN` setup, the provenance decision, the `main`/`dev` merge,

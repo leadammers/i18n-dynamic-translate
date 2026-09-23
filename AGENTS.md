@@ -63,6 +63,13 @@ factory — not special-casing `AutoTranslate`.
 `docs/conventions/typescript.md` is the **single source of truth** for TypeScript style here and
 replaces any user- or team-level TypeScript convention. Do not apply both.
 
+## Decisions
+
+[docs/decisions/](docs/decisions/) holds this repo's ADRs — settled decisions on the frozen public
+surface, extracted out of pre-release planning so they survive it: keys as data
+(`001-keys-are-data.md`), the open i18next peer range (`002-open-peer-range.md`), the cache
+identity contract (`003-cache-identity.md`).
+
 ## Critical rules
 
 1. **`src/index.ts` is the public API.** Anything exported there is frozen for the rest of the
