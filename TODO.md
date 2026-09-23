@@ -39,11 +39,10 @@ Rate"`, where the old code gave `"V AT Rate"`). Telling that apart from `"iOS"` 
 dictionary, and every real-world shape checked — `apiURL`, `XMLHttpRequest`, `parseHTMLString`,
 `deliveryETA`, `is2FAEnabled` — is unchanged. Supply `keyToText` if your keys look like this.
 
-### Decide whether `TranslationCache` should allow an async implementation
-`get` and `set` are synchronous, because the lookup sits between the backend reporting a miss and
-the dispatch. That rules out a direct Redis or DynamoDB implementation: those need a local `Map`
-as the synchronous face with the remote copy trailing it, which the README now documents. Widening
-the return types to `string | null | Promise<string | null>` and awaiting at the call sites would
-remove the workaround at the cost of an await in the missing-key path. Post-0.1.0 — changing it
-later is a breaking change to the public surface, so it is worth a deliberate decision rather than
-a drive-by.
+### Widen `TranslationCache` to sync-or-promise — scheduled for 0.2.0
+Decided in [docs/decisions/004-async-cache.md](docs/decisions/004-async-cache.md): `get` widens to
+`string | null | Promise<string | null>` and `set` to `void | Promise<void>`, awaited at the call
+sites; `has`, `clear` and `getStats` stay synchronous. A union rather than a promise, so every
+existing synchronous implementation keeps working untouched. It breaks the reading side of
+`getConfig().cache`, so it waits for the minor bump. Do it in the same release as the
+`AutoTranslate` breakup above — both rewrite the same call sites.
