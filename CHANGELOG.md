@@ -9,6 +9,8 @@ While the version stays below 1.0.0 the public API may change in a minor release
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-09-24
+
 ### Added
 
 - Coverage measurement (`npm run test:coverage`) with thresholds that fail the build on a drop,
@@ -20,6 +22,14 @@ While the version stays below 1.0.0 the public API may change in a minor release
   reach the consumer's error handler.
 - `tests/unit/publicApi.test.ts` — the runtime half of `src/index.ts` is asserted: every documented
   value is still exported, and nothing new is.
+- Unit coverage for behaviour that had none: the DeepL request contract (`formality`,
+  `split_sentences`, per-call context precedence, regional target variants), cache eviction and the
+  expiry sweeper's lifecycle, the core's missing-key guards and batch disposal, `describeHttpError`'s
+  sanitization, and the path-traversal guard in `getLocaleFilePath`. The coverage thresholds move up
+  with them, to 94% statements, 90% branches, 95% functions and 94% lines.
+- A `Makefile` of development shorthands — `make gate` runs what CI runs, with the provider
+  credentials cleared so the e2e suites skip instead of billing the live API. `make help` lists the
+  rest. Not shipped in the package.
 
 ### Fixed
 
@@ -33,6 +43,9 @@ While the version stays below 1.0.0 the public API may change in a minor release
 - Publishing to npm authenticates over OIDC as a trusted publisher instead of a long-lived token.
   Nothing changes for consumers: the tarball still carries a provenance attestation, minted from
   the same token the registry issues to the workflow.
+- Codecov comments on every pull request, including the ones that leave coverage untouched, and the
+  comment carries project and patch coverage with the delta rather than only whether the new lines
+  are covered. Reporting only — the gates are unchanged.
 - The manifest's `description` and `keywords` now name what this does differently — filling a key
   at runtime — and the providers it talks to. npm search matches both fields, and neither `deepl`
   nor `libretranslate` was listed. No code change.
