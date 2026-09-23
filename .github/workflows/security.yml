@@ -31,7 +31,7 @@ jobs:
   # Dependency vulnerability scanning
   # ---------------------------------------------------------------------------
   audit:
-    name: npm audit
+    name: Audit
     runs-on: ubuntu-latest
     permissions:
       contents: read

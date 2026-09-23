@@ -57,7 +57,7 @@ attributes, category trees, anything data-driven.
 
 ## Prerequisites
 
-- Node.js 22.12+, tested on 22 and 24 (current LTS) — **server-side only.** The library holds your provider API key and writes locale
+- Node.js 22.12+, tested on 22.12 and 24 (current LTS) — **server-side only.** The library holds your provider API key and writes locale
   files, so it needs a trusted process and a filesystem. It is not usable in a browser, and it is
   not meant to be: shipping a DeepL key to a client would expose it. Edge runtimes without `node:fs`
   are unsupported for the same reason.
