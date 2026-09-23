@@ -98,6 +98,9 @@ sync-or-promise cache widening scheduled for 0.2.0 (`004-async-cache.md`).
 npm run format:check && npm run typecheck && npm run build && npm test
 ```
 
+`make gate` runs the same four, with the provider credentials cleared so the e2e suites skip
+instead of billing the live API — `make help` lists the rest of the shorthands.
+
 E2E tests self-skip without `DEEPL_API_KEY`, so this is safe to run with no credentials.
 
 Touching the public types, `exports`, `main`, `types` or `files` also means running
