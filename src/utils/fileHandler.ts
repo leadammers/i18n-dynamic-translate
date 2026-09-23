@@ -42,6 +42,21 @@ export async function fileExists(filePath: string): Promise<boolean> {
 }
 
 /**
+ * Whether a YAML document carries nothing but blank lines and comments.
+ *
+ * js-yaml v4 returned `undefined` for such a document, v5 throws
+ * `expected a document, but the input is empty`. The peer range stays open
+ * across both majors, so emptiness is decided here instead of depending on
+ * either version's answer.
+ */
+function isBlankYamlDocument(content: string): boolean {
+    return content.split('\n').every((line: string): boolean => {
+        const trimmed = line.trim();
+        return trimmed === '' || trimmed.startsWith('#');
+    });
+}
+
+/**
  * Read locale file (JSON or YAML)
  */
 export async function readLocaleFile(filePath: string): Promise<LocaleData> {
@@ -55,6 +70,10 @@ export async function readLocaleFile(filePath: string): Promise<LocaleData> {
         const fileFormat = detectFileFormat(filePath);
 
         if (fileFormat === FileFormat.YAML) {
+            if (isBlankYamlDocument(content)) {
+                return {};
+            }
+
             const yamlLib = await getYaml();
             const data = yamlLib.load(content);
             return (data as LocaleData) || {};
