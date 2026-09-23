@@ -346,8 +346,8 @@ translations across instances or survive a restart — supplying one enables cac
 `enableCache`.
 
 **The interface is synchronous.** The lookup sits in the missing-key path, between the backend
-reporting a miss and the translation being dispatched, so `get` and `has` return values rather
-than promises. A store with a blocking client fits directly:
+reporting a miss and the translation being dispatched, so `get` returns a value rather
+than a promise. A store with a blocking client fits directly:
 
 ```typescript
 import Database from 'better-sqlite3';
@@ -371,6 +371,8 @@ const sqliteCache: TranslationCache = {
     set: (identity: TranslationIdentity, value: string): void => {
         db.prepare('INSERT OR REPLACE INTO translations (id, value) VALUES (?, ?)').run(storageKey(identity), value);
     },
+    // Optional — the library reads presence through get(), because a boolean cannot tell
+    // a cached empty translation from a miss. Implement it only for your own callers.
     has: (identity: TranslationIdentity): boolean =>
         db.prepare('SELECT 1 FROM translations WHERE id = ?').get(storageKey(identity)) !== undefined,
     clear: (): void => {
@@ -389,7 +391,7 @@ const autoTranslate = new AutoTranslate({
 ```
 
 For an asynchronous store such as Redis, keep a local `Map` as the synchronous face of the cache
-and let the remote copy trail it: `get` and `has` read the map, `set` writes the map and fires the
+and let the remote copy trail it: `get` reads the map, `set` writes the map and fires the
 remote write without awaiting it, and the map is warmed from Redis at startup. Returning a promise
 from `get` does not work — the caller writes whatever it receives straight into the i18n instance,
 so every lookup would hand your application a `Promise` object instead of a string.

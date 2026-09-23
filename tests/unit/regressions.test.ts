@@ -714,4 +714,212 @@ describe('review regressions', () => {
             await instance.dispose();
         });
     });
+
+    describe('N-2 empty translation treated as missing', () => {
+        // "Already translated" was decided by truthiness, so a provider that
+        // legitimately answers with an empty string — LibreTranslate does, for an
+        // empty source text — produced a value that looked missing on every later
+        // lookup: translated again, written again and saved again, for the life of
+        // the process, on the consumer's provider quota.
+
+        /** An i18next whose store can hold an empty string, which the plain mock cannot. */
+        function createStoreBackedI18next(resources: Record<string, Record<string, string>>): MockI18next {
+            return {
+                language: 'en',
+                languages: ['en', 'de'],
+                options: { ns: ['translation'], missingKeyHandler: null, saveMissing: false },
+                getFixedT:
+                    (locale?: string) =>
+                    (key: string): string => {
+                        const catalog = resources[locale ?? 'en'];
+                        const value = catalog ? Object.getOwnPropertyDescriptor(catalog, key)?.value : undefined;
+                        return typeof value === 'string' ? value : key;
+                    },
+                addResource: vi.fn(),
+            };
+        }
+
+        it('serves a cached empty translation instead of buying it again', async () => {
+            translate.mockImplementation(() => Promise.resolve(''));
+            const instance = new AutoTranslate(createConfig(createMockI18next()));
+
+            await expect(instance.translateKey('disclaimer', 'de')).resolves.toBe('');
+            await expect(instance.translateKey('disclaimer', 'de')).resolves.toBe('');
+
+            expect(translate).toHaveBeenCalledOnce();
+            await instance.dispose();
+        });
+
+        it('accepts an empty translation already held by the backend', async () => {
+            const i18next = createStoreBackedI18next({ de: { disclaimer: '' } });
+            const instance = new AutoTranslate(createConfig(i18next, { enableCache: false }));
+
+            await expect(instance.translateKey('disclaimer', 'de')).resolves.toBe('');
+
+            expect(translate).not.toHaveBeenCalled();
+            await instance.dispose();
+        });
+
+        it('keeps a deliberately empty source instead of translating the key text', async () => {
+            // `en.disclaimer` is empty on purpose. Falling through to the humanised
+            // key would put "Disclaimer" in front of the user in every language.
+            const i18next = createStoreBackedI18next({ en: { disclaimer: '' } });
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            await expect(instance.translateKey('disclaimer', 'de')).resolves.toBe('');
+
+            expect(translate).not.toHaveBeenCalled();
+            await instance.dispose();
+        });
+
+        it('still writes an empty translation to the backend and to storage', async () => {
+            const saved: Array<{ key: string; value: string }> = [];
+            const storageAdapter: StorageAdapter = {
+                async save(_locale: string, key: string, value: string): Promise<void> {
+                    saved.push({ key, value });
+                },
+            };
+            const i18next = createStoreBackedI18next({ en: { disclaimer: '' } });
+            const instance = new AutoTranslate(createConfig(i18next, { autoSave: true, storageAdapter }));
+
+            await instance.translateKey('disclaimer', 'de');
+
+            expect(i18next.addResource).toHaveBeenCalledWith('de', 'translation', 'disclaimer', '');
+            expect(saved).toEqual([{ key: 'disclaimer', value: '' }]);
+            await instance.dispose();
+        });
+
+        it('keeps an empty value out of the batch but not out of the result', async () => {
+            const saved: Array<{ key: string; value: string }> = [];
+            const storageAdapter: StorageAdapter = {
+                async save(_locale: string, key: string, value: string): Promise<void> {
+                    saved.push({ key, value });
+                },
+            };
+            const i18next = createStoreBackedI18next({ en: { disclaimer: '' } });
+            const instance = new AutoTranslate(createConfig(i18next, { autoSave: true, storageAdapter }));
+
+            const result = await instance.translateObject({ disclaimer: 'x', carrier: 'x' }, 'de');
+
+            expect(result).toEqual({ disclaimer: '', carrier: 'X(Carrier)' });
+            expect(translateBatch).toHaveBeenCalledWith(['Carrier'], 'en', 'de', undefined);
+            // Sorted, not in input order: `translateObject` promises which keys it
+            // saves, not the order it saves them in — provider-resolved keys follow
+            // the ones that needed no provider.
+            expect([...saved].sort((left, right) => left.key.localeCompare(right.key))).toEqual([
+                { key: 'carrier', value: 'X(Carrier)' },
+                { key: 'disclaimer', value: '' },
+            ]);
+            await instance.dispose();
+        });
+
+        it('serves an empty translation from the cache on a second object pass', async () => {
+            translateBatch.mockImplementation((texts: string[]) => Promise.resolve(texts.map(() => '')));
+            const instance = new AutoTranslate(createConfig(createMockI18next()));
+
+            await instance.translateObject({ disclaimer: 'x' }, 'de');
+            await instance.translateObject({ disclaimer: 'x' }, 'de');
+
+            expect(translateBatch).toHaveBeenCalledOnce();
+            await instance.dispose();
+        });
+
+        it('sends no batch at all when every key in an object is empty', async () => {
+            const i18next = createStoreBackedI18next({ en: { disclaimer: '', footnote: '' } });
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            const result = await instance.translateObject({ disclaimer: 'x', footnote: 'x' }, 'de');
+
+            // An empty `q` array is a 400 at LibreTranslate, so the batch must not
+            // be sent rather than being sent empty.
+            expect(result).toEqual({ disclaimer: '', footnote: '' });
+            expect(translateBatch).not.toHaveBeenCalled();
+            await instance.dispose();
+        });
+
+        it('scopes an empty translation by parentKey like any other', async () => {
+            // The short-circuit builds its own identity. If it dropped `parentKey`
+            // the two slots below would share a cache entry, and the second would
+            // be served the first one's empty value instead of reaching the provider.
+            const i18next = createStoreBackedI18next({ en: { 'legal.disclaimer': '' } });
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            await expect(instance.translateKey('disclaimer', 'de', { parentKey: 'legal' })).resolves.toBe('');
+            await expect(instance.translateKey('disclaimer', 'de', { parentKey: 'shipping' })).resolves.toBe(
+                'X(Disclaimer)'
+            );
+
+            expect(translate).toHaveBeenCalledOnce();
+            await instance.dispose();
+        });
+
+        it('resolves an empty source reported through the missing-key hook', async () => {
+            const i18next = createStoreBackedI18next({ en: { disclaimer: '' } });
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            i18next.options.missingKeyHandler?.(['de'], 'translation', 'disclaimer', '');
+            await instance.waitForPendingTranslations(2000);
+
+            // The hook is the library's primary entrance, and it has its own copy
+            // of the short-circuit — nothing in `translateKey`'s tests covers it.
+            expect(translateBatch).not.toHaveBeenCalled();
+            expect(translate).not.toHaveBeenCalled();
+            expect(i18next.addResource).toHaveBeenCalledWith('de', 'translation', 'disclaimer', '');
+            await instance.dispose();
+        });
+
+        it('serves the hook a cached empty translation instead of buying it again', async () => {
+            translateBatch.mockImplementation((texts: string[]) => Promise.resolve(texts.map(() => '')));
+            const i18next = createMockI18next();
+            const instance = new AutoTranslate(createConfig(i18next));
+
+            i18next.options.missingKeyHandler?.(['de'], 'translation', 'disclaimer', '');
+            await instance.waitForPendingTranslations(2000);
+            i18next.options.missingKeyHandler?.(['de'], 'translation', 'disclaimer', '');
+            await instance.waitForPendingTranslations(2000);
+
+            expect(translateBatch).toHaveBeenCalledOnce();
+            await instance.dispose();
+        });
+    });
+
+    describe('N-3 a non-string backend lookup read as a translation', () => {
+        // The core tells a translation from an absent one with `!== null`, which
+        // holds only as long as an adapter honours its declared `string | null`.
+        // The i18next adapter handed back whatever `t()` returned, so an instance
+        // whose `t()` yields `undefined` — a `parseMissingKeyHandler` that answers
+        // nothing will — served `undefined` as though it were a translation.
+
+        /** An i18next whose lookups answer `undefined`, as a `parseMissingKeyHandler` can. */
+        function createSilentI18next(): MockI18next {
+            return {
+                language: 'en',
+                languages: ['en', 'de'],
+                options: { ns: ['translation'], missingKeyHandler: null, saveMissing: false },
+                getFixedT: () => (): string => undefined as unknown as string,
+                addResource: vi.fn(),
+            };
+        }
+
+        it('treats a lookup that answers nothing as a miss, not as a translation', async () => {
+            const i18next = createSilentI18next();
+            const instance = new AutoTranslate(createConfig(i18next, { enableCache: false }));
+
+            await expect(instance.translateKey('greeting', 'de')).resolves.toBe('X(Greeting)');
+
+            expect(translate).toHaveBeenCalledOnce();
+            await instance.dispose();
+        });
+
+        it('does not write a non-string into an object translation', async () => {
+            const i18next = createSilentI18next();
+            const instance = new AutoTranslate(createConfig(i18next, { enableCache: false }));
+
+            const result = await instance.translateObject({ greeting: 'x' }, 'de');
+
+            expect(result).toEqual({ greeting: 'X(Greeting)' });
+            expect(i18next.addResource).toHaveBeenCalledWith('de', 'translation', 'greeting', 'X(Greeting)');
+            await instance.dispose();
+        });
+    });
 });

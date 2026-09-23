@@ -546,7 +546,11 @@ describe('AutoTranslate', () => {
             await at.translateKey('hello', 'de');
             await at.translateKey('hello', 'de');
 
-            expect(cache.has).toHaveBeenCalled();
+            // Read through `get`, not `has`: `has` cannot distinguish a cached
+            // empty translation from a miss, and the second call has to be served
+            // from the cache rather than translated again.
+            expect(cache.get).toHaveBeenCalledTimes(2);
+            expect(cache.has).not.toHaveBeenCalled();
             expect(cache.set).toHaveBeenCalledTimes(1);
 
             await at.dispose();
@@ -603,6 +607,40 @@ describe('AutoTranslate', () => {
 
             await at.translateKey('hello', 'de');
 
+            expect(at.getCacheStats()).toBeNull();
+
+            await at.dispose();
+        });
+
+        // `has` is optional on the public interface: the library reads presence through
+        // `get`, because a boolean cannot tell a cached empty translation from a miss.
+        // A cache that implements neither `has` nor `getStats` is the shape that
+        // relaxation exists to allow, so it has to work end to end.
+        it('drives a cache that implements only get, set and clear', async () => {
+            const store = new Map<string, string>();
+            let writes = 0;
+            const storageKey = (identity: TranslationIdentity): string =>
+                JSON.stringify([identity.locale, identity.namespace ?? '', identity.key, identity.context ?? null]);
+            const minimalCache: TranslationCache = {
+                get: (identity: TranslationIdentity): string | null => store.get(storageKey(identity)) ?? null,
+                set: (identity: TranslationIdentity, value: string): void => {
+                    writes += 1;
+                    store.set(storageKey(identity), value);
+                },
+                clear: (): void => {
+                    store.clear();
+                },
+            };
+            const at = new AutoTranslate({ ...createValidConfig(mockI18next), cache: minimalCache });
+
+            const first = await at.translateKey('hello', 'de');
+            const second = await at.translateKey('hello', 'de');
+
+            // One write, two identical results: the second lookup was served from the
+            // cache rather than bought again.
+            expect(second).toBe(first);
+            expect(writes).toBe(1);
+            expect(store.size).toBe(1);
             expect(at.getCacheStats()).toBeNull();
 
             await at.dispose();

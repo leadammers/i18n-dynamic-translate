@@ -59,11 +59,30 @@ version is tagged.
   so the translation survives rather than being bought again on every lookup. Found by running the
   adapter against the real package; the unit mock had invented the property and the end-to-end
   test asserted only on the file.
+- An empty translation was treated as no translation. "Already translated" was decided by
+  truthiness, so a provider that legitimately answers `''` — LibreTranslate does, for an empty
+  source text — produced a value that looked missing on every later lookup: translated again,
+  written again and saved again, for the life of the process, on the consumer's provider quota.
+  Cache and backend reads now distinguish an empty value from an absent one. A key whose default
+  language holds `''` is likewise kept empty rather than falling through to the humanised key
+  text, and is resolved without calling the provider at all.
+- The **i18next** backend could serve a non-string as a translation. The adapter returned whatever
+  `t()` gave it, so an instance whose lookups answer `undefined` — a `parseMissingKeyHandler` that
+  returns nothing will — had that `undefined` written into the running instance, into the locale
+  file and into the value `translateKey()` resolves to. It is now read as a miss, which is what the
+  adapter's `string | null` always claimed. Found in review of the empty-translation fix, which is
+  what made a non-string reach the check.
 - Reads went through the same door as writes. `getCatalog` falls back to a related locale when the
   requested one is absent, so with `fallbacks` configured a lookup answered a missing French key
   with the German translation — and `__proto__` or `constructor` as a locale resolved to
   `Object.prototype` and `Object`, returning an inherited member as a translation. Both paths now
   check that node-i18n actually holds the locale first.
+
+### Changed
+
+- `TranslationCache.has()` is now optional. The library reads presence through `get()` — a boolean
+  cannot tell a cached empty translation from a miss — so a Redis- or SQLite-backed cache no longer
+  has to implement a method nothing calls. Existing implementations are unaffected.
 
 ### Requirements
 

@@ -64,6 +64,17 @@ src/
   to convert explicitly.
 - No empty constructors — delete them.
 - No business logic in string templates.
+- **A translation is present or absent, never falsy.** `''` is a value a provider returns and a
+  locale file holds, so presence is tested with `!== null` and never with truthiness. A truthy test
+  turns an empty translation into a permanent miss: re-translated, re-written and re-saved on every
+  lookup, on the consumer's provider quota. The same goes for a source text read out of the default
+  language.
+- **Absence is spelled `null`, and it is the boundary's job to spell it.** `!== null` at the call
+  site only holds if every adapter and cache normalises a missing value to `null` before returning
+  it. An adapter reads a consumer-supplied object whose declared shape is a claim, not a check, so
+  it narrows what it got — `typeof value === 'string' ? value : null` — rather than passing it on.
+  A call site that cannot rely on that is looking at a bug in the boundary, not a reason to widen
+  the test to `!= null`.
 
 ## Naming
 

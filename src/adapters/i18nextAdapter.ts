@@ -111,7 +111,13 @@ export class I18nextAdapter implements BackendAdapter {
                 return null;
             }
 
-            return translation;
+            // `getFixedT` is a declared shape over a consumer-supplied object, not a
+            // checked one: a `parseMissingKeyHandler` or a `returnedObjectHandler`
+            // that answers nothing hands back `undefined`. The core distinguishes a
+            // translation from an absent one by `!== null`, so anything that is not
+            // a string has to become `null` here or it would be served, written and
+            // saved as though it were a translation.
+            return typeof translation === 'string' ? translation : null;
         } catch {
             return null;
         }

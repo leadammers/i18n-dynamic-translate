@@ -226,11 +226,17 @@ export interface CacheStats {
  * `AutoTranslate.getCacheStats()` reports `null`.
  */
 export interface TranslationCache {
+    /** The value, or `null` when the identity is not held. Never `undefined`. */
     get(identity: TranslationIdentity): string | null;
 
     set(identity: TranslationIdentity, value: string): void;
 
-    has(identity: TranslationIdentity): boolean;
+    /**
+     * Optional. The library reads presence through `get()`, because a boolean
+     * cannot tell a cached empty translation from a miss, so an implementation
+     * only needs this if its own callers want it.
+     */
+    has?(identity: TranslationIdentity): boolean;
 
     clear(): void;
 

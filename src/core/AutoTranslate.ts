@@ -291,15 +291,19 @@ export class AutoTranslate {
         const identity = this.identityFor(key, locale, namespace);
 
         // Check cache first
-        if (this.cache && this.cache.has(identity)) {
-            const cachedTranslation = this.cache.get(identity);
-            if (cachedTranslation) {
-                await this.updateTranslation(key, locale, cachedTranslation, namespace);
-                return;
-            }
+        const cachedTranslation = this.cache?.get(identity) ?? null;
+        if (cachedTranslation !== null) {
+            await this.updateTranslation(key, locale, cachedTranslation, namespace);
+            return;
         }
 
         const sourceText = this.resolveSourceText(key, key, locale === this.config.defaultLanguage, namespace);
+
+        if (sourceText === '') {
+            await this.updateTranslation(key, locale, '', namespace);
+            this.cache?.set(identity, '');
+            return;
+        }
 
         // Add to batch queue and wait for batch processing
         return this.addToBatchQueue(key, locale, namespace, sourceText);
@@ -339,7 +343,7 @@ export class AutoTranslate {
     private resolveSourceText(key: string, lookupKey: string, skipBackendLookup: boolean, namespace?: string): string {
         if (!skipBackendLookup) {
             const fromDefaultLanguage = this.readFromBackend(lookupKey, this.config.defaultLanguage, namespace);
-            if (fromDefaultLanguage) {
+            if (fromDefaultLanguage !== null) {
                 return fromDefaultLanguage;
             }
         }
@@ -601,17 +605,15 @@ export class AutoTranslate {
         const identity = this.identityFor(key, targetLocale, namespace, parentKey, context);
 
         // Check cache first
-        if (this.cache?.has(identity)) {
-            const cached = this.cache.get(identity);
-            if (cached) return cached;
-        }
+        const cached = this.cache?.get(identity) ?? null;
+        if (cached !== null) return cached;
 
         // Adjust adapter target key with parentKey if provided
         const targetKey = this.targetKeyFor(key, parentKey);
 
         // Check backend
         const existing = this.readFromBackend(targetKey, targetLocale, namespace);
-        if (existing) return existing;
+        if (existing !== null) return existing;
 
         const sourceText = this.resolveSourceText(
             key,
@@ -619,6 +621,12 @@ export class AutoTranslate {
             targetLocale === this.config.defaultLanguage,
             namespace
         );
+
+        if (sourceText === '') {
+            await this.updateTranslation(key, targetLocale, '', namespace, parentKey);
+            this.cache?.set(identity, '');
+            return '';
+        }
 
         // Translate
         const translation = await this.translationService.translate(
@@ -678,22 +686,25 @@ export class AutoTranslate {
         // Collect keys that need translation, with their source text
         const pendingTranslations: Array<{ key: string; sourceText: string }> = [];
 
+        // Keys whose source text is empty. Nothing to ask a provider — but they
+        // still go through the write and save below, so an empty translation is
+        // stored once instead of being rediscovered as missing on every lookup.
+        const resolvedWithoutProvider: Array<[{ key: string }, string]> = [];
+
         for (const key of this.collectLeafKeys(obj)) {
             const identity = this.identityFor(key, targetLocale, namespace, parentKey, context);
 
             // Check cache first
-            if (this.cache?.has(identity)) {
-                const cached = this.cache.get(identity);
-                if (cached) {
-                    setOwnProperty(translations, key, cached);
-                    continue;
-                }
+            const cached = this.cache?.get(identity) ?? null;
+            if (cached !== null) {
+                setOwnProperty(translations, key, cached);
+                continue;
             }
 
             // Check if translation already exists in backend
             const targetKey = this.targetKeyFor(key, parentKey);
             const existing = this.readFromBackend(targetKey, targetLocale, namespace);
-            if (existing) {
+            if (existing !== null) {
                 setOwnProperty(translations, key, existing);
                 continue;
             }
@@ -705,22 +716,31 @@ export class AutoTranslate {
                 namespace
             );
 
+            if (sourceText === '') {
+                resolvedWithoutProvider.push([{ key }, '']);
+                continue;
+            }
+
             pendingTranslations.push({ key, sourceText });
         }
 
         // Nothing to translate - return early
-        if (pendingTranslations.length === 0) return translations;
+        if (pendingTranslations.length === 0 && resolvedWithoutProvider.length === 0) return translations;
 
         // Translate all pending keys in a single batch
-        const sourceTexts = pendingTranslations.map((item: { key: string; sourceText: string }) => item.sourceText);
-        const translatedValues = await this.translationService.translateBatch(
-            sourceTexts,
-            this.config.defaultLanguage,
-            targetLocale,
-            context
-        );
+        const translated = [...resolvedWithoutProvider];
 
-        const translated = this.pairWithTranslations(pendingTranslations, translatedValues);
+        if (pendingTranslations.length > 0) {
+            const sourceTexts = pendingTranslations.map((item: { key: string; sourceText: string }) => item.sourceText);
+            const translatedValues = await this.translationService.translateBatch(
+                sourceTexts,
+                this.config.defaultLanguage,
+                targetLocale,
+                context
+            );
+
+            translated.push(...this.pairWithTranslations(pendingTranslations, translatedValues));
+        }
 
         // Update backend for all translated keys
         translated.forEach(([{ key }, translatedValue]: [{ key: string }, string]) => {
