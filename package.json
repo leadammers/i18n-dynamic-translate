@@ -40,6 +40,7 @@
     "build": "npm run clean && tsc && tsc-alias",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:deepl-e2e": "vitest run tests/e2e/deepl.test.ts",
     "test:libre-e2e": "vitest run tests/e2e/libretranslate.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
@@ -69,7 +70,6 @@
   ],
   "author": "Lea Dammers",
   "license": "MIT",
-  "dependencies": {},
   "overrides": {
     "i18next": {
       "typescript": "$typescript"
@@ -80,6 +80,7 @@
     "@types/i18n": "^0.13.12",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.6.2",
+    "@vitest/coverage-v8": "^5.0.1",
     "dotenv": "^18.0.1",
     "i18n": "^0.15.4",
     "i18next": "^26.4.2",

@@ -74,6 +74,26 @@
   on private internals. `Reflect.get(instance, 'field')` is a last resort, used only where the
   observable effect is a timer that has no public surface.
 
+## Coverage
+
+```bash
+npm run test:coverage      # text table locally, plus coverage/lcov.info
+```
+
+Measured with `@vitest/coverage-v8` over `src/**` minus `src/types/**`, which is interfaces and
+enums and has nothing to execute. `all: true`, so a module no test imports shows up at 0% instead
+of quietly vanishing from the report.
+
+The `thresholds` block in `vitest.config.ts` is the gate: the run **fails** below the floor, in CI
+and locally alike. The floor sits a little under the current numbers — enough that deleting a
+suite is caught, loose enough that one refactored branch is not. Raise it when a run lands
+comfortably above; never lower it to turn a red build green.
+
+CI runs this once, in its own `coverage` job rather than in every matrix leg, and uploads to
+Codecov over OIDC — there is no upload token in the repository. The upload is allowed to fail
+without failing the build; the thresholds are what protect coverage, the upload only publishes the
+number.
+
 ## Regression tests
 
 Findings from a code review become permanent tests, not just a fixed line:

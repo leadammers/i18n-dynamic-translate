@@ -11,6 +11,8 @@ While the version stays below 1.0.0 the public API may change in a minor release
 
 ### Added
 
+- Coverage measurement (`npm run test:coverage`) with thresholds that fail the build on a drop,
+  and a CI job that uploads the report to Codecov over OIDC.
 - `tests/unit/errorFlow.test.ts` — a provider failure is now followed from the real translator out
   to `onError`: authentication, rate limit, timeout, a malformed response, a short batch and a
   non-string entry inside a well-sized one. One test asserts the API key and the request URL never

@@ -63,6 +63,46 @@ jobs:
       - name: Verify no path aliases in dist
         run: "! grep -r 'require(\"@/' dist/"
 
+  # One coverage run, not one per matrix leg: three uploads of the same commit race
+  # in Codecov and the last writer wins. The thresholds in `vitest.config.ts` are the
+  # real gate — this job fails on a coverage drop whether or not the upload succeeds.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Codecov authenticates this workflow over OIDC, the way npm does on publish,
+      # so no upload token is stored in the repository.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      # No build step: the suite runs against `src/` through the `@/` alias.
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        env:
+          # E2E tests are skipped when DEEPL_API_KEY is not set
+          DEEPL_API_KEY: ""
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: coverage/lcov.info
+          # A Codecov outage must not fail a pull request. The threshold gate in the
+          # step above is what protects coverage; this only publishes the number.
+          fail_ci_if_error: false
+
   # Proves the support claims in the README instead of trusting a hand-edited badge:
   # the published declarations must compile on every TypeScript version we advertise,
   # and the package must resolve correctly for CJS, ESM and bundler consumers.
