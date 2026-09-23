@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   test:
+    name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -67,6 +68,7 @@ jobs:
   # in Codecov and the last writer wins. The thresholds in `vitest.config.ts` are the
   # real gate — this job fails on a coverage drop whether or not the upload succeeds.
   coverage:
+    name: Coverage
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -106,6 +108,7 @@ jobs:
   # the published declarations must compile on every TypeScript version we advertise,
   # and the package must resolve correctly for CJS, ESM and bundler consumers.
   compat:
+    name: Compatibility
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -138,6 +141,7 @@ jobs:
   # `node_modules` a consumer gets. It found a re-entrancy bug the unit suite could
   # not see, because its i18next mock never reported a miss back to the handler.
   smoke:
+    name: Smoke
     runs-on: ubuntu-latest
     permissions:
       contents: read
