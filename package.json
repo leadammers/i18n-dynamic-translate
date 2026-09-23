@@ -70,6 +70,7 @@
   ],
   "author": "Lea Dammers",
   "license": "MIT",
+  "dependencies": {},
   "overrides": {
     "i18next": {
       "typescript": "$typescript"
