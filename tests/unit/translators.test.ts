@@ -166,6 +166,21 @@ describe('DeepLService', () => {
             );
         });
 
+        it('should keep an explicit regional variant on the target language', async () => {
+            const service = new DeepLService(baseConfig);
+            mockPost.mockResolvedValue({
+                data: { translations: [{ text: 'Hi' }] },
+                status: 200,
+            });
+
+            await service.translate('Hallo', 'de', 'en-GB');
+            expect(mockPost).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ target_lang: 'EN-GB' }),
+                expect.anything()
+            );
+        });
+
         it('should normalize en-US to EN for source language', async () => {
             const service = new DeepLService(baseConfig);
             mockPost.mockResolvedValue({
@@ -214,6 +229,107 @@ describe('DeepLService', () => {
                 expect.objectContaining({ model_type: DeepLModelType.LATENCY }),
                 expect.anything()
             );
+        });
+
+        it('should send formality when configured', async () => {
+            const service = new DeepLService({
+                ...baseConfig,
+                deeplOptions: { formality: 'less' },
+            });
+            mockPost.mockResolvedValue({
+                data: { translations: [{ text: 'Salut' }] },
+                status: 200,
+            });
+
+            await service.translate('Hello', 'en', 'fr');
+            expect(mockPost).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ formality: 'less' }),
+                expect.anything()
+            );
+        });
+
+        it('should send splitSentences when configured', async () => {
+            const service = new DeepLService({
+                ...baseConfig,
+                deeplOptions: { splitSentences: 'nonewlines' },
+            });
+            mockPost.mockResolvedValue({
+                data: { translations: [{ text: 'Bonjour' }] },
+                status: 200,
+            });
+
+            await service.translate('Hello', 'en', 'fr');
+            expect(mockPost).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ split_sentences: 'nonewlines' }),
+                expect.anything()
+            );
+        });
+
+        it('should send the configured context when the call supplies none', async () => {
+            const service = new DeepLService({
+                ...baseConfig,
+                deeplOptions: { context: 'e-commerce product listing' },
+            });
+            mockPost.mockResolvedValue({
+                data: { translations: [{ text: 'Bonjour' }] },
+                status: 200,
+            });
+
+            await service.translate('Hello', 'en', 'fr');
+            expect(mockPost).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ context: 'e-commerce product listing' }),
+                expect.anything()
+            );
+        });
+
+        it('should let a per-call context override the configured one', async () => {
+            const service = new DeepLService({
+                ...baseConfig,
+                deeplOptions: { context: 'configured context' },
+            });
+            mockPost.mockResolvedValue({
+                data: { translations: [{ text: 'Bonjour' }] },
+                status: 200,
+            });
+
+            await service.translate('Hello', 'en', 'fr', 'per-call context');
+            expect(mockPost).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ context: 'per-call context' }),
+                expect.anything()
+            );
+        });
+
+        it('should pass the per-call context through translateBatch', async () => {
+            const service = new DeepLService(baseConfig);
+            mockPost.mockResolvedValue({
+                data: { translations: [{ text: 'Bonjour' }] },
+                status: 200,
+            });
+
+            await service.translateBatch(['Hello'], 'en', 'fr', 'batch context');
+            expect(mockPost).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ context: 'batch context' }),
+                expect.anything()
+            );
+        });
+
+        it('should omit optional fields that are not configured', async () => {
+            const service = new DeepLService(baseConfig);
+            mockPost.mockResolvedValue({
+                data: { translations: [{ text: 'Bonjour' }] },
+                status: 200,
+            });
+
+            await service.translate('Hello', 'en', 'fr');
+            const payload = mockPost.mock.calls[0]?.[1] as Record<string, unknown>;
+            expect(payload).not.toHaveProperty('formality');
+            expect(payload).not.toHaveProperty('context');
+            expect(payload).not.toHaveProperty('split_sentences');
         });
     });
 });

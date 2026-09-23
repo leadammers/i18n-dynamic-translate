@@ -210,6 +210,127 @@ describe('MemoryCache', () => {
         });
     });
 
+    describe('maxSize eviction', () => {
+        beforeEach(() => {
+            vi.useFakeTimers();
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('should evict the oldest entry when a new key arrives at capacity', () => {
+            const boundedCache = new MemoryCache(60000, 2);
+
+            boundedCache.set({ key: 'first', locale: 'en' }, 'First');
+            vi.advanceTimersByTime(10);
+            boundedCache.set({ key: 'second', locale: 'en' }, 'Second');
+            vi.advanceTimersByTime(10);
+            boundedCache.set({ key: 'third', locale: 'en' }, 'Third');
+
+            expect(boundedCache.getStats().size).toBe(2);
+            expect(boundedCache.get({ key: 'first', locale: 'en' })).toBeNull();
+            expect(boundedCache.get({ key: 'second', locale: 'en' })).toBe('Second');
+            expect(boundedCache.get({ key: 'third', locale: 'en' })).toBe('Third');
+        });
+
+        it('should not evict anything when an existing key is updated at capacity', () => {
+            const boundedCache = new MemoryCache(60000, 2);
+
+            boundedCache.set({ key: 'first', locale: 'en' }, 'First');
+            vi.advanceTimersByTime(10);
+            boundedCache.set({ key: 'second', locale: 'en' }, 'Second');
+            vi.advanceTimersByTime(10);
+            boundedCache.set({ key: 'first', locale: 'en' }, 'First, updated');
+
+            expect(boundedCache.getStats().size).toBe(2);
+            expect(boundedCache.get({ key: 'first', locale: 'en' })).toBe('First, updated');
+            expect(boundedCache.get({ key: 'second', locale: 'en' })).toBe('Second');
+        });
+
+        it('should keep evicting as further keys arrive', () => {
+            const boundedCache = new MemoryCache(60000, 1);
+
+            boundedCache.set({ key: 'first', locale: 'en' }, 'First');
+            vi.advanceTimersByTime(10);
+            boundedCache.set({ key: 'second', locale: 'en' }, 'Second');
+            vi.advanceTimersByTime(10);
+            boundedCache.set({ key: 'third', locale: 'en' }, 'Third');
+
+            expect(boundedCache.getStats().size).toBe(1);
+            expect(boundedCache.get({ key: 'third', locale: 'en' })).toBe('Third');
+        });
+    });
+
+    describe('automatic expiry sweeper', () => {
+        beforeEach(() => {
+            vi.useFakeTimers();
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('should drop expired entries without a get or has call', () => {
+            const sweptCache = new MemoryCache(1000, 1000, 500);
+            sweptCache.set({ key: 'hello', locale: 'en' }, 'Hello');
+
+            vi.advanceTimersByTime(1500);
+
+            expect(sweptCache.getStats().size).toBe(0);
+            sweptCache.dispose();
+        });
+
+        it('should start no sweeper when the interval is zero', () => {
+            const unsweptCache = new MemoryCache(1000, 1000, 0);
+            unsweptCache.set({ key: 'hello', locale: 'en' }, 'Hello');
+
+            vi.advanceTimersByTime(60000);
+
+            // The entry is expired, but nothing has swept it: it is still counted
+            // until a read evicts it lazily.
+            expect(unsweptCache.getStats().size).toBe(1);
+            expect(unsweptCache.get({ key: 'hello', locale: 'en' })).toBeNull();
+            expect(unsweptCache.getStats().size).toBe(0);
+        });
+
+        it('should stop the sweeper on dispose', () => {
+            const sweptCache = new MemoryCache(1000, 1000, 500);
+            sweptCache.set({ key: 'hello', locale: 'en' }, 'Hello');
+
+            sweptCache.dispose();
+            sweptCache.set({ key: 'world', locale: 'en' }, 'World');
+            vi.advanceTimersByTime(60000);
+
+            expect(sweptCache.getStats().size).toBe(1);
+        });
+
+        it('should tolerate stopAutoCleanup when no sweeper is running', () => {
+            const unsweptCache = new MemoryCache(1000, 1000, 0);
+
+            expect(() => unsweptCache.stopAutoCleanup()).not.toThrow();
+            expect(() => unsweptCache.stopAutoCleanup()).not.toThrow();
+        });
+
+        it('should tolerate a second dispose', () => {
+            const sweptCache = new MemoryCache(1000, 1000, 500);
+
+            sweptCache.dispose();
+            expect(() => sweptCache.dispose()).not.toThrow();
+        });
+
+        it('should keep sweeping after clear', () => {
+            const sweptCache = new MemoryCache(1000, 1000, 500);
+
+            sweptCache.clear();
+            sweptCache.set({ key: 'hello', locale: 'en' }, 'Hello');
+            vi.advanceTimersByTime(1500);
+
+            expect(sweptCache.getStats().size).toBe(0);
+            sweptCache.dispose();
+        });
+    });
+
     describe('edge cases', () => {
         it('should handle empty string values', () => {
             cache.set({ key: 'empty', locale: 'en' }, '');

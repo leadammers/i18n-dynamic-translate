@@ -27,10 +27,10 @@ export default defineConfig({
             // Raise them when a run comes in comfortably above; never lower them to make
             // a red build green.
             thresholds: {
-                statements: 91,
-                branches: 85,
-                functions: 93,
-                lines: 91,
+                statements: 94,
+                branches: 90,
+                functions: 95,
+                lines: 94,
             },
         },
     },
