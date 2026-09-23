@@ -78,6 +78,12 @@ version is tagged.
   `Object.prototype` and `Object`, returning an inherited member as a translation. Both paths now
   check that node-i18n actually holds the locale first.
 
+### Changed
+
+- `TranslationCache.has()` is now optional. The library reads presence through `get()` — a boolean
+  cannot tell a cached empty translation from a miss — so a Redis- or SQLite-backed cache no longer
+  has to implement a method nothing calls. Existing implementations are unaffected.
+
 ### Requirements
 
 - Node.js >= 22.12, tested on 22 and 24. CommonJS, **zero runtime dependencies**.
