@@ -28,8 +28,9 @@ branch rather than mixed into the review fixes.
 The two backend adapters are the last cluster of untested behaviour: 24 uncovered branch
 outcomes, all of them lifecycle and error handling rather than translation logic.
 
-- `getTranslation` / `setTranslation` / `destroy` before `initialize` — the "not initialized"
-  guards and the `BackendError` they throw.
+- The uninitialized guards: `setTranslation` before `initialize` throws `BackendError`, while
+  `getTranslation` answers `null` and `destroy` is a no-op. Three different contracts, none
+  of them asserted.
 - `initialize` called twice — the guard that stops the missing-key hook from being stacked.
 - The missing-key callback rejecting: `reportError` routes to the consumer's `onError` when one
   is configured and falls back to `console.error` when none is. Both sides are untested, and
