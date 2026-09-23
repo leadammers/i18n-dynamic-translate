@@ -94,6 +94,12 @@ Codecov over OIDC — there is no upload token in the repository. The upload is 
 without failing the build; the thresholds are what protect coverage, the upload only publishes the
 number.
 
+`codecov.yml` keeps the two from fighting. Codecov's default `project` status compares against the
+base commit and fails on *any* dip, which would go red on pull requests this repo's own gate
+passes, so it is `informational: true` — reporting, not gating. `patch` stays a real status,
+because "the lines this change adds are tested" is not something a project-wide floor can say. The
+`changes` status is off: here it fires on test ordering, not on regressions.
+
 ## Regression tests
 
 Findings from a code review become permanent tests, not just a fixed line:
