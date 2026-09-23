@@ -21,7 +21,10 @@ permissions:
 
 concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded pull-request runs are cancelled; a push to `main`, the weekly
+  # re-scan and a manual dispatch are not, so every commit on the published
+  # branch keeps its own completed run.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ---------------------------------------------------------------------------
