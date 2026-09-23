@@ -47,11 +47,3 @@ the return types to `string | null | Promise<string | null>` and awaiting at the
 remove the workaround at the cost of an await in the missing-key path. Post-0.1.0 — changing it
 later is a breaking change to the public surface, so it is worth a deliberate decision rather than
 a drive-by.
-
-## Testing
-
-### Add translator error path tests
-The E2E tests cover happy paths against the real DeepL API, but error scenarios (auth
-failures, rate limits, timeouts, malformed responses) are only tested at the unit level.
-Consider integration-style tests that verify the full error flow from `AutoTranslate`
-through the translator to the `onError` handler.
