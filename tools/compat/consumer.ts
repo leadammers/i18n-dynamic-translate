@@ -29,6 +29,17 @@ const cache: TranslationCache = {
     getStats: (): CacheStats => ({ size: 0 }),
 };
 
+// `has` and `getStats` are optional members: a cache that omits both still satisfies
+// the declaration a consumer compiles against.
+const minimalCache: TranslationCache = {
+    get: (identity: TranslationIdentity): string | null => (identity.locale === 'de' ? '' : null),
+    set: (identity: TranslationIdentity, value: string): void => {
+        void identity;
+        void value;
+    },
+    clear: (): void => {},
+};
+
 const storage: StorageAdapter = {
     save: async (locale: string, key: string, value: string, options?: { namespace?: string; parentKey?: string }) => {
         void [locale, key, value, options?.namespace, options?.parentKey];
@@ -45,4 +56,4 @@ export function describe(instance: AutoTranslate): string {
     return `${mode}:${stats?.size ?? 0}:${instance.isDisposed()}`;
 }
 
-export const wiring = { cache, storage };
+export const wiring = { cache, minimalCache, storage };
