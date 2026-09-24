@@ -9,7 +9,7 @@ While the version stays below 1.0.0 the public API may change in a minor release
 
 ## [Unreleased]
 
-## [0.1.1] — 2026-09-24
+## [0.1.1] — 2026-09-25
 
 ### Added
 
@@ -56,6 +56,15 @@ While the version stays below 1.0.0 the public API may change in a minor release
   was dropped where a backoff would have succeeded. Both halves are shared: `529` is retried and
   described as a rate limit for **every** provider, LibreTranslate included, because every provider
   that returns it means the same thing.
+
+### Security
+
+- A locale that resolves to the locales directory itself is rejected instead of writing a file
+  beside it. The path guard allowed the resolved base to *equal* `localesPath`, and the extension
+  is appended after the guard runs, so `'.'` — or an empty locale, which `translateKey` does not
+  reject — turned `/locales` into `/locales.json`: a sibling of the directory, outside it. A
+  library that takes the locale from a request path or an `Accept-Language` header hands that
+  string straight to this function.
 
 ### Changed
 
