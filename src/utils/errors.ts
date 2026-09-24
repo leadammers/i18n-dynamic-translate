@@ -106,7 +106,7 @@ export class BackendError extends AutoTranslateError {
      * Creates a new BackendError instance.
      *
      * @param message - A descriptive error message explaining the backend failure
-     * @param backend - The name of the backend that failed (e.g., 'i18next', 'node-i18n')
+     * @param backend - The name of the backend that failed (e.g., 'i18next', 'i18n-node')
      */
     constructor(
         message: string,

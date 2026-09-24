@@ -4,6 +4,12 @@
 
 export enum Backend {
     I18NEXT = 'i18next',
+    I18N_NODE = 'i18n-node',
+    /**
+     * @deprecated Use {@link Backend.I18N_NODE}. This member names an unrelated npm
+     * package; the backend is mashpie's i18n-node, installed as `i18n`. Both values
+     * select the same adapter and will until at least 1.0.0.
+     */
     NODE_I18N = 'node-i18n',
 }
 

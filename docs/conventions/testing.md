@@ -37,7 +37,7 @@
 
   `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses.
 - `tests/fixtures/` — committed input locale files. The e2e suite *writes* into
-  `tests/fixtures/node-i18n-locales/<locale>/`; those output directories are gitignored and
+  `tests/fixtures/i18n-node-locales/<locale>/`; those output directories are gitignored and
   must never be committed.
 
 ## Rules

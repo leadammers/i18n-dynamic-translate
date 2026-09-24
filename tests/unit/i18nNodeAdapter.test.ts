@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NodeI18nAdapter } from '@/adapters/nodeI18nAdapter';
+import { I18nNodeAdapter } from '@/adapters/i18nNodeAdapter';
 import { BackendError } from '@/utils/errors';
 import { Backend, TranslationProvider, LocaleData } from '@/types';
 
-// Create mock node-i18n instance
+// Create mock i18n-node instance
 /**
  * A stand-in for an `i18n` instance that keeps to the real package's contract.
  *
@@ -15,7 +15,7 @@ import { Backend, TranslationProvider, LocaleData } from '@/types';
  * unknown locale with a fresh `{}`, lets a write that the real package drops on
  * the floor look like it landed.
  */
-function createMockNodeI18n(overrides = {}) {
+function createMockI18nNode(overrides = {}) {
     const locales: Record<string, LocaleData> = {
         en: { hello: 'Hello', world: 'World' },
         de: { hello: 'Hallo' },
@@ -50,7 +50,7 @@ function createMockNodeI18n(overrides = {}) {
  * The only supported way to reach a catalog — `getCatalog` is the real package's
  * sole accessor, and it answers `false` for a locale that was never registered.
  */
-function catalogOf(instance: ReturnType<typeof createMockNodeI18n>, locale: string): LocaleData {
+function catalogOf(instance: ReturnType<typeof createMockI18nNode>, locale: string): LocaleData {
     const catalog = instance.getCatalog(locale);
     if (typeof catalog !== 'object') {
         throw new Error(`no catalog registered for "${locale}"`);
@@ -63,11 +63,11 @@ function catalogOf(instance: ReturnType<typeof createMockNodeI18n>, locale: stri
  *
  * This is the branch the plain mock models away, and the reason the adapter
  * re-checks `getLocales()` after calling `addLocale`: for an unconfigured locale
- * node-i18n does not answer `false`, it answers with the **fallback's** catalog —
+ * i18n-node does not answer `false`, it answers with the **fallback's** catalog —
  * the identical object, not a copy. Code that trusts that return value writes
  * French into the German catalog, and autoSave then persists it to `de.json`.
  */
-function createMockNodeI18nWithFallback(fallbacks: Record<string, string>) {
+function createMockI18nNodeWithFallback(fallbacks: Record<string, string>) {
     const locales: Record<string, LocaleData> = {
         de: { hallo: 'Hallo' },
     };
@@ -92,7 +92,7 @@ function createMockNodeI18nWithFallback(fallbacks: Record<string, string>) {
 
 function createMockConfig() {
     return {
-        backend: Backend.NODE_I18N,
+        backend: Backend.I18N_NODE,
         i18nInstance: {},
         localesPath: '/locales',
         defaultLanguage: 'en',
@@ -103,22 +103,22 @@ function createMockConfig() {
     };
 }
 
-describe('NodeI18nAdapter', () => {
-    let adapter: NodeI18nAdapter;
-    let mockNodeI18n: ReturnType<typeof createMockNodeI18n>;
+describe('I18nNodeAdapter', () => {
+    let adapter: I18nNodeAdapter;
+    let mockI18nNode: ReturnType<typeof createMockI18nNode>;
     let mockConfig: ReturnType<typeof createMockConfig>;
 
     beforeEach(() => {
-        adapter = new NodeI18nAdapter();
-        mockNodeI18n = createMockNodeI18n();
+        adapter = new I18nNodeAdapter();
+        mockI18nNode = createMockI18nNode();
         mockConfig = createMockConfig();
-        mockConfig.i18nInstance = mockNodeI18n;
+        mockConfig.i18nInstance = mockI18nNode;
     });
 
     describe('initialize', () => {
-        it('should initialize with node-i18n instance', () => {
+        it('should initialize with i18n-node instance', () => {
             expect(() => {
-                adapter.initialize(mockNodeI18n, mockConfig);
+                adapter.initialize(mockI18nNode, mockConfig);
             }).not.toThrow();
         });
 
@@ -129,7 +129,7 @@ describe('NodeI18nAdapter', () => {
 
             expect(() => {
                 adapter.initialize(null, mockConfig);
-            }).toThrow('node-i18n instance is required');
+            }).toThrow('i18n-node instance is required');
         });
 
         it('should throw BackendError when instance is undefined', () => {
@@ -139,25 +139,25 @@ describe('NodeI18nAdapter', () => {
         });
 
         it('should override __ method', () => {
-            const original__ = mockNodeI18n.__;
-            adapter.initialize(mockNodeI18n, mockConfig);
+            const original__ = mockI18nNode.__;
+            adapter.initialize(mockI18nNode, mockConfig);
 
             // The __ method should be overridden
-            expect(mockNodeI18n.__).not.toBe(original__);
+            expect(mockI18nNode.__).not.toBe(original__);
         });
 
         it('should override __n method', () => {
-            const original__n = mockNodeI18n.__n;
-            adapter.initialize(mockNodeI18n, mockConfig);
+            const original__n = mockI18nNode.__n;
+            adapter.initialize(mockI18nNode, mockConfig);
 
             // The __n method should be overridden
-            expect(mockNodeI18n.__n).not.toBe(original__n);
+            expect(mockI18nNode.__n).not.toBe(original__n);
         });
     });
 
     describe('getTranslation', () => {
         beforeEach(() => {
-            adapter.initialize(mockNodeI18n, mockConfig);
+            adapter.initialize(mockI18nNode, mockConfig);
         });
 
         it('should return translation for existing key', () => {
@@ -176,27 +176,27 @@ describe('NodeI18nAdapter', () => {
         });
 
         it('should not mutate global locale when reading translations', () => {
-            mockNodeI18n.getLocale.mockReturnValue('en');
+            mockI18nNode.getLocale.mockReturnValue('en');
 
             adapter.getTranslation('hello', 'de');
 
             // getCatalog accepts locale directly, no need to switch global state
-            expect(mockNodeI18n.setLocale).not.toHaveBeenCalled();
+            expect(mockI18nNode.setLocale).not.toHaveBeenCalled();
         });
 
         it("should not read a fallback locale's catalog", () => {
             // `translateKey` returns early on whatever this hands back, so a German
             // string answered for `fr` would be stored and served as the French
             // translation and the provider would never be called.
-            const withFallback = createMockNodeI18nWithFallback({ fr: 'de' });
-            const fallbackAdapter = new NodeI18nAdapter();
+            const withFallback = createMockI18nNodeWithFallback({ fr: 'de' });
+            const fallbackAdapter = new I18nNodeAdapter();
             fallbackAdapter.initialize(withFallback, mockConfig);
 
             expect(withFallback.getCatalog('fr')).toEqual({ hallo: 'Hallo' });
             expect(fallbackAdapter.getTranslation('hallo', 'fr')).toBeNull();
         });
 
-        it('should return null for a locale node-i18n does not know', () => {
+        it('should return null for a locale i18n-node does not know', () => {
             // Covers `__proto__` and `constructor` too: the real `getCatalog`
             // resolves those to `Object.prototype` and `Object`, so an inherited
             // member would otherwise be returned as though it were a translation.
@@ -206,7 +206,7 @@ describe('NodeI18nAdapter', () => {
         });
 
         it('should return null when getCatalog throws', () => {
-            mockNodeI18n.getCatalog.mockImplementation(() => {
+            mockI18nNode.getCatalog.mockImplementation(() => {
                 throw new Error('Error');
             });
 
@@ -217,46 +217,46 @@ describe('NodeI18nAdapter', () => {
 
     describe('setTranslation', () => {
         beforeEach(() => {
-            adapter.initialize(mockNodeI18n, mockConfig);
+            adapter.initialize(mockI18nNode, mockConfig);
         });
 
         it('should add translation to catalog', () => {
             adapter.setTranslation('greeting', 'fr', 'Bonjour');
 
-            expect(catalogOf(mockNodeI18n, 'fr')['greeting']).toBe('Bonjour');
+            expect(catalogOf(mockI18nNode, 'fr')['greeting']).toBe('Bonjour');
         });
 
         it('should update existing catalog', () => {
             adapter.setTranslation('hello', 'en', 'Hi');
 
-            expect(catalogOf(mockNodeI18n, 'en')['hello']).toBe('Hi');
+            expect(catalogOf(mockI18nNode, 'en')['hello']).toBe('Hi');
         });
 
-        it('should write into the catalog node-i18n itself hands out', () => {
+        it('should write into the catalog i18n-node itself hands out', () => {
             // The write has to land in the object `getCatalog` returns, because that
-            // object *is* node-i18n's registry entry — it is what `__()` reads. A
+            // object *is* i18n-node's registry entry — it is what `__()` reads. A
             // write into any other object is accepted in silence and never shows up.
-            const before = catalogOf(mockNodeI18n, 'en');
+            const before = catalogOf(mockI18nNode, 'en');
 
             adapter.setTranslation('hello', 'en', 'Hi');
 
-            expect(catalogOf(mockNodeI18n, 'en')).toBe(before);
+            expect(catalogOf(mockI18nNode, 'en')).toBe(before);
             expect(before['hello']).toBe('Hi');
         });
 
-        it('should register a locale node-i18n has not seen yet', () => {
+        it('should register a locale i18n-node has not seen yet', () => {
             adapter.setTranslation('test', 'es', 'Prueba');
 
-            expect(mockNodeI18n.addLocale).toHaveBeenCalledWith('es');
-            expect(catalogOf(mockNodeI18n, 'es')['test']).toBe('Prueba');
+            expect(mockI18nNode.addLocale).toHaveBeenCalledWith('es');
+            expect(catalogOf(mockI18nNode, 'es')['test']).toBe('Prueba');
         });
 
         it("should not write into a fallback locale's catalog", () => {
             // `getCatalog('fr')` hands back the *German* catalog here. Writing into
             // what it returns would store French under `de` and persist it to
             // `de.json` — which is what the second `getLocales()` check prevents.
-            const withFallback = createMockNodeI18nWithFallback({ fr: 'de' });
-            const fallbackAdapter = new NodeI18nAdapter();
+            const withFallback = createMockI18nNodeWithFallback({ fr: 'de' });
+            const fallbackAdapter = new I18nNodeAdapter();
             fallbackAdapter.initialize(withFallback, mockConfig);
 
             expect(() => fallbackAdapter.setTranslation('bonjour', 'fr', 'Bonjour')).toThrow(BackendError);
@@ -264,27 +264,27 @@ describe('NodeI18nAdapter', () => {
         });
 
         it('should refuse an empty locale', () => {
-            // `getCatalog('')` returns node-i18n's whole registry rather than one
+            // `getCatalog('')` returns i18n-node's whole registry rather than one
             // entry, so an empty locale would write a key into the locale map.
             expect(() => adapter.setTranslation('test', '', 'value')).toThrow(BackendError);
         });
 
         it('should report a refusal without stuttering the prefix', () => {
-            const refusing = createMockNodeI18n({ addLocale: vi.fn() });
-            const refusingAdapter = new NodeI18nAdapter();
+            const refusing = createMockI18nNode({ addLocale: vi.fn() });
+            const refusingAdapter = new I18nNodeAdapter();
             refusingAdapter.initialize(refusing, mockConfig);
 
             expect(() => refusingAdapter.setTranslation('test', 'zz', 'Proba')).not.toThrow(
-                /Failed to set translation in node-i18n: node-i18n/
+                /Failed to set translation in i18n-node: i18n-node/
             );
         });
 
-        it('should report a locale node-i18n refuses to register', () => {
+        it('should report a locale i18n-node refuses to register', () => {
             // `addLocale` reads `<locale>.json`; with no such file and `updateFiles`
             // off it registers nothing, and there is no other way in. Dropping the
             // translation quietly is what this adapter used to do.
-            const refusing = createMockNodeI18n({ addLocale: vi.fn() });
-            const refusingAdapter = new NodeI18nAdapter();
+            const refusing = createMockI18nNode({ addLocale: vi.fn() });
+            const refusingAdapter = new I18nNodeAdapter();
             refusingAdapter.initialize(refusing, mockConfig);
 
             expect(() => refusingAdapter.setTranslation('test', 'zz', 'Proba')).toThrow(BackendError);
@@ -300,13 +300,13 @@ describe('NodeI18nAdapter', () => {
             nestedCatalog = {
                 en: { products: { meta: { carrier: 'Carrier' } } },
             };
-            mockNodeI18n.getCatalog.mockImplementation((locale: string) => nestedCatalog[locale] ?? false);
-            mockNodeI18n.getLocales.mockImplementation(() => Object.keys(nestedCatalog));
-            mockNodeI18n.addLocale.mockImplementation((locale: string) => {
+            mockI18nNode.getCatalog.mockImplementation((locale: string) => nestedCatalog[locale] ?? false);
+            mockI18nNode.getLocales.mockImplementation(() => Object.keys(nestedCatalog));
+            mockI18nNode.addLocale.mockImplementation((locale: string) => {
                 nestedCatalog[locale] ??= {};
             });
             mockConfig.objectNotation = true;
-            adapter.initialize(mockNodeI18n, mockConfig);
+            adapter.initialize(mockI18nNode, mockConfig);
         });
 
         describe('setTranslation', () => {
@@ -342,7 +342,7 @@ describe('NodeI18nAdapter', () => {
 
     describe('onMissingKey', () => {
         beforeEach(() => {
-            adapter.initialize(mockNodeI18n, mockConfig);
+            adapter.initialize(mockI18nNode, mockConfig);
         });
 
         it('should call callback when __ returns the key (missing)', () => {
@@ -350,20 +350,20 @@ describe('NodeI18nAdapter', () => {
             adapter.onMissingKey(callback);
 
             // Call the overridden __ method with a missing key
-            mockNodeI18n.__('missing.key');
+            mockI18nNode.__('missing.key');
 
             expect(callback).toHaveBeenCalledWith('missing.key', 'en');
         });
 
         it('should not call callback when translation exists', () => {
             // Reset to get a fresh adapter with proper mock behavior
-            const i18n = createMockNodeI18n();
+            const i18n = createMockI18nNode();
             i18n.__.mockImplementation((phrase: string) => {
                 if (phrase === 'hello') return 'Hello';
                 return phrase;
             });
 
-            const adapterWithMock = new NodeI18nAdapter();
+            const adapterWithMock = new I18nNodeAdapter();
             adapterWithMock.initialize(i18n, mockConfig);
 
             const callback = vi.fn();
@@ -380,7 +380,7 @@ describe('NodeI18nAdapter', () => {
             adapter.onMissingKey(callback);
 
             // Call the overridden __n method
-            mockNodeI18n.__n('item', 'items', 1);
+            mockI18nNode.__n('item', 'items', 1);
 
             expect(callback).toHaveBeenCalledWith('item', 'en');
         });
@@ -389,29 +389,29 @@ describe('NodeI18nAdapter', () => {
             const callback = vi.fn();
             adapter.onMissingKey(callback);
 
-            mockNodeI18n.__n('item', 'items', 5);
+            mockI18nNode.__n('item', 'items', 5);
 
             expect(callback).toHaveBeenCalledWith('item', 'en');
         });
     });
 
     describe('edge cases', () => {
-        it('should handle namespace parameter (ignored for node-i18n)', () => {
-            adapter.initialize(mockNodeI18n, mockConfig);
+        it('should handle namespace parameter (ignored for i18n-node)', () => {
+            adapter.initialize(mockI18nNode, mockConfig);
 
-            // namespace is ignored for node-i18n but should not cause errors
+            // namespace is ignored for i18n-node but should not cause errors
             const result = adapter.getTranslation('hello', 'en', 'someNamespace');
             expect(result).toBe('Hello');
         });
 
         it('should preserve original __ behavior', () => {
             // Create a mock that tracks calls to original
-            const i18n = createMockNodeI18n();
+            const i18n = createMockI18nNode();
             i18n.__ = vi.fn((phrase: string) => {
                 return phrase === 'hello' ? 'Hello' : phrase;
             });
 
-            const testAdapter = new NodeI18nAdapter();
+            const testAdapter = new I18nNodeAdapter();
             testAdapter.initialize(i18n, mockConfig);
 
             // Call the overridden method
@@ -422,12 +422,12 @@ describe('NodeI18nAdapter', () => {
         });
 
         it('should preserve original __n behavior', () => {
-            const i18n = createMockNodeI18n();
+            const i18n = createMockI18nNode();
             i18n.__n = vi.fn((singular: string, plural: string, count: number) => {
                 return count === 1 ? `One ${singular}` : `${count} ${plural}`;
             });
 
-            const testAdapter = new NodeI18nAdapter();
+            const testAdapter = new I18nNodeAdapter();
             testAdapter.initialize(i18n, mockConfig);
 
             const result = i18n.__n('item', 'items', 3);

@@ -68,8 +68,8 @@ replaces any user- or team-level TypeScript convention. Do not apply both.
 [docs/decisions/](docs/decisions/) holds this repo's ADRs — settled decisions on the frozen public
 surface: keys as data (`001-keys-are-data.md`), the open i18next peer range
 (`002-open-peer-range.md`), the cache identity contract (`003-cache-identity.md`), the
-sync-or-promise cache widening scheduled for 0.2.0 (`004-async-cache.md`) and the i18n-node name
-(`005-the-i18n-node-name.md`).
+sync-or-promise cache widening scheduled for 0.2.0 (`004-async-cache.md`) and the i18n-node rename
+with its deprecated `Backend.NODE_I18N` alias (`005-the-i18n-node-name.md`).
 
 ## Critical rules
 

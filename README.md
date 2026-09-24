@@ -91,10 +91,10 @@ in place without a deploy, and into your locale file where a human can correct i
 - An i18next or i18n-node instance already configured. **i18n-node is the
   [`i18n`](https://www.npmjs.com/package/i18n) package** — mashpie's
   [i18n-node](https://github.com/mashpie/i18n-node), installed with `npm install i18n`, peer range
-  `^0.15.0`. These docs used to call it "node-i18n"; that name belongs to an unrelated npm package
-  last published in 2022. The `Backend.NODE_I18N` enum value still spells it the old way because it
-  is published API — see [005](docs/decisions/005-the-i18n-node-name.md). The peer range for i18next
-  is `>=23.0.0`, and
+  `^0.15.0`. Select it with `Backend.I18N_NODE`. Up to 0.1.0 it was called "node-i18n", which is an
+  unrelated npm package last published in 2022; `Backend.NODE_I18N` still works and is deprecated —
+  see [005](docs/decisions/005-the-i18n-node-name.md). The peer range for i18next is `>=23.0.0`,
+  and
   every release drives a real instance of majors 23, 24, 25 and 26 end to end from an installed
   tarball. The range stays open above that: the adapter uses four stable i18next entry points, and
   pinning an upper bound would make every new major look unsupported until this package released
@@ -136,7 +136,7 @@ const autoTranslate = new AutoTranslate({
     // ===== Required =====
 
     // Backend type - which i18n library you're using
-    backend: Backend.I18NEXT,           // or Backend.NODE_I18N
+    backend: Backend.I18NEXT,           // or Backend.I18N_NODE
 
     // Your initialized i18n instance
     i18nInstance: i18next,
