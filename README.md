@@ -52,8 +52,13 @@ in place without a deploy, and into your locale file where a human can correct i
 
 ### Honest limits
 
-- **Translation is asynchronous.** The request that first encounters a missing key gets the
-  fallback. The translation is written to the locale file and served from the next request on.
+- **Only the passive path costs a request.** `t()` and `__()` are synchronous in both backends, so
+  a key that first surfaces through the missing-key hook hands that one caller the fallback; the
+  translation reaches the live instance and the locale file moments later and is served from then
+  on. When you know what you are about to render — API metadata, product attributes, a category
+  tree — `await translateKey(...)` or `await translateObject(...)` instead: both return the
+  translation and write it back on the way out, so the **first** response already carries it. See
+  [Translating API Metadata](#translating-api-metadata).
 - **Every genuinely new key costs a provider API call.** Cached and persisted keys do not.
 - **Machine translation of short UI fragments is often mediocre** without surrounding context.
   Use the `context` option and review what lands in your locale files.
