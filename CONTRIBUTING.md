@@ -120,6 +120,10 @@ Open the PR **into `dev`**. A good PR:
 - At least one other person reviews and approves. Address feedback with follow-up commits on the same
   branch (or amend + `--force-with-lease` if the branch is yours alone).
 - Re-request review after non-trivial changes.
+- CodeRabbit reviews every PR into `dev` and `main` on its own; `@coderabbitai full review` as a
+  comment re-runs it. Its findings are advisory and do not gate the merge — the human approval
+  above still does. `.coderabbit.yaml` in the repo root is the configuration, including the
+  per-path instructions that hand it this project's conventions.
 - Once approved and green, merge into `dev`.
 - **Delete the branch** after merge. Locally: `git branch -d <branch>`.
 
