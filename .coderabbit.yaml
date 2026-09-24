@@ -20,6 +20,13 @@ reviews:
 
     auto_review:
         enabled: true
+        # One automatic review per pull request, at open. A review costs 12-25 minutes
+        # of wall clock on this repository — it executes verification scripts against
+        # the checkout and runs web queries before it writes a comment — so reviewing
+        # every fix-up push spent that block again per commit while the findings from
+        # the previous pass were still being worked through. Ask for the next one with
+        # `@coderabbitai review` once the branch is actually ready.
+        auto_incremental_review: false
         # `main` is the default branch and is covered without being named. Everything
         # lands on `dev` first, so a review that skipped it would only ever see a
         # change once it was already in the release PR.
