@@ -70,7 +70,9 @@ jobs:
           DEEPL_API_KEY: ""
 
       - name: Verify no path aliases in dist
-        run: "! grep -r 'require(\"@/' dist/"
+        run: |
+          test -d dist || { echo "dist/ is missing — the build step did not produce it" >&2; exit 1; }
+          grep -r 'require("@/' dist/; test $? -eq 1
 
   # One coverage run, not one per matrix leg: three uploads of the same commit race
   # in Codecov and the last writer wins. The thresholds in `vitest.config.ts` are the
