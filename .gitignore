@@ -28,9 +28,6 @@ yarn-error.log*
 http-client.private.env.json
 **/http-client.private.env.json
 
-# Output written by the DeepL e2e suite into the i18n-node fixture tree
-tests/fixtures/i18n-node-locales/*/
-
 # Internal working docs, not part of the published repo
 docs/superpowers/
 docs/reviews/

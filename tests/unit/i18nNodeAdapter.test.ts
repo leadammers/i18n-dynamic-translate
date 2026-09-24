@@ -301,7 +301,7 @@ describe('I18nNodeAdapter', () => {
             );
         });
 
-        it('should wrap a failure raised by i18n-node itself', () => {
+        it('should wrap an Error raised by i18n-node itself', () => {
             // Anything that is not already a `BackendError` came out of the
             // instance, and its message is the only account of what went wrong —
             // so it is carried into the wrap rather than replaced by a generic one.
@@ -316,19 +316,23 @@ describe('I18nNodeAdapter', () => {
             expect(() => failingAdapter.setTranslation('test', 'en', 'value')).toThrow(
                 'Failed to set translation in i18n-node: catalog registry unavailable'
             );
+        });
 
-            // Nothing guarantees a thrown value is an `Error` — a rejected string
-            // still has to reach the message rather than print as `[object Object]`.
+        it('should wrap a non-Error raised by i18n-node itself', () => {
+            // Nothing guarantees a thrown value is an `Error`, and a thrown string
+            // still has to reach the message rather than land there as
+            // `[object Object]`. The distinct text is what tells the two arms apart
+            // when one of them breaks.
             const throwingString = createMockI18nNode({
                 getCatalog: vi.fn(() => {
-                    throw 'catalog registry unavailable';
+                    throw 'catalog registry closed';
                 }),
             });
             const stringAdapter = new I18nNodeAdapter();
             stringAdapter.initialize(throwingString, mockConfig);
 
             expect(() => stringAdapter.setTranslation('test', 'en', 'value')).toThrow(
-                'Failed to set translation in i18n-node: catalog registry unavailable'
+                'Failed to set translation in i18n-node: catalog registry closed'
             );
         });
 

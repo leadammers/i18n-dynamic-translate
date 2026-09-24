@@ -52,7 +52,7 @@ in place without a deploy, and into your locale file where a human can correct i
 
 ### Honest limits
 
-- **Only the passive path costs a request.** `t()` and `__()` are synchronous in both backends, so
+- **Only the passive path serves a fallback.** `t()` and `__()` are synchronous in both backends, so
   a key that first surfaces through the missing-key hook hands that one caller the fallback; the
   translation reaches the live instance and the locale file moments later and is served from then
   on. When you know what you are about to render — API metadata, product attributes, a category
@@ -112,7 +112,7 @@ npm install i18n-dynamic-translate
 ### Configuration
 
 ```typescript
-import {AutoTranslate, Backend, TranslationProvider} from 'i18n-dynamic-translate';
+import { AutoTranslate, Backend, TranslationProvider } from 'i18n-dynamic-translate';
 
 const autoTranslate = new AutoTranslate({
     backend: Backend.I18NEXT,
@@ -129,13 +129,13 @@ const autoTranslate = new AutoTranslate({
 <details><summary>All configuration options</summary>
 
 ```typescript
-import {AutoTranslate, Backend, TranslationProvider, FileFormat, DeepLModelType} from 'i18n-dynamic-translate';
+import { AutoTranslate, Backend, TranslationProvider, FileFormat, DeepLModelType } from 'i18n-dynamic-translate';
 
 const autoTranslate = new AutoTranslate({
     // ===== Required =====
 
     // Backend type - which i18n library you're using
-    backend: Backend.I18NEXT,           // or Backend.I18N_NODE
+    backend: Backend.I18NEXT, // or Backend.I18N_NODE
 
     // Your initialized i18n instance
     i18nInstance: i18next,
@@ -149,7 +149,7 @@ const autoTranslate = new AutoTranslate({
     // Translation provider configuration
     translationProvider: {
         // Which translation service to use
-        provider: TranslationProvider.DEEPL,    // or TranslationProvider.LIBRE_TRANSLATE
+        provider: TranslationProvider.DEEPL, // or TranslationProvider.LIBRE_TRANSLATE
 
         // API key for the translation service
         apiKey: process.env.DEEPL_API_KEY,
@@ -160,17 +160,17 @@ const autoTranslate = new AutoTranslate({
         // DeepL-specific options
         deeplOptions: {
             // Controls formal/informal tone
-            formality: 'prefer_more',           // 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less'
+            formality: 'prefer_more', // 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less'
 
             // Application context for better translations
             context: 'e-commerce',
 
             // How to split sentences
-            splitSentences: '1',                // '0' | '1' | 'nonewlines'
+            splitSentences: '1', // '0' | '1' | 'nonewlines'
 
             // Specifies which DeepL model should be used for translation, default is latency
-            modelType: DeepLModelType.QUALITY,  // 'QUALITY' | 'LATENCY'
-        }
+            modelType: DeepLModelType.QUALITY, // 'QUALITY' | 'LATENCY'
+        },
     },
 
     // ===== Optional =====
@@ -185,7 +185,7 @@ const autoTranslate = new AutoTranslate({
     maxConcurrency: 5,
 
     // File format for locale files (default: auto-detected from existing files)
-    fileFormat: FileFormat.JSON,        // or FileFormat.YAML
+    fileFormat: FileFormat.JSON, // or FileFormat.YAML
 
     // Default namespace for i18next (default: 'translation')
     defaultNamespace: 'translation',
@@ -265,13 +265,14 @@ This is useful for catching missing translations during development, as well as 
 over time when you already have source content in your default language.
 
 > **Configuration notes**
+>
 > - **i18next**: Set `saveMissing: true` to trigger the missing key handler, but i18next won't write files itself
 > - **i18n-node**: Set `updateFiles: false` to prevent i18n-node from writing files - DynamicTranslate handles all file
-    writes via `autoSave: true`
+>   writes via `autoSave: true`
 > - **i18n-node**: List every target language in `configure({ locales: [...] })`. i18n-node only registers a locale from
-    its own file, so a language it has never seen cannot receive a translation in memory. DynamicTranslate reports that
-    through `onError` and still writes the locale file, so the translation is not lost — but `__()` will not serve it
-    until the locale is configured
+>   its own file, so a language it has never seen cannot receive a translation in memory. DynamicTranslate reports that
+>   through `onError` and still writes the locale file, so the translation is not lost — but `__()` will not serve it
+>   until the locale is configured
 
 ### Translating API Metadata
 
@@ -288,27 +289,27 @@ const product = await fetchProduct();
 
 // Translate all keys in product.meta
 // context can be provided as optional parameter and will override global config for this call
-await autoTranslate.translateObject(product.meta, 'de', {parentKey: 'product.meta', context: 'e-commerce'});
+await autoTranslate.translateObject(product.meta, 'de', { parentKey: 'product.meta', context: 'e-commerce' });
 ```
 
 To generate translations in `locales/de/translation.json` (or `locales/de.json` for i18n-node):
 
 ```json
 {
-  "product": {
-    "meta": {
-      "carrier": "Spediteur",
-      "estimatedDelivery": "Geschätzte Lieferung"
+    "product": {
+        "meta": {
+            "carrier": "Spediteur",
+            "estimatedDelivery": "Geschätzte Lieferung"
+        }
     }
-  }
 }
 ```
 
 And use them in your UI, for example with React and react-i18next:
 
 ```tsx
-function ProductMeta({meta}) {
-    const {t} = useTranslation();
+function ProductMeta({ meta }) {
+    const { t } = useTranslation();
 
     return (
         <dl>
@@ -340,6 +341,7 @@ const autoTranslate = new AutoTranslate({
 ```
 
 In production mode:
+
 - The **automatic missing-key handler** only processes keys within `allowedNamespaces` — all others are silently skipped
 - **Explicit calls** (`translateKey()`, `translateObject()`) are never restricted and work for any namespace
 
@@ -391,8 +393,7 @@ const storageKey = (identity: TranslationIdentity): string =>
 const sqliteCache: TranslationCache = {
     get: (identity: TranslationIdentity): string | null => {
         const row = db.prepare('SELECT value FROM translations WHERE id = ?').get(storageKey(identity)) as
-            | { value: string }
-            | undefined;
+            { value: string } | undefined;
         return row?.value ?? null;
     },
     set: (identity: TranslationIdentity, value: string): void => {
@@ -437,7 +438,7 @@ Translates all keys in an object.
 await autoTranslate.translateObject(obj, 'de', {
     namespace: 'common',
     parentKey: 'myKey',
-    context: 'e-commerce'
+    context: 'e-commerce',
 });
 ```
 
@@ -470,7 +471,7 @@ Translates a single key.
 ```typescript
 await autoTranslate.translateKey('myKey', 'de', {
     parentKey: 'ui',
-    context: 'button label'
+    context: 'button label',
 });
 ```
 
@@ -523,12 +524,7 @@ await autoTranslate.dispose();
 DynamicTranslate provides specific error types for handling various failure scenarios:
 
 ```typescript
-import {
-    TranslationError,
-    BackendError,
-    FileSystemError,
-    ConfigurationError
-} from 'i18n-dynamic-translate';
+import { TranslationError, BackendError, FileSystemError, ConfigurationError } from 'i18n-dynamic-translate';
 
 try {
     await autoTranslate.translateKey('key', 'de');
