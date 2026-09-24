@@ -31,11 +31,16 @@
   unset**, which is how CI runs it. Run locally with:
 
     ```bash
-    docker run --rm -p 5555:5000 -e LT_LOAD_ONLY=en,de libretranslate/libretranslate
+    docker run --rm --detach --name libretranslate -p 5555:5000 -e LT_LOAD_ONLY=en,de \
+        libretranslate/libretranslate
     LIBRETRANSLATE_URL=http://127.0.0.1:5555/translate npm run test:libre-e2e
+    docker stop libretranslate
     ```
 
-    `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses.
+    `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses. `--detach`
+    is what lets the three lines run in one shell; without it the server holds the terminal and
+    the test never starts. The first run downloads the model, so give it a minute before the
+    server answers.
 
 - `tests/fixtures/` — committed input locale files. The e2e suite _writes into those committed
   files_: `tests/fixtures/i18n-node-locales/<locale>.json` is both the input i18n-node reads and

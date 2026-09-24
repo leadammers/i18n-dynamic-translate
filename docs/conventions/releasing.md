@@ -35,7 +35,10 @@ Nothing reaches npm until all of these pass:
   `1.2.2` manifest fails the job instead of publishing the wrong version.
 - `npm publish`, authenticated over OIDC as the package's **trusted publisher**. npmjs.com pins
   that right to this repository and to the filename `publish.yml`, so no npm credential exists
-  here to leak and no other workflow can publish. The provenance attestation, which ties the
+  here to leak and no other workflow in this repository can publish over OIDC. It does not by
+  itself stop a classic or granular npm token from publishing — that takes setting the package's
+  publishing access to "require two-factor authentication or trusted publishing" on npmjs.com,
+  which is a registry setting and not visible from this repository. The provenance attestation, which ties the
   tarball back to this repository and commit, is minted from the same token — hence no
   `--provenance` flag. `--access public` is gone too; `publishConfig.access` already says it.
   The job runs with `package-manager-cache: false`, because a poisoned dependency cache would run

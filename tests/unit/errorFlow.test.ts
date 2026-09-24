@@ -14,6 +14,13 @@ import { http, HttpError } from '@/utils/http';
 
 /** Anything but a real credential. One test asserts this never reaches the consumer. */
 const FAKE_API_KEY = 'not-a-real-deepl-key';
+/**
+ * The real host on purpose, and the one endpoint in this repository that is not a
+ * placeholder. Nothing requests it: it is interpolated into an `HttpError` message
+ * to stand in for a provider that echoed the request line back, and the test then
+ * asserts that neither the host nor the key survives into `onError`. A placeholder
+ * would assert that the library scrubs a string the library never produces.
+ */
 const DEEPL_URL = 'https://api.deepl.com/v2/translate';
 
 type MissingKeyHandler = (lngs: string[], ns: string, key: string, fallbackValue: string) => void;
