@@ -1,7 +1,7 @@
 {
   "name": "i18n-dynamic-translate",
-  "version": "0.1.0",
-  "description": "Automatic translation library for i18next and Node.js i18n with support for DeepL and LibreTranslate.",
+  "version": "0.1.1",
+  "description": "Translates missing i18n keys at runtime with DeepL or LibreTranslate and writes them back into i18next or i18n-node.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/leadammers/i18n-dynamic-translate.git"
@@ -40,6 +40,7 @@
     "build": "npm run clean && tsc && tsc-alias",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:deepl-e2e": "vitest run tests/e2e/deepl.test.ts",
     "test:libre-e2e": "vitest run tests/e2e/libretranslate.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
@@ -55,12 +56,15 @@
   "keywords": [
     "i18n",
     "i18next",
+    "i18n-node",
+    "deepl",
+    "libretranslate",
     "translation",
+    "machine-translation",
     "auto-translate",
-    "metadata",
-    "api-translation",
-    "dynamic-content",
+    "missing-keys",
     "runtime-translation",
+    "dynamic-content",
     "localization",
     "internationalization"
   ],
@@ -77,6 +81,7 @@
     "@types/i18n": "^0.13.12",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.6.2",
+    "@vitest/coverage-v8": "^5.0.1",
     "dotenv": "^18.0.1",
     "i18n": "^0.15.4",
     "i18next": "^26.4.2",

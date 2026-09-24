@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 While the version stays below 1.0.0 the public API may change in a minor release.
 
+## [Unreleased]
+
+## [0.1.1] — 2026-09-25
+
+### Added
+
+- Coverage measurement (`npm run test:coverage`) with thresholds that fail the build on a drop,
+  and a CI job that uploads the report to Codecov over OIDC. `codecov.yml` keeps Codecov reporting
+  rather than gating — the thresholds are the gate — except for patch coverage on a pull request.
+- `tests/unit/errorFlow.test.ts` — a provider failure is now followed from the real translator out
+  to `onError`: authentication, rate limit, timeout, a malformed response, a short batch and a
+  non-string entry inside a well-sized one. One test asserts the API key and the request URL never
+  reach the consumer's error handler.
+- `tests/unit/publicApi.test.ts` — the runtime half of `src/index.ts` is asserted: every documented
+  value is still exported, nothing new is, and every enum member and the string it carries is pinned,
+  so a rename like this one cannot pass unremarked again.
+- Unit coverage for behaviour that had none: the DeepL request contract (`formality`,
+  `split_sentences`, per-call context precedence, regional target variants), cache eviction and the
+  expiry sweeper's lifecycle, the core's missing-key guards and batch disposal, `describeHttpError`'s
+  sanitization, and the path-traversal guard in `getLocaleFilePath`. The coverage thresholds move up
+  with them, to 94% statements, 90% branches, 95% functions and 94% lines.
+- `Backend.I18N_NODE`, the correctly named member for the second backend. See *Removed* and
+  *Changed* for the rest of the rename.
+- A `Makefile` of development shorthands — `make gate` runs what CI runs, with the provider
+  credentials cleared so the e2e suites skip instead of billing the live API. `make help` lists the
+  rest. Not shipped in the package.
+
+### Removed
+
+- **`Backend.NODE_I18N`** — use `Backend.I18N_NODE`. **This is a breaking change in a patch
+  release, deliberately.** The member existed in one published version, 0.1.0, which is a day old
+  and has no dependents; no deprecated alias ships, because an alias exists to protect real
+  consumers and there are none — carrying the wrong name in autocomplete and in the type until
+  1.0.0 would buy nothing. The old spelling now fails in whichever way it is reached: in
+  TypeScript `Backend.NODE_I18N` no longer compiles, in plain JavaScript it reads as `undefined`
+  and the config check rejects it with `ConfigurationError: Backend is required`, and the bare
+  string `'node-i18n'` reaches the adapter factory and gets
+  `ConfigurationError: Unknown backend: node-i18n`. Anyone who installed 0.1.0 in its first day
+  changes one identifier; anyone pinned to 0.1.0 is unaffected. Reasoning in
+  [docs/decisions/005-the-i18n-node-name.md](docs/decisions/005-the-i18n-node-name.md).
+
+### Fixed
+
+- A `529` from a translation provider is retried and reported as a rate limit, not as an unknown
+  failure. DeepL's API maps `529` to the same "too many requests, please wait and resend" response
+  as `429`, but it was in neither the retry set nor the status-message map, so a rate-limited batch
+  was dropped where a backoff would have succeeded. Both halves are shared: `529` is retried and
+  described as a rate limit for **every** provider, LibreTranslate included, because every provider
+  that returns it means the same thing.
+
+### Security
+
+- A locale that resolves to the locales directory itself is rejected instead of writing a file
+  beside it. The path guard allowed the resolved base to *equal* `localesPath`, and the extension
+  is appended after the guard runs, so `'.'` — or an empty locale, which `translateKey` does not
+  reject — turned `/locales` into `/locales.json`: a sibling of the directory, outside it. A
+  library that takes the locale from a request path or an `Accept-Language` header hands that
+  string straight to this function.
+
+### Changed
+
+- Publishing to npm authenticates over OIDC as a trusted publisher instead of a long-lived token.
+  Nothing changes for consumers: the tarball still carries a provenance attestation, minted from
+  the same token the registry issues to the workflow.
+- Codecov comments on every pull request, including the ones that leave coverage untouched, and the
+  comment carries project and patch coverage with the delta rather than only whether the new lines
+  are covered. Reporting only — the gates are unchanged.
+- The README says what this package replaces — the hand-editing, the round trip through a
+  spreadsheet, the post-deploy script, the raw key in front of a user — before it describes what
+  the alternatives do, and the limits section no longer reads as though every new key is served
+  untranslated once — it says that `translateKey` and `translateObject` return the translation and
+  write it back, so pre-translating dynamic content before rendering it carries the translation in
+  the first response. No claim about the library changed.
+- **The second backend is called `i18n-node`**, not `node-i18n`. That name belongs to an unrelated
+  npm package last published in 2022; the adapter has always been written against mashpie's
+  [i18n-node](https://github.com/mashpie/i18n-node), installed with `npm install i18n`, which is
+  what the `i18n: ^0.15.0` peer range points at. Renamed in every document, comment and diagram, in
+  the manifest's description and keywords, in the adapter class and its file, and in the error text
+  and the `backend` tag on every `BackendError` the adapter throws. Code branching on those error
+  *message* strings has to change; code branching on the typed `backend` field sees `'i18n-node'`.
+  Recorded in [docs/decisions/005-the-i18n-node-name.md](docs/decisions/005-the-i18n-node-name.md).
+- The manifest's `description` and `keywords` now name what this does differently — filling a key
+  at runtime — and the providers it talks to. npm search matches both fields, and neither `deepl`
+  nor `libretranslate` was listed. No code change.
+
 ## [0.1.0] — 2026-09-23
 
 ### Added

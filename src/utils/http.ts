@@ -55,7 +55,11 @@ export function describeHttpError(
     if (status === 401 || status === 403) {
         return 'Authentication failed - check your API key';
     }
-    if (status === 429) {
+    // 529 is not a standard code, but every provider that returns it means
+    // "overloaded, resend later" — DeepL's OpenAPI spec maps it to the same
+    // response as 429. It is already in the retry set for that reason, so
+    // describing it as an unknown failure would contradict how it is handled.
+    if (status === 429 || status === 529) {
         return 'Rate limit exceeded';
     }
     if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
@@ -67,7 +71,10 @@ export function describeHttpError(
     return `Request failed with status ${status ?? 'unknown'}`;
 }
 
-const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+// 529 sits with 429 deliberately: it is not a standard code, but every provider
+// that returns it means "overloaded, resend later" — DeepL maps it to the same
+// rate-limit response as 429.
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504, 529]);
 
 function isRetryable(error: unknown): boolean {
     if (error instanceof HttpError) {

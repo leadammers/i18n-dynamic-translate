@@ -84,7 +84,7 @@ export class TranslationError extends AutoTranslateError {
 /**
  * Error thrown when an i18n backend adapter encounters a problem.
  *
- * This error is thrown by backend adapters (i18next, node-i18n) when
+ * This error is thrown by backend adapters (i18next, i18n-node) when
  * initialization fails or translation operations cannot be completed
  * due to backend-specific issues.
  *
@@ -106,7 +106,7 @@ export class BackendError extends AutoTranslateError {
      * Creates a new BackendError instance.
      *
      * @param message - A descriptive error message explaining the backend failure
-     * @param backend - The name of the backend that failed (e.g., 'i18next', 'node-i18n')
+     * @param backend - The name of the backend that failed (e.g., 'i18next', 'i18n-node')
      */
     constructor(
         message: string,

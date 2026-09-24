@@ -6,7 +6,8 @@ on:
   release:
     types: [published]
 
-# Least privilege by default; the publish job elevates id-token for provenance.
+# Least privilege by default; the publish job elevates id-token to authenticate
+# to npm over OIDC.
 permissions:
   contents: read
 
@@ -16,17 +17,40 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Required by `npm publish --provenance` to mint a Sigstore OIDC token.
+      # npm authenticates this workflow as the package's trusted publisher over
+      # OIDC, and mints the provenance attestation from the same token. No npm
+      # credential exists to leak; the publisher is pinned to this filename in
+      # the package's npmjs.com settings, so a job added elsewhere cannot publish.
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # No dependency cache in this job. setup-node enables one automatically when
+      # package.json names npm in `packageManager` or `devEngines`, and a poisoned
+      # cache would run attacker-controlled code in the one job that holds an OIDC
+      # token npm accepts as this package's publisher. Saying so explicitly keeps
+      # that true if the manifest ever grows either field.
       - name: Use Node.js 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-          cache: npm
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm >= 11.5.1, first bundled with Node 24.5.0.
+      # `node-version: 24` resolves to the newest 24.x, so this holds today — the
+      # check is here because npm's failure when it does not is a generic "need
+      # auth", which reads as a broken trusted-publisher setup rather than as an
+      # npm too old to use one.
+      - name: Verify npm supports trusted publishing
+        run: |
+          REQUIRED_NPM=11.5.1
+          ACTUAL_NPM="$(npm --version)"
+          OLDEST="$(printf '%s\n%s\n' "$REQUIRED_NPM" "$ACTUAL_NPM" | sort -V | head -n1)"
+          if [ "$OLDEST" != "$REQUIRED_NPM" ]; then
+            echo "npm $ACTUAL_NPM is below the $REQUIRED_NPM that trusted publishing requires" >&2
+            exit 1
+          fi
 
       # --ignore-scripts: no dependency here declares an install lifecycle script,
       # so refusing to run them removes an injection path into dist/ at no cost.
@@ -53,8 +77,18 @@ jobs:
           # E2E tests are skipped when DEEPL_API_KEY is not set
           DEEPL_API_KEY: ""
 
+      # `! grep ... dist/` alone passes when dist/ is absent: grep exits 2 and `!`
+      # turns that into success. Only exit 1 — matched nothing — means clean.
       - name: Verify no path aliases in dist
-        run: "! grep -r 'require(\"@/' dist/"
+        run: |
+          test -d dist || { echo "dist/ is missing — the build step did not produce it" >&2; exit 1; }
+          # `set -e` is on in an Actions shell, so grep's exit 1 would abort the step
+          # before its status could be read. Capture it instead: 1 is "matched
+          # nothing" and the only clean answer — 0 means an alias survived, 2 means
+          # grep itself failed.
+          alias_scan=0
+          grep -r 'require("@/' dist/ || alias_scan=$?
+          test "$alias_scan" -eq 1
 
       # The same packaging checks CI runs on every pull request. They belong here
       # too: a broken `exports` map or a mismatched `types` entry is only visible
@@ -72,7 +106,7 @@ jobs:
             exit 1
           fi
 
-      - name: Publish with provenance
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # No flags: provenance is automatic under trusted publishing, and
+      # `publishConfig.access` in package.json already says `public`.
+      - name: Publish
+        run: npm publish

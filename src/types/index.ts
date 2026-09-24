@@ -4,7 +4,7 @@
 
 export enum Backend {
     I18NEXT = 'i18next',
-    NODE_I18N = 'node-i18n',
+    I18N_NODE = 'i18n-node',
 }
 
 export enum TranslationProvider {
@@ -28,10 +28,10 @@ export type AutoTranslateMode = 'development' | 'production';
  * Main configuration for AutoTranslate
  */
 export interface AutoTranslateConfig {
-    /** Backend type (i18next or node-i18n) */
+    /** Backend type (i18next or i18n-node) */
     backend: Backend;
 
-    /** Instance of the i18n backend (i18next or node-i18n instance) */
+    /** Instance of the i18n backend (i18next or i18n-node instance) */
     i18nInstance: unknown; // Use 'unknown' to avoid direct dependency
 
     /** Path to locale files directory */
@@ -52,7 +52,7 @@ export interface AutoTranslateConfig {
     /** Default namespace for i18next (optional) */
     defaultNamespace?: string;
 
-    /** Use object notation for nested keys (for node-i18n). Default: false */
+    /** Use object notation for nested keys (for i18n-node). Default: false */
     objectNotation?: boolean;
 
     /** Enable caching of translations */
@@ -87,7 +87,7 @@ export interface AutoTranslateConfig {
     mode?: AutoTranslateMode;
 
     /**
-     * Namespaces (or parentKey prefixes for node-i18n) that are allowed to be
+     * Namespaces (or parentKey prefixes for i18n-node) that are allowed to be
      * auto-translated in production mode. Ignored in development mode.
      * Missing keys outside these namespaces are silently skipped.
      */

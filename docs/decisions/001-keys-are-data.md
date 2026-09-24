@@ -10,7 +10,7 @@
 The whole premise of this library is that its key set is not known at build time: a key arrives
 as an arbitrary string read from API metadata or a product attribute, and so do `locale`,
 `namespace` and `parentKey`. Every one of them ends up as a property name — a segment in a dot
-walk over a locale-file object, a flat lookup in a node-i18n catalog, or the property that
+walk over a locale-file object, a flat lookup in an i18n-node catalog, or the property that
 `translateObject` builds while it accumulates translated fields.
 
 Plain property indexing does not treat those strings as inert. `target['__proto__']` does not
@@ -57,10 +57,10 @@ never sees a translation it explicitly asked for. Losing a translation silently 
 mode this library exists to prevent; a stored, retrievable value under an unusual name is a
 correct result, not a compromise.
 
-The same rule reaches `locale`, not only `key`. In the node-i18n adapter, `locale` selects a
+The same rule reaches `locale`, not only `key`. In the i18n-node adapter, `locale` selects a
 catalog rather than indexing one of this library's own objects: `resolveCatalog`
-(`src/adapters/nodeI18nAdapter.ts:205`) asks node-i18n's own `getCatalog(locale)` for the
-backend's registry entry and never builds a registry of its own. node-i18n's own guarded
+(`src/adapters/i18nNodeAdapter.ts:205`) asks i18n-node's own `getCatalog(locale)` for the
+backend's registry entry and never builds a registry of its own. i18n-node's own guarded
 assignment finds the inherited `__proto__` accessor and declines to register such a locale, so
 `resolveCatalog` re-checks `i18n.getLocales().includes(locale)` after attempting to add it and
 raises a `BackendError` naming the locale when it is still absent. That is a different remedy for
@@ -70,7 +70,7 @@ guard.
 
 ## Consequences
 
-A locale file, a node-i18n catalog or an in-memory accumulator can legitimately hold an own
+A locale file, an i18n-node catalog or an in-memory accumulator can legitimately hold an own
 property literally named `__proto__`, `constructor` or `toString`, holding a translated string.
 Anything downstream of this library that iterates such an object with a mechanism other than
 `getOwnProperty` — `for...in` without a `hasOwnProperty` guard, naive `JSON.stringify` on a

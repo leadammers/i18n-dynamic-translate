@@ -205,7 +205,7 @@ describe('FileHandler', () => {
     });
 
     describe('getLocaleFilePath', () => {
-        it('should generate path for node-i18n style (no namespace)', async () => {
+        it('should generate path for i18n-node style (no namespace)', async () => {
             const result = await getLocaleFilePath('/locales', 'en');
             expect(result).toBe(path.join('/locales', 'en.json'));
         });
@@ -225,6 +225,15 @@ describe('FileHandler', () => {
             expect(await getLocaleFilePath('/locales', 'zh-CN', 'common')).toBe(
                 path.join('/locales', 'zh-CN', 'common.json')
             );
+        });
+
+        it('should reject a locale that escapes localesPath', async () => {
+            await expect(getLocaleFilePath('/locales', '../../etc/passwd')).rejects.toThrow(FileSystemError);
+            await expect(getLocaleFilePath('/locales', '../../etc/passwd')).rejects.toThrow(/Path traversal detected/);
+        });
+
+        it('should reject a namespace that escapes localesPath', async () => {
+            await expect(getLocaleFilePath('/locales', 'en', '../../../etc/passwd')).rejects.toThrow(FileSystemError);
         });
     });
 

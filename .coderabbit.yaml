@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit review configuration. What is not set here is left at CodeRabbit's
+# default on purpose — this file records the deviations and the reasons for them,
+# not the whole schema.
+
+language: en-US
+
+reviews:
+    # The house style: flag what is wrong, skip the running commentary. `assertive`
+    # adds nitpicks on formatting that Prettier already owns for src/ and tests/.
+    profile: chill
+
+    # Reviews are advisory here. A blocking "changes requested" would sit on top of
+    # the eight required checks and the human approval that branch protection
+    # already demands, and only one of those three can be cleared by a bot.
+    request_changes_workflow: false
+
+    poem: false
+
+    auto_review:
+        enabled: true
+        # One automatic review per pull request, at open. A review costs 12-25 minutes
+        # of wall clock on this repository — it executes verification scripts against
+        # the checkout and runs web queries before it writes a comment — so reviewing
+        # every fix-up push spent that block again per commit while the findings from
+        # the previous pass were still being worked through. Ask for the next one with
+        # `@coderabbitai review` once the branch is actually ready.
+        auto_incremental_review: false
+        # `main` is the default branch and is covered without being named. Everything
+        # lands on `dev` first, so a review that skipped it would only ever see a
+        # change once it was already in the release PR.
+        base_branches:
+            - dev
+        # A draft is work in progress by definition; ask for it with
+        # `@coderabbitai review` when it is worth a look.
+        drafts: false
+
+    # Markdown is reviewed like everything else. Two of the six findings on the
+    # 0.1.1 release PR were in CHANGELOG.md, and the changelog is the only place a
+    # breaking change is announced — excluding `*.md` would have hidden both.
+    path_instructions:
+        - path: src/**/*.ts
+          instructions: |
+              Hold changes to the critical rules in AGENTS.md:
+              - `dependencies` in package.json stays empty. Optional functionality goes behind a
+                lazy `import()` plus an optional peer dependency — flag any new runtime import of a
+                third-party module.
+              - No API key, request URL or request body may reach an error message, a log line or a
+                thrown value. HTTP failure text goes through `describeHttpError()`.
+              - Library code does not own the console. Failures go to the consumer's `onError` hook.
+                There are exactly three `console.error` call sites (the `reportError` fallback in
+                each adapter and in the core); a fourth is a finding.
+              - Imports use the `@/` alias, never a deep relative path out of the current folder.
+              - Anything created is released in `dispose()` — timers, locks, queues. `clear()` empties
+                state but never tears down. Most bugs this repo has had were lifecycle bugs.
+              - A cache entry is addressed by every input that changes its value (locale, namespace,
+                full dot path, provider context). Compose such keys with `JSON.stringify`, never by
+                joining on a delimiter.
+              Prettier owns formatting for this folder; do not report style the formatter decides.
+
+        - path: src/index.ts
+          instructions: |
+              This file is the entire public API and is frozen for the rest of the current minor.
+              Call out any added, removed or renamed export, any changed enum member *value*, and any
+              utility exported for convenience — utilities stay internal. A breaking change here needs
+              an ADR under docs/decisions/ and a changelog entry that says it is breaking.
+
+        - path: tests/**/*.ts
+          instructions: |
+              Unit tests must pass with no credentials in the environment; the e2e suites self-skip
+              when `DEEPL_API_KEY` or `LIBRETRANSLATE_URL` is empty. No real key, endpoint or request
+              body belongs in a fixture. A test written for a bug should name the behaviour it pins,
+              not the implementation it happens to call.
+
+        - path: .github/workflows/**
+          instructions: |
+              Third-party actions are pinned to a full commit SHA with the version in a trailing
+              comment. Permissions are least-privilege per job. `publish.yml` is the filename npm
+              pins as this package's trusted publisher, so its name and its `on: release` trigger are
+              load-bearing; it must not gain a dependency cache or any other step that executes
+              content it did not build.
+
+        - path: CHANGELOG.md
+          instructions: |
+              Keep a Changelog format, newest first. Every breaking change is stated as breaking in
+              its own entry, with the reason — this project is below 1.0.0, so semver permits one in
+              a minor bump and the changelog is the only place a consumer learns of it. An entry that
+              describes provider-specific behaviour must match what the shared code actually does.
+
+        - path: Makefile
+          instructions: |
+              Targets are steps in a sequence, not independent units; the file is `.NOTPARALLEL:` for
+              that reason. A recipe that inspects `dist/` must fail when `dist/` is absent — `! grep
+              -r ... dist/` passes vacuously there, because grep exits 2 and `!` turns that into
+              success.
+
+    tools:
+        # Workflow correctness and workflow security. The publish job holds an OIDC
+        # token npm accepts as this package's publisher, which is the one credential
+        # in this repository worth attacking.
+        actionlint:
+            enabled: true
+        zizmor:
+            enabled: true
+        # There is a real provider key in an untracked .env.dev on the maintainer's
+        # machine. Gitleaks also runs as a required check in CI; this is the earlier
+        # of the two warnings.
+        gitleaks:
+            enabled: true
+        checkmake:
+            enabled: true
+
+        # Off: no ESLint or Biome config exists here — Prettier plus `tsc --strict`
+        # is the whole toolchain, and a linter running on its own defaults reports
+        # its opinions, not this project's.
+        eslint:
+            enabled: false
+        biome:
+            enabled: false
+        oxc:
+            enabled: false
+        # Off: both default to an 80-column line. The prose here wraps at 100 and the
+        # workflows carry pinned-SHA comments past it, so every file would report.
+        markdownlint:
+            enabled: false
+        yamllint:
+            enabled: false
+        # Off: the docs are deliberate about wording. Grammar suggestions on them are
+        # volume, not signal.
+        languagetool:
+            enabled: false
+
+    finishing_touches:
+        # Off: JSDoc density in this repo is a settled decision. Generated docstrings
+        # would restate signatures that already read clearly.
+        docstrings:
+            enabled: false
+
+knowledge_base:
+    code_guidelines:
+        enabled: true
+        filePatterns:
+            # AGENTS.md is picked up by default; the per-topic conventions are not, and
+            # they are the source of truth AGENTS.md delegates to.
+            - files: docs/conventions/*.md
+              applyTo: '**/*.ts,Makefile,.github/workflows/**'
+            - files: docs/decisions/*.md
+              applyTo: src/**/*.ts

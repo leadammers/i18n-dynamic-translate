@@ -31,7 +31,7 @@ import { DeepLModelType } from '@/types';
 config({ path: path.join(__dirname, '../..', '.env.dev') });
 
 const I18NEXT_LOCALES_PATH = path.join(__dirname, '..', 'fixtures', 'i18next-locales');
-const NODE_I18N_LOCALES_PATH = path.join(__dirname, '..', 'fixtures', 'node-i18n-locales');
+const I18N_NODE_LOCALES_PATH = path.join(__dirname, '..', 'fixtures', 'i18n-node-locales');
 const DEEPL_API_KEY = process.env.DEEPL_API_KEY;
 const hasApi = Boolean(DEEPL_API_KEY);
 
@@ -306,8 +306,8 @@ describe.skipIf(!hasApi)('E2E: i18next - Automatic missing key translation', () 
     }, 30000);
 });
 
-// node-i18n Tests
-describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
+// i18n-node Tests
+describe.skipIf(!hasApi)('E2E: i18n-node - Translate API metadata', () => {
     let autoTranslate: AutoTranslate;
     let i18n: I18n;
 
@@ -315,15 +315,15 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         i18n = new I18n({
             locales: ['en', 'de', 'es'],
             defaultLocale: 'en',
-            directory: NODE_I18N_LOCALES_PATH,
+            directory: I18N_NODE_LOCALES_PATH,
             objectNotation: true,
             updateFiles: false,
         });
 
         autoTranslate = new AutoTranslate({
-            backend: Backend.NODE_I18N,
+            backend: Backend.I18N_NODE,
             i18nInstance: i18n,
-            localesPath: NODE_I18N_LOCALES_PATH,
+            localesPath: I18N_NODE_LOCALES_PATH,
             defaultLanguage: 'en',
             translationProvider: {
                 provider: TranslationProvider.DEEPL,
@@ -340,7 +340,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         await autoTranslate?.dispose();
         // Clean up test-generated keys
         for (const lang of ['de', 'es']) {
-            const filePath = path.join(NODE_I18N_LOCALES_PATH, `${lang}.json`);
+            const filePath = path.join(I18N_NODE_LOCALES_PATH, `${lang}.json`);
             if (fs.existsSync(filePath)) {
                 const data = readJsonFile(filePath);
                 deleteNestedKey(data, 'products.meta');
@@ -360,10 +360,10 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         expect(translation).not.toBe('category');
         expect(translation).not.toBe('Category');
 
-        const savedData = readJsonFile(path.join(NODE_I18N_LOCALES_PATH, 'de.json'));
+        const savedData = readJsonFile(path.join(I18N_NODE_LOCALES_PATH, 'de.json'));
         expect(readFixturePath(savedData, 'products.meta.category')).toBe(translation);
 
-        console.log('node-i18n - Saved translation (DE):', translation);
+        console.log('i18n-node - Saved translation (DE):', translation);
     }, 60000);
 
     it('should translate a single key to Spanish', async () => {
@@ -375,16 +375,16 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
         expect(translation).not.toBe('brand');
         expect(translation).not.toBe('Brand');
 
-        const savedData = readJsonFile(path.join(NODE_I18N_LOCALES_PATH, 'es.json'));
+        const savedData = readJsonFile(path.join(I18N_NODE_LOCALES_PATH, 'es.json'));
         expect(readFixturePath(savedData, 'products.meta.brand')).toBe(translation);
 
-        console.log('node-i18n - Saved translation (ES):', translation);
+        console.log('i18n-node - Saved translation (ES):', translation);
     }, 60000);
 
     it('should return existing translations without calling the API', async () => {
         const { fixtureData, results, httpSpy } = await fetchExistingTranslationsWithSpy({
             autoTranslate,
-            localeFilePath: path.join(NODE_I18N_LOCALES_PATH, 'de.json'),
+            localeFilePath: path.join(I18N_NODE_LOCALES_PATH, 'de.json'),
             translations: batTranslations,
             targetLocale: 'de',
         });
@@ -409,8 +409,8 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Translate API metadata', () => {
     });
 });
 
-// node-i18n Automatic Missing Key Tests
-describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', () => {
+// i18n-node Automatic Missing Key Tests
+describe.skipIf(!hasApi)('E2E: i18n-node - Automatic missing key translation', () => {
     let autoTranslate: AutoTranslate;
     let i18n: I18n;
 
@@ -418,15 +418,15 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         i18n = new I18n({
             locales: ['en', 'de'],
             defaultLocale: 'en',
-            directory: NODE_I18N_LOCALES_PATH,
+            directory: I18N_NODE_LOCALES_PATH,
             objectNotation: true,
             updateFiles: false,
         });
 
         autoTranslate = new AutoTranslate({
-            backend: Backend.NODE_I18N,
+            backend: Backend.I18N_NODE,
             i18nInstance: i18n,
-            localesPath: NODE_I18N_LOCALES_PATH,
+            localesPath: I18N_NODE_LOCALES_PATH,
             defaultLanguage: 'en',
             translationProvider: {
                 provider: TranslationProvider.DEEPL,
@@ -442,7 +442,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
     afterAll(async () => {
         await autoTranslate?.dispose();
         // Clean up test-generated keys
-        const filePath = path.join(NODE_I18N_LOCALES_PATH, 'de.json');
+        const filePath = path.join(I18N_NODE_LOCALES_PATH, 'de.json');
         if (fs.existsSync(filePath)) {
             const data = readJsonFile(filePath);
             delete data['helloWorld'];
@@ -453,7 +453,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
 
     afterEach(() => vi.restoreAllMocks());
 
-    it('should automatically translate when node-i18n encounters a missing key', async () => {
+    it('should automatically translate when i18n-node encounters a missing key', async () => {
         const httpSpy = vi.spyOn(http, 'post');
 
         // Set locale to German
@@ -469,14 +469,14 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         const duration = Date.now() - startTime;
 
         // Verify the translations were saved to the file
-        const savedData = readJsonFile(path.join(NODE_I18N_LOCALES_PATH, 'de.json'));
+        const savedData = readJsonFile(path.join(I18N_NODE_LOCALES_PATH, 'de.json'));
         expect(savedData['helloWorld']).toBeDefined();
         expect(savedData['helloWorld']).not.toBe('helloWorld');
         expect(savedData['thankYou']).toBeDefined();
         expect(savedData['thankYou']).not.toBe('thankYou');
 
         // And that the running instance serves them, not just the file on disk.
-        // Asserting only on the file lets a write-back that node-i18n never sees
+        // Asserting only on the file lets a write-back that i18n-node never sees
         // pass — which is exactly what happened.
         expect(i18n.__('helloWorld')).toBe(savedData['helloWorld']);
         expect(i18n.__('thankYou')).toBe(savedData['thankYou']);
@@ -485,7 +485,7 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         expect(httpSpy).toHaveBeenCalledTimes(1);
 
         console.log(
-            `node-i18n: Auto-translated 2 missing keys in ${duration}ms:`,
+            `i18n-node: Auto-translated 2 missing keys in ${duration}ms:`,
             savedData['helloWorld'],
             savedData['thankYou']
         );
@@ -509,16 +509,16 @@ describe.skipIf(!hasApi)('E2E: node-i18n - Automatic missing key translation', (
         const duration = Date.now() - startTime;
 
         // Verify translation was created
-        const savedData = readJsonFile(path.join(NODE_I18N_LOCALES_PATH, 'de.json'));
+        const savedData = readJsonFile(path.join(I18N_NODE_LOCALES_PATH, 'de.json'));
         expect(savedData['welcomeBack']).toBeDefined();
         expect(savedData['welcomeBack']).not.toBe('welcomeBack');
 
-        console.log(`node-i18n: Language switch translation in ${duration}ms:`, savedData['welcomeBack']);
+        console.log(`i18n-node: Language switch translation in ${duration}ms:`, savedData['welcomeBack']);
         httpSpy.mockRestore();
 
         // Clean up
         delete savedData['welcomeBack'];
-        writeJsonFile(path.join(NODE_I18N_LOCALES_PATH, 'de.json'), savedData, true);
+        writeJsonFile(path.join(I18N_NODE_LOCALES_PATH, 'de.json'), savedData, true);
     }, 30000);
 
     it('should not call API for subsequent requests of the same missing key', async () => {

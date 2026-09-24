@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createBackendAdapter } from '@/adapters';
 import { createTranslationService } from '@/translators';
 import { I18nextAdapter } from '@/adapters/i18nextAdapter';
-import { NodeI18nAdapter } from '@/adapters/nodeI18nAdapter';
+import { I18nNodeAdapter } from '@/adapters/i18nNodeAdapter';
 import { LibreTranslateService } from '@/translators/libreTranslate';
 import { DeepLService } from '@/translators/deepl';
 import { Backend, TranslationProvider } from '@/types';
@@ -15,9 +15,9 @@ describe('Factory Functions', () => {
             expect(adapter).toBeInstanceOf(I18nextAdapter);
         });
 
-        it('should create NodeI18nAdapter for NODE_I18N backend', () => {
-            const adapter = createBackendAdapter(Backend.NODE_I18N);
-            expect(adapter).toBeInstanceOf(NodeI18nAdapter);
+        it('should create I18nNodeAdapter for I18N_NODE backend', () => {
+            const adapter = createBackendAdapter(Backend.I18N_NODE);
+            expect(adapter).toBeInstanceOf(I18nNodeAdapter);
         });
 
         it('should throw ConfigurationError for unknown backend', () => {
@@ -28,6 +28,15 @@ describe('Factory Functions', () => {
             expect(() => {
                 createBackendAdapter('unknown' as Backend);
             }).toThrow('Unknown backend: unknown');
+        });
+
+        // 0.1.0's spelling of this backend. It is not an enum member any more, so
+        // TypeScript stops a stale reference at compile time and only the bare
+        // string reaches here — with the message the 0.1.1 changelog promises.
+        it('should name the backend that 0.1.0 called node-i18n in the error', () => {
+            expect(() => {
+                createBackendAdapter('node-i18n' as Backend);
+            }).toThrow('Unknown backend: node-i18n');
         });
 
         it('should throw ConfigurationError for null backend', () => {

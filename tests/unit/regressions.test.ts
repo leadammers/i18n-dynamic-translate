@@ -1,17 +1,21 @@
 /**
  * Regression tests for bugs found in review. Each block is named after the
- * finding it came from; the 2026-09-21 ones are in docs/reviews/2026-09-21_full.md.
+ * finding it came from; the 2026-09-21 ones are in docs/reviews/2026-09-21_full.md,
+ * and the CR-* ones are CodeRabbit findings, traceable to the pull request named
+ * in the block.
  */
 
+import * as path from 'path';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
 import { Backend, LocaleData, StorageAdapter, TranslationProvider } from '@/types';
-import { NodeI18nAdapter } from '@/adapters/nodeI18nAdapter';
+import { I18nNodeAdapter } from '@/adapters/i18nNodeAdapter';
 import { getNestedValue, setNestedValue } from '@/utils/objectPath';
 import { MemoryCache } from '@/utils/cache';
 import { LibreTranslateService } from '@/translators/libreTranslate';
 import { DeepLService } from '@/translators/deepl';
-import { BackendError, TranslationError } from '@/utils/errors';
+import { BackendError, FileSystemError, TranslationError } from '@/utils/errors';
+import { getLocaleFilePath } from '@/utils/fileHandler';
 import { http } from '@/utils/http';
 
 const translateBatch = vi.fn((texts: string[]) => Promise.resolve(texts.map((text: string) => `X(${text})`)));
@@ -277,7 +281,7 @@ describe('review regressions', () => {
                     saved.push(key);
                 },
             };
-            const nodeI18n = {
+            const i18nNode = {
                 __: vi.fn((phrase: string) => phrase),
                 __n: vi.fn((singular: string) => singular),
                 getLocale: vi.fn(() => 'de'),
@@ -288,8 +292,8 @@ describe('review regressions', () => {
                 configure: vi.fn(),
             };
             const instance = new AutoTranslate(
-                createConfig(nodeI18n, {
-                    backend: Backend.NODE_I18N,
+                createConfig(i18nNode, {
+                    backend: Backend.I18N_NODE,
                     mode: 'production',
                     allowedNamespaces: ['products.meta'],
                     autoSave: true,
@@ -297,8 +301,8 @@ describe('review regressions', () => {
                 })
             );
 
-            nodeI18n.__('products.meta.carrier');
-            nodeI18n.__('legal.imprint');
+            i18nNode.__('products.meta.carrier');
+            i18nNode.__('legal.imprint');
             await instance.waitForPendingTranslations(2000);
 
             expect(saved).toEqual(['products.meta.carrier']);
@@ -525,8 +529,8 @@ describe('review regressions', () => {
         function createAdapter(
             overrides: Record<string, unknown>,
             locales: Record<string, LocaleData> = {}
-        ): NodeI18nAdapter {
-            const adapter = new NodeI18nAdapter();
+        ): I18nNodeAdapter {
+            const adapter = new I18nNodeAdapter();
             adapter.initialize(
                 {
                     getLocales: (): string[] => Object.keys(locales),
@@ -544,7 +548,7 @@ describe('review regressions', () => {
                     __: (phrase: string) => phrase,
                     __n: (singular: string) => singular,
                 },
-                { ...createConfig(createMockI18next()), backend: Backend.NODE_I18N, ...overrides }
+                { ...createConfig(createMockI18next()), backend: Backend.I18N_NODE, ...overrides }
             );
             return adapter;
         }
@@ -614,7 +618,7 @@ describe('review regressions', () => {
             expect(catalog).toEqual({ products: { meta: { carrier: 'Carrier', weight: 'Weight' } } });
         });
 
-        it('says so when node-i18n will not register the locale', () => {
+        it('says so when i18n-node will not register the locale', () => {
             // `locale` selects a catalog rather than indexing anything this library
             // owns, so there is no locale hardening here left to prove — the whole
             // assertion is that a name upstream refuses to hold is reported by name
@@ -680,7 +684,7 @@ describe('review regressions', () => {
         // `updateTranslation` used to take the file write and the cache entry with
         // it, so a provider call that had already been paid for was lost entirely —
         // on `updateFiles: false`, the configuration the README recommends.
-        function createRefusingNodeI18n() {
+        function createRefusingI18nNode() {
             return {
                 __: vi.fn((phrase: string) => phrase),
                 __n: vi.fn((singular: string) => singular),
@@ -703,8 +707,8 @@ describe('review regressions', () => {
             };
             const onError = vi.fn();
             const instance = new AutoTranslate(
-                createConfig(createRefusingNodeI18n(), {
-                    backend: Backend.NODE_I18N,
+                createConfig(createRefusingI18nNode(), {
+                    backend: Backend.I18N_NODE,
                     autoSave: true,
                     storageAdapter,
                     onError,
@@ -728,10 +732,10 @@ describe('review regressions', () => {
                     saved.push(key);
                 },
             };
-            const nodeI18n = createRefusingNodeI18n();
+            const i18nNode = createRefusingI18nNode();
             const instance = new AutoTranslate(
-                createConfig(nodeI18n, {
-                    backend: Backend.NODE_I18N,
+                createConfig(i18nNode, {
+                    backend: Backend.I18N_NODE,
                     autoSave: true,
                     storageAdapter,
                     onError: vi.fn(),
@@ -951,6 +955,31 @@ describe('review regressions', () => {
             expect(result).toEqual({ greeting: 'X(Greeting)' });
             expect(i18next.addResource).toHaveBeenCalledWith('de', 'translation', 'greeting', 'X(Greeting)');
             await instance.dispose();
+        });
+    });
+
+    describe('CR-1 a locale that resolves to localesPath itself', () => {
+        // From CodeRabbit's review of PR #41. The path guard let the resolved base
+        // *equal* `localesPath`, and the extension is appended after the guard runs,
+        // so `'.'` turned `/locales` into `/locales.json` — a sibling of the locales
+        // directory rather than a file inside it. An empty locale, which `translateKey`
+        // does not reject, lands in the same place. A library that takes the locale from
+        // a request path or an `Accept-Language` header hands that string to this
+        // function unchanged.
+        it('rejects a locale that joins away to the base directory', async () => {
+            for (const locale of ['.', '']) {
+                await expect(getLocaleFilePath('/locales', locale)).rejects.toThrow(FileSystemError);
+                await expect(getLocaleFilePath('/locales', locale)).rejects.toThrow(/Path traversal detected/);
+            }
+        });
+
+        // The inverse: rejecting the base directory must not reject a real locale, with
+        // or without a namespace.
+        it('still resolves a locale inside localesPath', async () => {
+            await expect(getLocaleFilePath('/locales', 'en')).resolves.toBe(path.join('/locales', 'en.json'));
+            await expect(getLocaleFilePath('/locales', 'en', 'translation')).resolves.toBe(
+                path.join('/locales', 'en', 'translation.json')
+            );
         });
     });
 });

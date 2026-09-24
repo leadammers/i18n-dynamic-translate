@@ -1,0 +1,43 @@
+# Without this file Codecov applies its defaults, which do not fit how coverage is
+# gated here: `thresholds` in `vitest.config.ts` already fails the build on a drop,
+# and a second gate calibrated differently would go red on pull requests the build
+# passes. See docs/conventions/testing.md.
+coverage:
+  status:
+    # Overall coverage, against the base commit. A real status, not informational:
+    # a change that drops project coverage should have to say so. `threshold` is
+    # what keeps it from being a tripwire — bare `auto` fails on any dip, including
+    # the fraction of a percent a behaviour-preserving refactor moves.
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
+
+    # Coverage of the lines this pull request adds. This one stays a real status:
+    # new code being tested is the thing worth holding to, and it is not something
+    # a project-wide floor can express.
+    patch:
+      default:
+        target: auto
+
+    # Coverage that moved in files the diff does not touch. Almost always an
+    # artifact of test ordering or a flaky timing test here, not a real regression.
+    changes: false
+
+# The comment is the coverage report for people reading the pull request: it states
+# where the project stands and what the diff did to it, on every pull request rather
+# than only the ones that move the number.
+comment:
+  # `diff` is the "@@ Coverage Diff @@" table — project and patch coverage with the
+  # delta. Without it the comment says only whether the new lines are covered.
+  layout: condensed_header, diff, condensed_files, condensed_footer
+  hide_project_coverage: false
+  # Update the existing comment instead of adding one per push.
+  behavior: default
+  # Post even when coverage is unchanged. A pull request that touches no source file
+  # still gets the current number, which is the point of having it on the page.
+  require_changes: false
+  # And post before the base commit has a report of its own — a branch cut from a
+  # commit that never ran the coverage job would otherwise stay silent.
+  require_base: false
+  require_head: true

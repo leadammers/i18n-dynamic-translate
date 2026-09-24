@@ -25,11 +25,28 @@ so in the changelog entry rather than silently shipping them.
 
 Nothing reaches npm until all of these pass:
 
+- `npm --version` is at least 11.5.1, which is what trusted publishing needs. `node-version: 24`
+  resolves well past the 24.5.0 that first bundled it, so the check is a guard against a confusing
+  failure rather than a live constraint: npm too old to use a trusted publisher reports a generic
+  "need auth" that reads as a broken publisher setup.
 - `npm audit --omit=dev --audit-level=high` — the runtime dependency surface must be clean.
 - `npm run build`, `npm test`, and the path-alias leak check on `dist/`.
 - **The version in `package.json` must equal the release tag**, so tagging `v1.2.3` against a
   `1.2.2` manifest fails the job instead of publishing the wrong version.
-- `npm publish --provenance --access public`, which attests the build back to this repo and commit.
+- `npm publish`, authenticated over OIDC as the package's **trusted publisher**. npmjs.com pins
+  that right to this repository and to the filename `publish.yml`, so no npm credential exists
+  here to leak and no other workflow in this repository can publish over OIDC. It does not by
+  itself stop a token from publishing: npm removed classic tokens in November 2025, but a granular
+  access token created with "bypass 2FA" still publishes non-interactively. Closing that door is
+  the package setting **"Require two-factor authentication and disallow tokens"** under Publishing
+  access on npmjs.com, which refuses granular tokens whatever their bypass flag says and leaves
+  trusted publishing working, since OIDC is not token auth. That is a registry setting and not
+  visible from this repository, so whether it is on has to be checked there. The provenance
+  attestation, which ties the tarball back to this repository and commit, is minted from the same
+  token — hence no `--provenance` flag. `--access public` is gone too; `publishConfig.access` already says it.
+  The job runs with `package-manager-cache: false`, because a poisoned dependency cache would run
+  attacker-controlled code in the one job holding a token npm accepts as this package's publisher.
+  CI's jobs keep their cache; they have nothing to spend.
 
 `prepublishOnly` re-runs typecheck, build and tests, so a manual publish attempt still gates — it
 just lacks provenance and the tag check.
