@@ -59,7 +59,7 @@ correct result, not a compromise.
 
 The same rule reaches `locale`, not only `key`. In the i18n-node adapter, `locale` selects a
 catalog rather than indexing one of this library's own objects: `resolveCatalog`
-(`src/adapters/nodeI18nAdapter.ts:205`) asks i18n-node's own `getCatalog(locale)` for the
+(`src/adapters/i18nNodeAdapter.ts:205`) asks i18n-node's own `getCatalog(locale)` for the
 backend's registry entry and never builds a registry of its own. i18n-node's own guarded
 assignment finds the inherited `__proto__` accessor and declines to register such a locale, so
 `resolveCatalog` re-checks `i18n.getLocales().includes(locale)` after attempting to add it and

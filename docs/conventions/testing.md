@@ -43,7 +43,7 @@
 ## Rules
 
 - **A mock is a claim about someone else's contract, and it has to be checked against the
-  real package.** `createMockNodeI18n` used to expose a `catalog` property and answer an
+  real package.** `createMockI18nNode` used to expose a `catalog` property and answer an
   unknown locale with a fresh `{}`. The real `i18n` has neither — the registry is closed over
   in the constructor and `getCatalog` returns the live entry or `false` — so every write the
   adapter made went into an object nothing read, and the suite was green. Model the surface
