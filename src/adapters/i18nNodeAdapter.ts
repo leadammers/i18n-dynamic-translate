@@ -1,20 +1,20 @@
 /**
- * Node.js i18n Backend Adapter
- * Integrates AutoTranslate with node-i18n
+ * i18n-node Backend Adapter
+ * Integrates AutoTranslate with i18n-node
  */
 
 import { BackendAdapter, MissingKeyCallback, AutoTranslateConfig, LocaleData } from '@/types';
 import { BackendError } from '@/utils/errors';
 import { getNestedValue, getOwnProperty, setNestedValue, setOwnProperty } from '@/utils/objectPath';
 
-// Type for node-i18n instance (minimal interface)
-interface NodeI18nInstance {
+// Type for an i18n-node instance (minimal interface)
+interface I18nNodeInstance {
     __: (phrase: string, ...args: unknown[]) => string;
     __n: (singular: string, plural: string, count: number, ...args: unknown[]) => string;
     getLocale: () => string;
     setLocale: (locale: string) => void;
     getLocales: () => string[];
-    // The live registry entry, or `false` for a locale node-i18n never registered.
+    // The live registry entry, or `false` for a locale i18n-node never registered.
     // Nested when `objectNotation` is on, flat otherwise — `LocaleData` covers both.
     getCatalog: (locale: string) => LocaleData | false | undefined;
     addLocale: (locale: string) => void;
@@ -22,8 +22,8 @@ interface NodeI18nInstance {
     options?: Record<string, unknown>;
 }
 
-export class NodeI18nAdapter implements BackendAdapter {
-    private i18n?: NodeI18nInstance;
+export class I18nNodeAdapter implements BackendAdapter {
+    private i18n?: I18nNodeInstance;
     private config?: AutoTranslateConfig;
     private missingKeyCallback?: MissingKeyCallback;
     private initialized: boolean = false;
@@ -31,11 +31,11 @@ export class NodeI18nAdapter implements BackendAdapter {
     private original__n?: (singular: string, plural: string, count: number, ...args: unknown[]) => string;
 
     /**
-     * Initialize the adapter with node-i18n instance
+     * Initialize the adapter with an i18n-node instance
      */
     initialize(instance: unknown, config: AutoTranslateConfig): void {
         if (!instance) {
-            throw new BackendError('node-i18n instance is required', 'node-i18n');
+            throw new BackendError('i18n-node instance is required', 'i18n-node');
         }
 
         // Prevent double initialization (method override stacking)
@@ -43,16 +43,16 @@ export class NodeI18nAdapter implements BackendAdapter {
             return;
         }
 
-        this.i18n = instance as NodeI18nInstance;
+        this.i18n = instance as I18nNodeInstance;
         this.config = config;
         this.initialized = true;
 
-        // Hook into node-i18n missing key handler
+        // Hook into the i18n-node missing key handler
         this.setupMissingKeyHandler();
     }
 
     /**
-     * Setup missing key handler for node-i18n
+     * Setup missing key handler for i18n-node
      */
     private setupMissingKeyHandler(): void {
         if (!this.i18n) return;
@@ -70,7 +70,7 @@ export class NodeI18nAdapter implements BackendAdapter {
             const locale = i18n.getLocale();
             const translation = original__(phrase, ...args);
 
-            // node-i18n returns the phrase itself when a translation is not found.
+            // i18n-node returns the phrase itself when a translation is not found.
             // Limitation: if a translation intentionally equals its key (e.g. "OK" -> "OK"),
             // this will produce a false positive and trigger an unnecessary API call.
             if (translation === phrase && this.missingKeyCallback) {
@@ -116,7 +116,7 @@ export class NodeI18nAdapter implements BackendAdapter {
     }
 
     /**
-     * Get a translation from node-i18n
+     * Get a translation from i18n-node
      */
     getTranslation(key: string, locale: string, _namespace?: string): string | null {
         if (!this.i18n) {
@@ -153,11 +153,11 @@ export class NodeI18nAdapter implements BackendAdapter {
     }
 
     /**
-     * Set a translation in node-i18n
+     * Set a translation in i18n-node
      */
     setTranslation(key: string, locale: string, value: string, _namespace?: string): void {
         if (!this.i18n) {
-            throw new BackendError('node-i18n adapter not initialized', 'node-i18n');
+            throw new BackendError('i18n-node adapter not initialized', 'i18n-node');
         }
 
         try {
@@ -179,14 +179,14 @@ export class NodeI18nAdapter implements BackendAdapter {
             }
 
             throw new BackendError(
-                `Failed to set translation in node-i18n: ${error instanceof Error ? error.message : String(error)}`,
-                'node-i18n'
+                `Failed to set translation in i18n-node: ${error instanceof Error ? error.message : String(error)}`,
+                'i18n-node'
             );
         }
     }
 
     /**
-     * Get the live catalog object node-i18n reads translations out of.
+     * Get the live catalog object i18n-node reads translations out of.
      *
      * There is exactly one way in: `getCatalog(locale)` returns the registry entry
      * itself, so a write into it is what `__()` sees. An instance exposes no
@@ -199,14 +199,14 @@ export class NodeI18nAdapter implements BackendAdapter {
      * it, and it registers the locale only if it can read `<locale>.json` or
      * `updateFiles` lets it create one — this runs before autoSave writes, so on
      * the first key of a new locale that file does not exist yet. When nothing
-     * registers, node-i18n offers no further entrance, and saying so beats
+     * registers, i18n-node offers no further entrance, and saying so beats
      * dropping the translation in silence.
      */
-    private resolveCatalog(i18n: NodeI18nInstance, locale: string): LocaleData {
+    private resolveCatalog(i18n: I18nNodeInstance, locale: string): LocaleData {
         // `getCatalog('')` hands back the whole registry rather than one entry, so
-        // an empty locale would write a key straight into node-i18n's locale map.
+        // an empty locale would write a key straight into i18n-node's locale map.
         if (!locale) {
-            throw new BackendError('node-i18n locale must be a non-empty string', 'node-i18n');
+            throw new BackendError('i18n-node locale must be a non-empty string', 'i18n-node');
         }
 
         if (!i18n.getLocales().includes(locale)) {
@@ -218,15 +218,15 @@ export class NodeI18nAdapter implements BackendAdapter {
         // otherwise have its translations written into a neighbour's catalog.
         if (!i18n.getLocales().includes(locale)) {
             throw new BackendError(
-                `node-i18n has no catalog for locale "${locale}" and would not register one. ` +
+                `i18n-node has no catalog for locale "${locale}" and would not register one. ` +
                     `Add it to configure({ locales: [...] }).`,
-                'node-i18n'
+                'i18n-node'
             );
         }
 
         const catalog = i18n.getCatalog(locale);
         if (typeof catalog !== 'object' || catalog === null) {
-            throw new BackendError(`node-i18n returned no catalog for locale "${locale}"`, 'node-i18n');
+            throw new BackendError(`i18n-node returned no catalog for locale "${locale}"`, 'i18n-node');
         }
 
         return catalog;

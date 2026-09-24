@@ -43,10 +43,10 @@ function createMockI18next() {
     };
 }
 
-// Mock node-i18n instance
+// Mock i18n-node instance
 // Mirrors the real `i18n` contract: no `catalog` property, and `getCatalog`
-// hands out the live object or `false`. See the note in nodeI18nAdapter.test.ts.
-function createMockNodeI18n() {
+// hands out the live object or `false`. See the note in i18nNodeAdapter.test.ts.
+function createMockI18nNode() {
     const locales: Record<string, Record<string, string>> = {
         en: { hello: 'Hello' },
         de: {},
@@ -344,13 +344,13 @@ describe('AutoTranslate', () => {
             await instance.dispose();
         });
 
-        it('should work with node-i18n backend', async () => {
-            const mockNodeI18n = createMockNodeI18n();
-            const config = createValidConfig(mockNodeI18n, Backend.NODE_I18N);
+        it('should work with i18n-node backend', async () => {
+            const mockI18nNode = createMockI18nNode();
+            const config = createValidConfig(mockI18nNode, Backend.I18N_NODE);
 
             expect(() => new AutoTranslate(config)).not.toThrow();
             const instance = new AutoTranslate(config);
-            expect(instance.getConfig().backend).toBe(Backend.NODE_I18N);
+            expect(instance.getConfig().backend).toBe(Backend.I18N_NODE);
 
             await instance.dispose();
         });

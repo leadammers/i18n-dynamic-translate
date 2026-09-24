@@ -1,11 +1,11 @@
 # Testing Conventions
 
-| Layer | Choice |
-|---|---|
-| Runner | Vitest 4 (`vitest run`) |
-| Layout | `tests/unit/` (mocked, always run) · `tests/e2e/` (real provider, opt-in) |
-| Aliases | `@/*` → `src/*`, `@tests/*` → `tests/*` (see `vitest.config.ts`) |
-| Typecheck | `tests/tsconfig.json`, run by `npm run typecheck` and in CI |
+| Layer     | Choice                                                                    |
+| --------- | ------------------------------------------------------------------------- |
+| Runner    | Vitest 4 (`vitest run`)                                                   |
+| Layout    | `tests/unit/` (mocked, always run) · `tests/e2e/` (real provider, opt-in) |
+| Aliases   | `@/*` → `src/*`, `@tests/*` → `tests/*` (see `vitest.config.ts`)          |
+| Typecheck | `tests/tsconfig.json`, run by `npm run typecheck` and in CI               |
 
 ## Layout
 
@@ -13,14 +13,14 @@
   (`cache.test.ts` covers `src/utils/cache.ts`). Everything external is mocked; these run
   everywhere, including CI, with no credentials.
 - `tests/unit/regressions.test.ts` — one `describe` block per review finding ID
-  (`C-1 cache identity`, `C-2 dispose`, …). See *Regression tests* below.
+  (`C-1 cache identity`, `C-2 dispose`, …). See _Regression tests_ below.
 - `tests/unit/errorFlow.test.ts` — the path a provider failure takes out of the library: real
   translator, real `AutoTranslate`, only `http.post` stubbed. The per-module suites cover the same
   failures a layer at a time (`http.test.ts` the retries, `translators.test.ts` the
   status-to-message mapping); what is only observable end to end is that the sanitized message
   reaches `onError` intact, once per key, with the instance still usable afterwards.
 - `tests/unit/publicApi.test.ts` — asserts the runtime half of `src/index.ts`, which critical
-  rule 1 freezes. `tools/compat/consumer.ts` type-checks the exported *types*; this checks that
+  rule 1 freezes. `tools/compat/consumer.ts` type-checks the exported _types_; this checks that
   each value is still exported and that nothing new appeared. An accidental export is the
   expensive mistake — removing it afterwards is a breaking change.
 - `tests/e2e/deepl.test.ts` — hits the real DeepL API. **Skipped automatically when
@@ -30,29 +30,32 @@
   needs no credentials, only a server. **Skipped automatically when `LIBRETRANSLATE_URL` is
   unset**, which is how CI runs it. Run locally with:
 
-  ```bash
-  docker run --rm -p 5555:5000 -e LT_LOAD_ONLY=en,de libretranslate/libretranslate
-  LIBRETRANSLATE_URL=http://127.0.0.1:5555/translate npm run test:libre-e2e
-  ```
+    ```bash
+    docker run --rm -p 5555:5000 -e LT_LOAD_ONLY=en,de libretranslate/libretranslate
+    LIBRETRANSLATE_URL=http://127.0.0.1:5555/translate npm run test:libre-e2e
+    ```
 
-  `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses.
-- `tests/fixtures/` — committed input locale files. The e2e suite *writes* into
-  `tests/fixtures/node-i18n-locales/<locale>/`; those output directories are gitignored and
-  must never be committed.
+    `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses.
+
+- `tests/fixtures/` — committed input locale files. The e2e suite _writes into those committed
+  files_: `tests/fixtures/i18n-node-locales/<locale>.json` is both the input i18n-node reads and
+  the file autoSave appends to. Each suite deletes its own keys again in `afterAll`, so a run that
+  completes leaves the tree unchanged — but a run that dies partway leaves generated keys in a
+  tracked file. Check `git status` after an aborted e2e run and restore the fixtures.
 
 ## Rules
 
 - **A mock is a claim about someone else's contract, and it has to be checked against the
-  real package.** `createMockNodeI18n` used to expose a `catalog` property and answer an
+  real package.** `createMockI18nNode` used to expose a `catalog` property and answer an
   unknown locale with a fresh `{}`. The real `i18n` has neither — the registry is closed over
   in the constructor and `getCatalog` returns the live entry or `false` — so every write the
   adapter made went into an object nothing read, and the suite was green. Model the surface
   you actually call, including its failure returns.
-- **Assert on what the consumer observes.** The node-i18n e2e checked the persisted file and
+- **Assert on what the consumer observes.** The i18n-node e2e checked the persisted file and
   not `i18n.__()`, so a backend that never served a translation still passed. Whatever the
-  library promises to update — the live instance *and* the file — is what the test reads back.
+  library promises to update — the live instance _and_ the file — is what the test reads back.
 - **A provider contract is only observable against a real server.** Unit tests mock `http`,
-  so they assert the payload we *believe* the API takes — a wrong belief passes. Every
+  so they assert the payload we _believe_ the API takes — a wrong belief passes. Every
   provider therefore gets an e2e suite against a live instance before it is called supported.
   LibreTranslate's array batching was found exactly this way; the mocked test had encoded the
   opposite assumption and was green.
@@ -65,7 +68,7 @@
 - **Always `await instance.dispose()`** at the end of a test that constructs an `AutoTranslate`.
   It stops the cache sweeper and the batch timer; leaking them makes later tests flaky and can
   hang the run.
-- Pass `onError: (): void => {}` in the config when a test *expects* failures, so the suite output
+- Pass `onError: (): void => {}` in the config when a test _expects_ failures, so the suite output
   stays readable instead of filling with stack traces.
 - Explicit types on callback parameters here too — `tests/tsconfig.json` is type-checked in CI,
   so a test file is held to the same standard as `src/`. See
@@ -123,7 +126,7 @@ Findings from a code review become permanent tests, not just a fixed line:
 1. Reproduce the bug in a failing test **before** fixing it.
 2. Keep it in `tests/unit/regressions.test.ts` under a `describe` named for the finding ID, so the
    test and the review entry stay traceable to each other.
-3. Add the *inverse* assertion where the fix could over-correct — e.g. C-1 checks both that two
+3. Add the _inverse_ assertion where the fix could over-correct — e.g. C-1 checks both that two
    namespaces stay isolated **and** that a genuine repeat lookup still hits the cache.
 
 ## Timing-sensitive tests

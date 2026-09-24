@@ -1,7 +1,7 @@
 /**
  * AutoTranslate - Automatic Translation Library for i18n
  *
- * Supports i18next and Node.js i18n backends with automatic translation
+ * Supports i18next and i18n-node backends with automatic translation
  * using LibreTranslate or DeepL.
  *
  * @packageDocumentation

@@ -21,6 +21,30 @@ const PUBLIC_RUNTIME_EXPORTS = [
     'TranslationProvider',
 ] as const;
 
+// The enum *members* are as much of the frozen surface as the enum names, and the
+// string each one carries is what reaches a consumer's config, a `BackendError.backend`
+// tag and their locale files. 0.1.1 removed `Backend.NODE_I18N` deliberately — see
+// docs/decisions/005-the-i18n-node-name.md — and nothing but `tsc` over this repo's own
+// usages noticed. This table is what notices next time.
+const PUBLIC_ENUM_MEMBERS: Record<string, Record<string, string>> = {
+    Backend: {
+        I18NEXT: 'i18next',
+        I18N_NODE: 'i18n-node',
+    },
+    TranslationProvider: {
+        LIBRE_TRANSLATE: 'libretranslate',
+        DEEPL: 'deepl',
+    },
+    FileFormat: {
+        JSON: 'json',
+        YAML: 'yaml',
+    },
+    DeepLModelType: {
+        LATENCY: 'latency_optimized',
+        QUALITY: 'prefer_quality_optimized',
+    },
+};
+
 describe('public API surface', () => {
     it('exports every documented runtime value', () => {
         for (const name of PUBLIC_RUNTIME_EXPORTS) {
@@ -39,6 +63,17 @@ describe('public API surface', () => {
             .sort();
 
         expect(runtimeExports).toEqual([...PUBLIC_RUNTIME_EXPORTS]);
+    });
+
+    it('pins every enum member and the string it carries', () => {
+        for (const [enumName, expectedMembers] of Object.entries(PUBLIC_ENUM_MEMBERS)) {
+            const actual = publicApi[enumName as keyof typeof publicApi] as unknown as Record<string, string>;
+
+            // Compared as a whole object rather than member by member, so a member
+            // that was *added* fails here too: adding one is cheap to do by accident
+            // and expensive to take back.
+            expect(actual, `${enumName} changed its members`).toEqual(expectedMembers);
+        }
     });
 
     it('exports the error classes as a hierarchy consumers can branch on', () => {

@@ -22,7 +22,7 @@ declarations compile under TypeScript 5.0 and later, so consumers are not forced
         ┌──────────────┐   missing-key hook   ┌──────────────────┐
         │ BackendAdapter│◄────────────────────►│  AutoTranslate   │
         │ i18next       │   setTranslation()   │  (orchestrator)  │
-        │ node-i18n     │                      └────────┬─────────┘
+        │ i18n-node     │                      └────────┬─────────┘
         └──────────────┘                                │
                                     debounced batch ────┤
                                                         ▼
@@ -41,7 +41,7 @@ factory — not special-casing `AutoTranslate`.
 |---|---|
 | `src/index.ts` | the entire public API surface — class, types/enums, error classes |
 | `src/core/AutoTranslate.ts` | orchestration: batching, caching, dispatch, persistence, lifecycle |
-| `src/adapters/` | i18next and node-i18n integration |
+| `src/adapters/` | i18next and i18n-node integration |
 | `src/translators/` | DeepL and LibreTranslate |
 | `src/storage/` | `FileStorageAdapter`, the default persistence |
 | `src/types/` | shared interfaces, config types, enums |
@@ -67,14 +67,16 @@ replaces any user- or team-level TypeScript convention. Do not apply both.
 
 [docs/decisions/](docs/decisions/) holds this repo's ADRs — settled decisions on the frozen public
 surface: keys as data (`001-keys-are-data.md`), the open i18next peer range
-(`002-open-peer-range.md`), the cache identity contract (`003-cache-identity.md`) and the
-sync-or-promise cache widening scheduled for 0.2.0 (`004-async-cache.md`).
+(`002-open-peer-range.md`), the cache identity contract (`003-cache-identity.md`), the
+sync-or-promise cache widening scheduled for 0.2.0 (`004-async-cache.md`) and the i18n-node rename
+(`005-the-i18n-node-name.md`).
 
 ## Critical rules
 
 1. **`src/index.ts` is the public API.** Anything exported there is frozen for the rest of the
    current minor — while the version is below 1.0.0 semver allows a breaking change in a minor
-   bump, and after 1.0.0 it takes a major one.
+   bump, and after 1.0.0 it takes a major one. Breaking it sooner takes an ADR that says why;
+   0.1.1 did exactly that once, in [005](docs/decisions/005-the-i18n-node-name.md).
    Utilities stay internal — do not export one for convenience.
 2. **`dependencies` stays empty.** Optional functionality goes behind a lazy `import()` and an
    optional peer dependency.

@@ -5,7 +5,7 @@
 
 import { BackendAdapter, Backend } from '@/types';
 import { I18nextAdapter } from '@/adapters/i18nextAdapter';
-import { NodeI18nAdapter } from '@/adapters/nodeI18nAdapter';
+import { I18nNodeAdapter } from '@/adapters/i18nNodeAdapter';
 import { ConfigurationError } from '@/utils/errors';
 
 /**
@@ -16,8 +16,8 @@ export function createBackendAdapter(backend: Backend): BackendAdapter {
         case Backend.I18NEXT:
             return new I18nextAdapter();
 
-        case Backend.NODE_I18N:
-            return new NodeI18nAdapter();
+        case Backend.I18N_NODE:
+            return new I18nNodeAdapter();
 
         default:
             throw new ConfigurationError(`Unknown backend: ${backend}`);

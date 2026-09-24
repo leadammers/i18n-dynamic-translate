@@ -205,7 +205,7 @@ describe('FileHandler', () => {
     });
 
     describe('getLocaleFilePath', () => {
-        it('should generate path for node-i18n style (no namespace)', async () => {
+        it('should generate path for i18n-node style (no namespace)', async () => {
             const result = await getLocaleFilePath('/locales', 'en');
             expect(result).toBe(path.join('/locales', 'en.json'));
         });

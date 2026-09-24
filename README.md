@@ -6,7 +6,7 @@
 
 **DynamicTranslate** (`i18n-dynamic-translate`) fills missing i18n keys **at runtime** — the moment
 your application asks for a key that is not in the locale file. It hooks the missing-key handler of
-i18next or node-i18n, translates through DeepL or LibreTranslate, writes the result back into the
+i18next or i18n-node, translates through DeepL or LibreTranslate, writes the result back into the
 live i18n instance and persists it to your locale files. Built for dynamic content — API metadata,
 product attributes, category trees — whose key set is not known at build time.
 
@@ -23,6 +23,24 @@ already listed in it — if your keys are known when you build, use one of those
 Reach for this when the set of keys cannot be known ahead of time: API metadata, product
 attributes, category trees, anything data-driven.
 
+### What it replaces
+
+The work it takes off your hands, concretely:
+
+- **Hand-adding a key to every locale file** each time the data behind it changes. For keys that
+  come out of a database or an upstream API that loop never ends: a new carrier, a new attribute,
+  a new category — and the same edit again in every language you ship.
+- **The export → translate → re-import round trip** for strings nobody was ever going to review by
+  hand: a carrier name, an attribute label, a unit.
+- **The script someone runs after a deploy** to walk the locale files and fill the gaps — and the
+  locale files that quietly go stale on the day nobody runs it.
+- **Raw keys reaching users.** `products.meta.carrier`, or an English fallback in front of a German
+  visitor, because that one entry does not exist yet.
+
+It does not replace a translator. What it replaces is the mechanical half: getting a usable string
+in place without a deploy, and into your locale file where a human can correct it later. See
+[Honest limits](#honest-limits) for what that costs.
+
 ### Alternatives
 
 - **[locize](https://locize.com)** — the managed service from the i18next authors. It covers the
@@ -34,8 +52,13 @@ attributes, category trees, anything data-driven.
 
 ### Honest limits
 
-- **Translation is asynchronous.** The request that first encounters a missing key gets the
-  fallback. The translation is written to the locale file and served from the next request on.
+- **Only the passive path serves a fallback.** `t()` and `__()` are synchronous in both backends, so
+  a key that first surfaces through the missing-key hook hands that one caller the fallback; the
+  translation reaches the live instance and the locale file moments later and is served from then
+  on. When you know what you are about to render — API metadata, product attributes, a category
+  tree — `await translateKey(...)` or `await translateObject(...)` instead: both return the
+  translation and write it back on the way out, so the **first** response already carries it. See
+  [Translating API Metadata](#translating-api-metadata).
 - **Every genuinely new key costs a provider API call.** Cached and persisted keys do not.
 - **Machine translation of short UI fragments is often mediocre** without surrounding context.
   Use the `context` option and review what lands in your locale files.
@@ -44,7 +67,7 @@ attributes, category trees, anything data-driven.
 ## Features
 
 - 🚀 **Automatic translation** of missing i18n keys
-- 🔌 **Multiple backends** - Works with i18next and node-i18n
+- 🔌 **Multiple backends** - Works with i18next and i18n-node (the `i18n` package)
 - 🌐 **Multiple providers** - DeepL and LibreTranslate support
 - 🧠 **Context-aware translations** - Disambiguate meanings (e.g., "bank" → "Bank" (financial) vs "Ufer" (river) based on
   context)
@@ -65,7 +88,12 @@ attributes, category trees, anything data-driven.
   5.0, 5.9, 6 and 7 in CI, so the range is checked rather than claimed. `npm` enforces the Node
   floor from `engines`; there is no equivalent field for TypeScript, which is why it is a build
   step instead.
-- An i18next or node-i18n instance already configured. The peer range is `i18next >=23.0.0`, and
+- An i18next or i18n-node instance already configured. **i18n-node is the
+  [`i18n`](https://www.npmjs.com/package/i18n) package** — mashpie's
+  [i18n-node](https://github.com/mashpie/i18n-node), installed with `npm install i18n`, peer range
+  `^0.15.0`. Select it with `Backend.I18N_NODE`. 0.1.0 called it "node-i18n", which is an unrelated
+  npm package last published in 2022; `Backend.NODE_I18N` is gone — see
+  [005](docs/decisions/005-the-i18n-node-name.md). The peer range for i18next is `>=23.0.0`, and
   every release drives a real instance of majors 23, 24, 25 and 26 end to end from an installed
   tarball. The range stays open above that: the adapter uses four stable i18next entry points, and
   pinning an upper bound would make every new major look unsupported until this package released
@@ -84,7 +112,7 @@ npm install i18n-dynamic-translate
 ### Configuration
 
 ```typescript
-import {AutoTranslate, Backend, TranslationProvider} from 'i18n-dynamic-translate';
+import { AutoTranslate, Backend, TranslationProvider } from 'i18n-dynamic-translate';
 
 const autoTranslate = new AutoTranslate({
     backend: Backend.I18NEXT,
@@ -101,13 +129,13 @@ const autoTranslate = new AutoTranslate({
 <details><summary>All configuration options</summary>
 
 ```typescript
-import {AutoTranslate, Backend, TranslationProvider, FileFormat, DeepLModelType} from 'i18n-dynamic-translate';
+import { AutoTranslate, Backend, TranslationProvider, FileFormat, DeepLModelType } from 'i18n-dynamic-translate';
 
 const autoTranslate = new AutoTranslate({
     // ===== Required =====
 
     // Backend type - which i18n library you're using
-    backend: Backend.I18NEXT,           // or Backend.NODE_I18N
+    backend: Backend.I18NEXT, // or Backend.I18N_NODE
 
     // Your initialized i18n instance
     i18nInstance: i18next,
@@ -121,7 +149,7 @@ const autoTranslate = new AutoTranslate({
     // Translation provider configuration
     translationProvider: {
         // Which translation service to use
-        provider: TranslationProvider.DEEPL,    // or TranslationProvider.LIBRE_TRANSLATE
+        provider: TranslationProvider.DEEPL, // or TranslationProvider.LIBRE_TRANSLATE
 
         // API key for the translation service
         apiKey: process.env.DEEPL_API_KEY,
@@ -132,17 +160,17 @@ const autoTranslate = new AutoTranslate({
         // DeepL-specific options
         deeplOptions: {
             // Controls formal/informal tone
-            formality: 'prefer_more',           // 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less'
+            formality: 'prefer_more', // 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less'
 
             // Application context for better translations
             context: 'e-commerce',
 
             // How to split sentences
-            splitSentences: '1',                // '0' | '1' | 'nonewlines'
+            splitSentences: '1', // '0' | '1' | 'nonewlines'
 
             // Specifies which DeepL model should be used for translation, default is latency
-            modelType: DeepLModelType.QUALITY,  // 'QUALITY' | 'LATENCY'
-        }
+            modelType: DeepLModelType.QUALITY, // 'QUALITY' | 'LATENCY'
+        },
     },
 
     // ===== Optional =====
@@ -157,12 +185,12 @@ const autoTranslate = new AutoTranslate({
     maxConcurrency: 5,
 
     // File format for locale files (default: auto-detected from existing files)
-    fileFormat: FileFormat.JSON,        // or FileFormat.YAML
+    fileFormat: FileFormat.JSON, // or FileFormat.YAML
 
     // Default namespace for i18next (default: 'translation')
     defaultNamespace: 'translation',
 
-    // Use dot notation for nested keys in node-i18n (default: false)
+    // Use dot notation for nested keys in i18n-node (default: false)
     objectNotation: false,
 
     // Cache time-to-live in milliseconds (default: 86400000 = 24 hours)
@@ -237,13 +265,14 @@ This is useful for catching missing translations during development, as well as 
 over time when you already have source content in your default language.
 
 > **Configuration notes**
+>
 > - **i18next**: Set `saveMissing: true` to trigger the missing key handler, but i18next won't write files itself
-> - **node-i18n**: Set `updateFiles: false` to prevent node-i18n from writing files - DynamicTranslate handles all file
-    writes via `autoSave: true`
-> - **node-i18n**: List every target language in `configure({ locales: [...] })`. node-i18n only registers a locale from
-    its own file, so a language it has never seen cannot receive a translation in memory. DynamicTranslate reports that
-    through `onError` and still writes the locale file, so the translation is not lost — but `__()` will not serve it
-    until the locale is configured
+> - **i18n-node**: Set `updateFiles: false` to prevent i18n-node from writing files - DynamicTranslate handles all file
+>   writes via `autoSave: true`
+> - **i18n-node**: List every target language in `configure({ locales: [...] })`. i18n-node only registers a locale from
+>   its own file, so a language it has never seen cannot receive a translation in memory. DynamicTranslate reports that
+>   through `onError` and still writes the locale file, so the translation is not lost — but `__()` will not serve it
+>   until the locale is configured
 
 ### Translating API Metadata
 
@@ -260,27 +289,27 @@ const product = await fetchProduct();
 
 // Translate all keys in product.meta
 // context can be provided as optional parameter and will override global config for this call
-await autoTranslate.translateObject(product.meta, 'de', {parentKey: 'product.meta', context: 'e-commerce'});
+await autoTranslate.translateObject(product.meta, 'de', { parentKey: 'product.meta', context: 'e-commerce' });
 ```
 
-To generate translations in `locales/de/translation.json` (or `locales/de.json` for node-i18n):
+To generate translations in `locales/de/translation.json` (or `locales/de.json` for i18n-node):
 
 ```json
 {
-  "product": {
-    "meta": {
-      "carrier": "Spediteur",
-      "estimatedDelivery": "Geschätzte Lieferung"
+    "product": {
+        "meta": {
+            "carrier": "Spediteur",
+            "estimatedDelivery": "Geschätzte Lieferung"
+        }
     }
-  }
 }
 ```
 
 And use them in your UI, for example with React and react-i18next:
 
 ```tsx
-function ProductMeta({meta}) {
-    const {t} = useTranslation();
+function ProductMeta({ meta }) {
+    const { t } = useTranslation();
 
     return (
         <dl>
@@ -312,6 +341,7 @@ const autoTranslate = new AutoTranslate({
 ```
 
 In production mode:
+
 - The **automatic missing-key handler** only processes keys within `allowedNamespaces` — all others are silently skipped
 - **Explicit calls** (`translateKey()`, `translateObject()`) are never restricted and work for any namespace
 
@@ -363,8 +393,7 @@ const storageKey = (identity: TranslationIdentity): string =>
 const sqliteCache: TranslationCache = {
     get: (identity: TranslationIdentity): string | null => {
         const row = db.prepare('SELECT value FROM translations WHERE id = ?').get(storageKey(identity)) as
-            | { value: string }
-            | undefined;
+            { value: string } | undefined;
         return row?.value ?? null;
     },
     set: (identity: TranslationIdentity, value: string): void => {
@@ -409,7 +438,7 @@ Translates all keys in an object.
 await autoTranslate.translateObject(obj, 'de', {
     namespace: 'common',
     parentKey: 'myKey',
-    context: 'e-commerce'
+    context: 'e-commerce',
 });
 ```
 
@@ -442,7 +471,7 @@ Translates a single key.
 ```typescript
 await autoTranslate.translateKey('myKey', 'de', {
     parentKey: 'ui',
-    context: 'button label'
+    context: 'button label',
 });
 ```
 
@@ -495,12 +524,7 @@ await autoTranslate.dispose();
 DynamicTranslate provides specific error types for handling various failure scenarios:
 
 ```typescript
-import {
-    TranslationError,
-    BackendError,
-    FileSystemError,
-    ConfigurationError
-} from 'i18n-dynamic-translate';
+import { TranslationError, BackendError, FileSystemError, ConfigurationError } from 'i18n-dynamic-translate';
 
 try {
     await autoTranslate.translateKey('key', 'de');

@@ -35,7 +35,7 @@ outcomes, all of them lifecycle and error handling rather than translation logic
 - The missing-key callback rejecting: `reportError` routes to the consumer's `onError` when one
   is configured and falls back to `console.error` when none is. Both sides are untested, and
   this is the one place library code is allowed to touch the console.
-- node-i18n only: a catalog the instance reports as `false`, and `addLocale` for an unknown
+- i18n-node only: a catalog the instance reports as `false`, and `addLocale` for an unknown
   locale.
 
 Do this with the adapter work rather than on its own: the tests are lifecycle assertions against

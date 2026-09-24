@@ -200,7 +200,7 @@ export class AutoTranslate {
      * Decide whether an automatically detected missing key may be translated.
      *
      * In production mode only explicitly allow-listed namespaces qualify. The
-     * node-i18n backend has no namespaces, so there the allow-list entries are
+     * i18n-node backend has no namespaces, so there the allow-list entries are
      * matched as dot-separated key prefixes instead.
      */
     private isAutoTranslateAllowed(key: string, namespace?: string): boolean {
@@ -551,7 +551,7 @@ export class AutoTranslate {
     /**
      * Hand a translation to the backend, reporting a refusal rather than raising it.
      *
-     * A backend can decline a write it cannot make — node-i18n has no entrance for a
+     * A backend can decline a write it cannot make — i18n-node has no entrance for a
      * locale it was never configured with. That is worth telling the consumer about,
      * but it must not take the rest of the call with it: the provider has already
      * been called and paid for, and the file write that follows is what makes the
