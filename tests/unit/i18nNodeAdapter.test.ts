@@ -289,6 +289,50 @@ describe('I18nNodeAdapter', () => {
 
             expect(() => refusingAdapter.setTranslation('test', 'zz', 'Proba')).toThrow(BackendError);
         });
+
+        it('should refuse a write before initialize', () => {
+            // A write has nowhere to go without an instance, and saying so is the
+            // contract here — `getTranslation` answers `null` in the same state,
+            // because a read with nothing behind it is a miss, not a failure.
+            const uninitialized = new I18nNodeAdapter();
+
+            expect(() => uninitialized.setTranslation('test', 'en', 'value')).toThrow(
+                'i18n-node adapter not initialized'
+            );
+        });
+
+        it('should wrap a failure raised by i18n-node itself', () => {
+            // Anything that is not already a `BackendError` came out of the
+            // instance, and its message is the only account of what went wrong —
+            // so it is carried into the wrap rather than replaced by a generic one.
+            const failing = createMockI18nNode({
+                getCatalog: vi.fn(() => {
+                    throw new Error('catalog registry unavailable');
+                }),
+            });
+            const failingAdapter = new I18nNodeAdapter();
+            failingAdapter.initialize(failing, mockConfig);
+
+            expect(() => failingAdapter.setTranslation('test', 'en', 'value')).toThrow(
+                'Failed to set translation in i18n-node: catalog registry unavailable'
+            );
+        });
+
+        it('should report a registered locale that hands out no catalog', () => {
+            // `getLocales()` lists the locale, so neither registration check fires,
+            // and `getCatalog` still answers with nothing. Without this last check
+            // the key would be written into `undefined`.
+            const empty = createMockI18nNode({
+                getLocales: vi.fn(() => ['en']),
+                getCatalog: vi.fn(() => undefined),
+            });
+            const emptyAdapter = new I18nNodeAdapter();
+            emptyAdapter.initialize(empty, mockConfig);
+
+            expect(() => emptyAdapter.setTranslation('test', 'en', 'value')).toThrow(
+                'i18n-node returned no catalog for locale "en"'
+            );
+        });
     });
 
     describe('objectNotation', () => {
