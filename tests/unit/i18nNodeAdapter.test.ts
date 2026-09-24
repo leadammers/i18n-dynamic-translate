@@ -316,6 +316,20 @@ describe('I18nNodeAdapter', () => {
             expect(() => failingAdapter.setTranslation('test', 'en', 'value')).toThrow(
                 'Failed to set translation in i18n-node: catalog registry unavailable'
             );
+
+            // Nothing guarantees a thrown value is an `Error` — a rejected string
+            // still has to reach the message rather than print as `[object Object]`.
+            const throwingString = createMockI18nNode({
+                getCatalog: vi.fn(() => {
+                    throw 'catalog registry unavailable';
+                }),
+            });
+            const stringAdapter = new I18nNodeAdapter();
+            stringAdapter.initialize(throwingString, mockConfig);
+
+            expect(() => stringAdapter.setTranslation('test', 'en', 'value')).toThrow(
+                'Failed to set translation in i18n-node: catalog registry unavailable'
+            );
         });
 
         it('should report a registered locale that hands out no catalog', () => {
