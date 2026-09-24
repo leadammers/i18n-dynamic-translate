@@ -30,29 +30,34 @@ readers already have in their heads.
 the adapter class (`I18nNodeAdapter`), its file, its error text, the `backend` tag on every
 `BackendError` it throws, the test fixtures, and the enum member `Backend.I18N_NODE = 'i18n-node'`.
 
-**`Backend.NODE_I18N` stays, deprecated.** It shipped in 0.1.0, so a consumer may have written
-either the member or the bare string `'node-i18n'` in a config. The member keeps its old value and
-the adapter factory (`src/adapters/index.ts`) accepts both, which is what makes this rename an
-additive change rather than a breaking one. Two tests pin that: the deprecated member and the bare
-string both resolve to `I18nNodeAdapter`.
+**`Backend.NODE_I18N` is removed, not deprecated.** The obvious alternative was to keep it as an
+alias until 1.0.0, and it was written that way first. What decided against it: `Backend.NODE_I18N`
+existed in exactly one published version, 0.1.0, which is a day old and has no dependents. An alias
+exists to protect real consumers, and there are none to protect. Carrying it would have meant the
+wrong name staying visible in autocomplete, in the type, and in this repository's own tests for
+every release up to 1.0.0 — paying the full cost of the mistake for the entire life of the 0.x line
+in exchange for nothing.
 
-**Removal waits for 1.0.0 at the earliest**, and gets its own changelog entry when it happens.
+This is a breaking change published as a patch, deliberately. Under semver it belongs in 0.2.0; that
+number is already committed to the `AutoTranslate` breakup and [004](./004-async-cache.md), and
+moving those is a worse trade than a patch that breaks nobody who exists. A consumer pinned to
+0.1.0 is unaffected — nothing is retracted from the registry.
 
 ## Consequences
 
-Nothing a 0.1.0 consumer wrote stops working, which is why this could ship in 0.1.1 instead of
-waiting for a minor. The alias costs one enum member and one fallthrough `case`.
+`Backend.NODE_I18N` and the bare string `'node-i18n'` no longer resolve; `createBackendAdapter`
+answers them with `ConfigurationError: Unknown backend: node-i18n`, the same as any other unknown
+value. Anyone who did install 0.1.0 in its first day changes one identifier.
 
-One thing does change for a consumer who reads it back: `BackendError.backend` is now `'i18n-node'`
-even when the backend was configured as `Backend.NODE_I18N`, and the error message text moved with
-it. Leaving the tag on the old spelling would have meant a consumer selecting `I18N_NODE` and
-reading `'node-i18n'` out of the error — the confusion this ADR exists to remove. Code branching on
-error *message* strings breaks; code branching on the typed `backend` field sees the new value.
-`BackendError` carries that field precisely so message matching is never necessary.
+`BackendError.backend` now reads `'i18n-node'`, and the error message text moved with it. Code
+branching on error *message* strings changes; code branching on the typed `backend` field sees the
+new value. `BackendError` carries that field precisely so message matching is never necessary.
 
 The npm keyword changed from `node-i18n` to `i18n-node` in the same pass. Search traffic for the
 wrong name is not traffic worth keeping.
 
 ## Revisit when
 
-1.0.0 is scoped — that is when `Backend.NODE_I18N` comes out.
+Never, for the name itself. The window in which a rename this cheap was possible is the reason it
+happened now rather than being deferred; after a package has dependents the answer is the alias
+this ADR rejected.

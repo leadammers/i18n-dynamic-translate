@@ -20,18 +20,6 @@ describe('Factory Functions', () => {
             expect(adapter).toBeInstanceOf(I18nNodeAdapter);
         });
 
-        // `NODE_I18N` shipped in 0.1.0 and still resolves. Removing the member is the
-        // breaking change; keeping it working is what makes the rename a patch.
-        it('should create I18nNodeAdapter for the deprecated NODE_I18N backend', () => {
-            const adapter = createBackendAdapter(Backend.NODE_I18N);
-            expect(adapter).toBeInstanceOf(I18nNodeAdapter);
-        });
-
-        it('should accept the deprecated backend spelled as the bare string', () => {
-            const adapter = createBackendAdapter('node-i18n' as Backend);
-            expect(adapter).toBeInstanceOf(I18nNodeAdapter);
-        });
-
         it('should throw ConfigurationError for unknown backend', () => {
             expect(() => {
                 createBackendAdapter('unknown' as Backend);
