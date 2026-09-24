@@ -40,8 +40,10 @@ While the version stays below 1.0.0 the public API may change in a minor release
   release, deliberately.** The member existed in one published version, 0.1.0, which is a day old
   and has no dependents; no deprecated alias ships, because an alias exists to protect real
   consumers and there are none — carrying the wrong name in autocomplete and in the type until
-  1.0.0 would buy nothing. `createBackendAdapter`
-  now answers `Backend.NODE_I18N` and the bare string `'node-i18n'` with
+  1.0.0 would buy nothing. The old spelling now fails in whichever way it is reached: in
+  TypeScript `Backend.NODE_I18N` no longer compiles, in plain JavaScript it reads as `undefined`
+  and the config check rejects it with `ConfigurationError: Backend is required`, and the bare
+  string `'node-i18n'` reaches the adapter factory and gets
   `ConfigurationError: Unknown backend: node-i18n`. Anyone who installed 0.1.0 in its first day
   changes one identifier; anyone pinned to 0.1.0 is unaffected. Reasoning in
   [docs/decisions/005-the-i18n-node-name.md](docs/decisions/005-the-i18n-node-name.md).
