@@ -894,6 +894,14 @@ describe('AutoTranslate', () => {
                 /waitForPendingTranslations timed out after 1ms/
             );
 
+            // Without these two the test would pass on a `waitForPendingTranslations`
+            // that threw before doing anything, which is not what it is about. The
+            // wait loop sleeps one debounce before it re-checks the deadline, so the
+            // first batch has been saved and has reported its follow-up key by the
+            // time the 1 ms deadline is noticed.
+            expect(storageAdapter.save).toHaveBeenCalled();
+            expect(followUpKeys.length).toBeLessThan(3);
+
             await instance.dispose();
         });
     });
