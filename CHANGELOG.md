@@ -9,6 +9,11 @@ While the version stays below 1.0.0 the public API may change in a minor release
 
 ## [Unreleased]
 
+### Added
+
+- A Codecov badge in the README, reporting `main`. The coverage job has uploaded since 0.1.1;
+  the number was only ever visible inside Codecov.
+
 ## [0.1.1] — 2026-09-25
 
 ### Added
