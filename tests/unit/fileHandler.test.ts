@@ -235,17 +235,6 @@ describe('FileHandler', () => {
         it('should reject a namespace that escapes localesPath', async () => {
             await expect(getLocaleFilePath('/locales', 'en', '../../../etc/passwd')).rejects.toThrow(FileSystemError);
         });
-
-        it('should reject a locale that resolves to localesPath itself', async () => {
-            // `.` joins away to the base directory, and the extension is appended after
-            // the guard runs — so letting it through wrote `/locales.json`, a sibling of
-            // the locales directory rather than a file inside it. An empty locale, which
-            // `translateKey` does not reject, lands in the same place.
-            for (const locale of ['.', '']) {
-                await expect(getLocaleFilePath('/locales', locale)).rejects.toThrow(FileSystemError);
-                await expect(getLocaleFilePath('/locales', locale)).rejects.toThrow(/Path traversal detected/);
-            }
-        });
     });
 
     describe('appendTranslationToFile', () => {

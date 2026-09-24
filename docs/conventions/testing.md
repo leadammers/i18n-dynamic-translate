@@ -33,14 +33,19 @@
     ```bash
     docker run --rm --detach --name libretranslate -p 5555:5000 -e LT_LOAD_ONLY=en,de \
         libretranslate/libretranslate
+    timeout 300 bash -c 'until curl --silent --fail http://127.0.0.1:5555/languages >/dev/null; \
+        do sleep 2; done' || { echo "LibreTranslate did not come up" >&2; exit 1; }
     LIBRETRANSLATE_URL=http://127.0.0.1:5555/translate npm run test:libre-e2e
     docker stop libretranslate
     ```
 
     `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses. `--detach`
-    is what lets the three lines run in one shell; without it the server holds the terminal and
-    the test never starts. The first run downloads the model, so give it a minute before the
-    server answers.
+    is what lets the lines run in one shell; without it the server holds the terminal and the test
+    never starts — but it also returns before the server is listening, which is what the readiness
+    poll is for. The first run downloads the model and can take minutes, while the suite gives up
+    in about three seconds: `http.post` makes three attempts with a 1s and a 2s backoff, and a
+    refused connection is retryable, so without the poll a cold start fails the whole suite rather
+    than waiting for it. `/languages` answers only once the models are loaded.
 
 - `tests/fixtures/` — committed input locale files. The e2e suite _writes into those committed
   files_: `tests/fixtures/i18n-node-locales/<locale>.json` is both the input i18n-node reads and
