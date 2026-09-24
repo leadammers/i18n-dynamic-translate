@@ -7,6 +7,12 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
+# Every target here is a step in a sequence, not an independent unit of work:
+# `gate` checks dist/ after building it, `compat` inspects the same dist/. Under
+# `make -j` prerequisites run in parallel, which would let those checks start
+# before the build that produces what they read.
+.NOTPARALLEL:
+
 # The provider credentials in .env.dev are loaded by the test setup, so a plain
 # `npm test` runs the e2e suites against the live DeepL API and bills it. Clearing
 # both variables first makes the run self-skip those suites exactly as CI does —
@@ -67,8 +73,13 @@ smoke: ## Pack the tarball, install it into a scratch project and drive it
 audit: ## Audit the runtime dependency surface
 	npm run audit:prod
 
+# `! grep ... dist/` on its own passes when dist/ is absent: grep exits 2 with
+# "No such file or directory" and `!` turns that into success, so the check
+# would report a clean build where there is no build at all. The directory has
+# to exist, and only grep's exit 1 — matched nothing — counts as clean.
 verify-dist: ## Fail if a @/ alias survived into dist/ (needs a build)
-	! grep -r 'require("@/' dist/
+	@test -d dist || { echo "dist/ is missing — run 'make build' first" >&2; exit 1; }
+	grep -r 'require("@/' dist/; test $$? -eq 1
 
 gate: format-check typecheck build verify-dist test-offline ## What has to pass before a push
 

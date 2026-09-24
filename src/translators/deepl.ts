@@ -20,10 +20,9 @@ interface DeepLRequestPayload {
 /** DeepL-specific status codes that need a clearer message than the generic fallback */
 const DEEPL_STATUS_MESSAGES: Readonly<Record<number, string>> = {
     456: 'Quota exceeded',
-    // DeepL's second rate-limit code, mapped to the same "too many requests,
-    // please wait and resend" response as 429 in its OpenAPI spec. The generic
-    // fallback would report it as an unknown status.
-    529: 'Rate limit exceeded',
+    // 529, DeepL's second rate-limit code, needs no entry here: `describeHttpError`
+    // answers it for every provider, because every provider that returns it means
+    // the same thing.
 };
 
 /** Request timeout for DeepL calls, in milliseconds */

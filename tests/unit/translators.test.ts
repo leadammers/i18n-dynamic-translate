@@ -449,6 +449,17 @@ describe('LibreTranslateService', () => {
             await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(/Authentication failed/);
         });
 
+        it('should report a 529 as a rate limit, not as an unknown status', async () => {
+            // 529 is in the shared retry set, so a provider that returns it is
+            // backed off and resent. Describing the exhausted attempt as an
+            // unknown failure would contradict that — and the code is not
+            // DeepL's alone, even though DeepL is where it was first seen.
+            const service = new LibreTranslateService(baseConfig);
+            mockPost.mockRejectedValue(new HttpError('Overloaded', 529));
+
+            await expect(service.translate('Hello', 'en', 'fr')).rejects.toThrow(/Rate limit exceeded/);
+        });
+
         it('should accept an empty translation as a value', async () => {
             // The response is checked with `typeof`, not for truthiness: a server
             // that answers an empty source text with an empty translation has
