@@ -21,15 +21,30 @@ While the version stays below 1.0.0 the public API may change in a minor release
   non-string entry inside a well-sized one. One test asserts the API key and the request URL never
   reach the consumer's error handler.
 - `tests/unit/publicApi.test.ts` — the runtime half of `src/index.ts` is asserted: every documented
-  value is still exported, and nothing new is.
+  value is still exported, nothing new is, and every enum member and the string it carries is pinned,
+  so a rename like this one cannot pass unremarked again.
 - Unit coverage for behaviour that had none: the DeepL request contract (`formality`,
   `split_sentences`, per-call context precedence, regional target variants), cache eviction and the
   expiry sweeper's lifecycle, the core's missing-key guards and batch disposal, `describeHttpError`'s
   sanitization, and the path-traversal guard in `getLocaleFilePath`. The coverage thresholds move up
   with them, to 94% statements, 90% branches, 95% functions and 94% lines.
+- `Backend.I18N_NODE`, the correctly named member for the second backend. See *Removed* and
+  *Changed* for the rest of the rename.
 - A `Makefile` of development shorthands — `make gate` runs what CI runs, with the provider
   credentials cleared so the e2e suites skip instead of billing the live API. `make help` lists the
   rest. Not shipped in the package.
+
+### Removed
+
+- **`Backend.NODE_I18N`** — use `Backend.I18N_NODE`. **This is a breaking change in a patch
+  release, deliberately.** The member existed in one published version, 0.1.0, which is a day old
+  and has no dependents; no deprecated alias ships, because an alias exists to protect real
+  consumers and there are none — carrying the wrong name in autocomplete and in the type until
+  1.0.0 would buy nothing. `createBackendAdapter`
+  now answers `Backend.NODE_I18N` and the bare string `'node-i18n'` with
+  `ConfigurationError: Unknown backend: node-i18n`. Anyone who installed 0.1.0 in its first day
+  changes one identifier; anyone pinned to 0.1.0 is unaffected. Reasoning in
+  [docs/decisions/005-the-i18n-node-name.md](docs/decisions/005-the-i18n-node-name.md).
 
 ### Fixed
 
@@ -46,6 +61,20 @@ While the version stays below 1.0.0 the public API may change in a minor release
 - Codecov comments on every pull request, including the ones that leave coverage untouched, and the
   comment carries project and patch coverage with the delta rather than only whether the new lines
   are covered. Reporting only — the gates are unchanged.
+- The README says what this package replaces — the hand-editing, the round trip through a
+  spreadsheet, the post-deploy script, the raw key in front of a user — before it describes what
+  the alternatives do, and the limits section no longer reads as though every new key is served
+  untranslated once — it says that `translateKey` and `translateObject` return the translation and
+  write it back, so pre-translating dynamic content before rendering it carries the translation in
+  the first response. No claim about the library changed.
+- **The second backend is called `i18n-node`**, not `node-i18n`. That name belongs to an unrelated
+  npm package last published in 2022; the adapter has always been written against mashpie's
+  [i18n-node](https://github.com/mashpie/i18n-node), installed with `npm install i18n`, which is
+  what the `i18n: ^0.15.0` peer range points at. Renamed in every document, comment and diagram, in
+  the manifest's description and keywords, in the adapter class and its file, and in the error text
+  and the `backend` tag on every `BackendError` the adapter throws. Code branching on those error
+  *message* strings has to change; code branching on the typed `backend` field sees `'i18n-node'`.
+  Recorded in [docs/decisions/005-the-i18n-node-name.md](docs/decisions/005-the-i18n-node-name.md).
 - The manifest's `description` and `keywords` now name what this does differently — filling a key
   at runtime — and the providers it talks to. npm search matches both fields, and neither `deepl`
   nor `libretranslate` was listed. No code change.
