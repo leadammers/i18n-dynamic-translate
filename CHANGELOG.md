@@ -51,7 +51,9 @@ While the version stays below 1.0.0 the public API may change in a minor release
 - A `529` from a translation provider is retried and reported as a rate limit, not as an unknown
   failure. DeepL's API maps `529` to the same "too many requests, please wait and resend" response
   as `429`, but it was in neither the retry set nor the status-message map, so a rate-limited batch
-  was dropped where a backoff would have succeeded.
+  was dropped where a backoff would have succeeded. Both halves are shared: `529` is retried and
+  described as a rate limit for **every** provider, LibreTranslate included, because every provider
+  that returns it means the same thing.
 
 ### Changed
 
