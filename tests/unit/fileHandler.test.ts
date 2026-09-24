@@ -235,12 +235,6 @@ describe('FileHandler', () => {
         it('should reject a namespace that escapes localesPath', async () => {
             await expect(getLocaleFilePath('/locales', 'en', '../../../etc/passwd')).rejects.toThrow(FileSystemError);
         });
-
-        it('should accept a locale that resolves to localesPath itself', async () => {
-            // `.` joins away to the base directory, which the guard has to let through:
-            // it is inside localesPath, not outside it.
-            await expect(getLocaleFilePath('/locales', '.')).resolves.toBe(`${path.resolve('/locales')}.json`);
-        });
     });
 
     describe('appendTranslationToFile', () => {

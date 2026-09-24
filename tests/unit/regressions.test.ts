@@ -1,8 +1,11 @@
 /**
  * Regression tests for bugs found in review. Each block is named after the
- * finding it came from; the 2026-09-21 ones are in docs/reviews/2026-09-21_full.md.
+ * finding it came from; the 2026-09-21 ones are in docs/reviews/2026-09-21_full.md,
+ * and the CR-* ones are CodeRabbit findings, traceable to the pull request named
+ * in the block.
  */
 
+import * as path from 'path';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
 import { Backend, LocaleData, StorageAdapter, TranslationProvider } from '@/types';
@@ -11,7 +14,8 @@ import { getNestedValue, setNestedValue } from '@/utils/objectPath';
 import { MemoryCache } from '@/utils/cache';
 import { LibreTranslateService } from '@/translators/libreTranslate';
 import { DeepLService } from '@/translators/deepl';
-import { BackendError, TranslationError } from '@/utils/errors';
+import { BackendError, FileSystemError, TranslationError } from '@/utils/errors';
+import { getLocaleFilePath } from '@/utils/fileHandler';
 import { http } from '@/utils/http';
 
 const translateBatch = vi.fn((texts: string[]) => Promise.resolve(texts.map((text: string) => `X(${text})`)));
@@ -951,6 +955,31 @@ describe('review regressions', () => {
             expect(result).toEqual({ greeting: 'X(Greeting)' });
             expect(i18next.addResource).toHaveBeenCalledWith('de', 'translation', 'greeting', 'X(Greeting)');
             await instance.dispose();
+        });
+    });
+
+    describe('CR-1 a locale that resolves to localesPath itself', () => {
+        // From CodeRabbit's review of PR #41. The path guard let the resolved base
+        // *equal* `localesPath`, and the extension is appended after the guard runs,
+        // so `'.'` turned `/locales` into `/locales.json` — a sibling of the locales
+        // directory rather than a file inside it. An empty locale, which `translateKey`
+        // does not reject, lands in the same place. A library that takes the locale from
+        // a request path or an `Accept-Language` header hands that string to this
+        // function unchanged.
+        it('rejects a locale that joins away to the base directory', async () => {
+            for (const locale of ['.', '']) {
+                await expect(getLocaleFilePath('/locales', locale)).rejects.toThrow(FileSystemError);
+                await expect(getLocaleFilePath('/locales', locale)).rejects.toThrow(/Path traversal detected/);
+            }
+        });
+
+        // The inverse: rejecting the base directory must not reject a real locale, with
+        // or without a namespace.
+        it('still resolves a locale inside localesPath', async () => {
+            await expect(getLocaleFilePath('/locales', 'en')).resolves.toBe(path.join('/locales', 'en.json'));
+            await expect(getLocaleFilePath('/locales', 'en', 'translation')).resolves.toBe(
+                path.join('/locales', 'en', 'translation.json')
+            );
         });
     });
 });

@@ -31,11 +31,31 @@
   unset**, which is how CI runs it. Run locally with:
 
     ```bash
-    docker run --rm -p 5555:5000 -e LT_LOAD_ONLY=en,de libretranslate/libretranslate
+    docker run --rm --detach --name libretranslate -p 5555:5000 -e LT_LOAD_ONLY=en,de \
+        libretranslate/libretranslate
+    deadline=$((SECONDS + 300))
+    until curl --silent --fail http://127.0.0.1:5555/languages >/dev/null \
+        || [ "$SECONDS" -ge "$deadline" ]; do
+        sleep 2
+    done
     LIBRETRANSLATE_URL=http://127.0.0.1:5555/translate npm run test:libre-e2e
+    docker stop libretranslate
     ```
 
-    `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses.
+    `LT_LOAD_ONLY` limits the model download to the one language pair the suite uses. `--detach`
+    is what lets the lines run in one shell; without it the server holds the terminal and the test
+    never starts — but it also returns before the server is listening, which is what the readiness
+    loop is for. The first run downloads the model and can take minutes, while the suite gives up
+    in about three seconds: `http.post` makes three attempts with a 1s and a 2s backoff, and a
+    refused connection is retryable, so without the wait a cold start fails the whole suite rather
+    than waiting for it. `/languages` answers only once the models are loaded.
+
+    The clock is bash's own `SECONDS` rather than `timeout`, which is GNU coreutils and absent from
+    a stock macOS. The loop ends on the deadline instead of exiting, so `docker stop` is always
+    reached: these lines are pasted into an interactive shell, where an `exit` would close the
+    terminal, and `--rm` only removes the container once it stops — leaving it running would block
+    the next run on the name. If the deadline passes, the suite fails against a server that never
+    answered, which reads as a connection error rather than a test failure.
 
 - `tests/fixtures/` — committed input locale files. The e2e suite _writes into those committed
   files_: `tests/fixtures/i18n-node-locales/<locale>.json` is both the input i18n-node reads and

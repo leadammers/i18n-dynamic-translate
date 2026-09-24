@@ -30,6 +30,15 @@ describe('Factory Functions', () => {
             }).toThrow('Unknown backend: unknown');
         });
 
+        // 0.1.0's spelling of this backend. It is not an enum member any more, so
+        // TypeScript stops a stale reference at compile time and only the bare
+        // string reaches here — with the message the 0.1.1 changelog promises.
+        it('should name the backend that 0.1.0 called node-i18n in the error', () => {
+            expect(() => {
+                createBackendAdapter('node-i18n' as Backend);
+            }).toThrow('Unknown backend: node-i18n');
+        });
+
         it('should throw ConfigurationError for null backend', () => {
             expect(() => {
                 createBackendAdapter(null as any);

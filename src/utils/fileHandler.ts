@@ -137,7 +137,11 @@ export async function getLocaleFilePath(
     // Validate the resolved path stays within localesPath to prevent path traversal
     const resolvedBase = path.resolve(basePath);
     const resolvedLocales = path.resolve(localesPath);
-    if (!resolvedBase.startsWith(resolvedLocales + path.sep) && resolvedBase !== resolvedLocales) {
+    // Resolving *to* localesPath is a rejection, not an exemption. The extension is
+    // appended after this check, so a locale that joins away to the base directory
+    // writes a sibling file next to it — `/locales` + `.` gives `/locales.json`, not
+    // a file under `/locales/`. Both `.` and an empty locale land there.
+    if (resolvedBase === resolvedLocales || !resolvedBase.startsWith(resolvedLocales + path.sep)) {
         throw new FileSystemError(`Path traversal detected: locale or namespace escapes localesPath`, resolvedBase);
     }
 

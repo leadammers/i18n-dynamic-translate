@@ -9,7 +9,7 @@ While the version stays below 1.0.0 the public API may change in a minor release
 
 ## [Unreleased]
 
-## [0.1.1] — 2026-09-24
+## [0.1.1] — 2026-09-25
 
 ### Added
 
@@ -40,8 +40,10 @@ While the version stays below 1.0.0 the public API may change in a minor release
   release, deliberately.** The member existed in one published version, 0.1.0, which is a day old
   and has no dependents; no deprecated alias ships, because an alias exists to protect real
   consumers and there are none — carrying the wrong name in autocomplete and in the type until
-  1.0.0 would buy nothing. `createBackendAdapter`
-  now answers `Backend.NODE_I18N` and the bare string `'node-i18n'` with
+  1.0.0 would buy nothing. The old spelling now fails in whichever way it is reached: in
+  TypeScript `Backend.NODE_I18N` no longer compiles, in plain JavaScript it reads as `undefined`
+  and the config check rejects it with `ConfigurationError: Backend is required`, and the bare
+  string `'node-i18n'` reaches the adapter factory and gets
   `ConfigurationError: Unknown backend: node-i18n`. Anyone who installed 0.1.0 in its first day
   changes one identifier; anyone pinned to 0.1.0 is unaffected. Reasoning in
   [docs/decisions/005-the-i18n-node-name.md](docs/decisions/005-the-i18n-node-name.md).
@@ -54,6 +56,15 @@ While the version stays below 1.0.0 the public API may change in a minor release
   was dropped where a backoff would have succeeded. Both halves are shared: `529` is retried and
   described as a rate limit for **every** provider, LibreTranslate included, because every provider
   that returns it means the same thing.
+
+### Security
+
+- A locale that resolves to the locales directory itself is rejected instead of writing a file
+  beside it. The path guard allowed the resolved base to *equal* `localesPath`, and the extension
+  is appended after the guard runs, so `'.'` — or an empty locale, which `translateKey` does not
+  reject — turned `/locales` into `/locales.json`: a sibling of the directory, outside it. A
+  library that takes the locale from a request path or an `Accept-Language` header hands that
+  string straight to this function.
 
 ### Changed
 

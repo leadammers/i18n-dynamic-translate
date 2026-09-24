@@ -120,11 +120,14 @@ Open the PR **into `dev`**. A good PR:
 - At least one other person reviews and approves. Address feedback with follow-up commits on the same
   branch (or amend + `--force-with-lease` if the branch is yours alone).
 - Re-request review after non-trivial changes.
-- CodeRabbit reviews every non-draft PR into `dev` and `main` on its own; `@coderabbitai review`
-  as a comment asks for one on a draft, and `@coderabbitai full review` re-runs a whole review.
-  Its findings are advisory and do not gate the merge — the human approval above still does.
-  `.coderabbit.yaml` in the repo root is the configuration, including the per-path instructions
-  that hand it this project's conventions.
+- CodeRabbit reviews every non-draft PR into `dev` and `main` **once, when it opens** — a push
+  afterwards does not start a new review. `@coderabbitai review` as a comment asks for the next
+  one, which is also how a draft gets its first; `@coderabbitai full review` re-runs a whole
+  review rather than the delta. A review takes 12-25 minutes, so push the fixes for a round of
+  findings together and ask for one review at the end instead of one per commit. Its findings are
+  advisory and do not gate the merge — the human approval above still does. `.coderabbit.yaml` in
+  the repo root is the configuration, including the per-path instructions that hand it this
+  project's conventions.
 - Once approved and green, merge into `dev`.
 - **Delete the branch** after merge. Locally: `git branch -d <branch>`.
 
