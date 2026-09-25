@@ -19,8 +19,13 @@ package that has no dependants yet. Every break is listed here with what it cost
   without going looking. The Node badge renders the published manifest's `engines.node` range, so it
   cannot drift from what the package declares, and the coverage and CI badges both report `main`
   rather than whatever is on `dev`.
+- Local git hooks via husky and lint-staged: `pre-commit` runs `prettier --check` (through
+  `lint-staged`, staged files only) and `typecheck`; `pre-push` runs `build` and the test suite
+  with the provider credentials cleared, so no push can spend DeepL quota. CI stays the gate of
+  record — the hooks are a local convenience, not a replacement.
 
 ### Changed
+
 
 - `exactOptionalPropertyTypes` is on for `src/` and for `tests/`. Optional properties on the
   exported types now spell out the `undefined` they always accepted — `namespace?: string` reads
@@ -55,6 +60,11 @@ package that has no dependants yet. Every break is listed here with what it cost
   object *owned* `missingKeyHandler` and `saveMissing` rather than what those keys held, so
   `destroy()` restores a key the host had — including one it deliberately set to `undefined` — and
   removes a key it never set, instead of leaving both behind holding `undefined`.
+- `format` and `format:check` cover every `.ts` file in the tree rather than only `src/` and
+  `tests/`. `vitest.config.ts` and `tools/compat/consumer.ts` were outside the old globs, so the
+  new `pre-commit` hook would have checked files CI never did. A `.prettierignore` restates the
+  build-output exclusions that `.gitignore` already gives Prettier, so the widened glob cannot
+  reach a generated `.d.ts`.
 
 ## [0.1.1] — 2026-09-25
 

@@ -1,111 +1,114 @@
 {
-  "name": "i18n-dynamic-translate",
-  "version": "0.1.1",
-  "description": "Translates missing i18n keys at runtime with DeepL or LibreTranslate and writes them back into i18next or i18n-node.",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/leadammers/i18n-dynamic-translate.git"
-  },
-  "homepage": "https://github.com/leadammers/i18n-dynamic-translate#readme",
-  "bugs": {
-    "url": "https://github.com/leadammers/i18n-dynamic-translate/issues"
-  },
-  "type": "commonjs",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
+    "name": "i18n-dynamic-translate",
+    "version": "0.1.1",
+    "description": "Translates missing i18n keys at runtime with DeepL or LibreTranslate and writes them back into i18next or i18n-node.",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/leadammers/i18n-dynamic-translate.git"
     },
-    "./package.json": "./package.json"
-  },
-  "sideEffects": false,
-  "files": [
-    "dist",
-    "src",
-    "CHANGELOG.md",
-    "LICENSE",
-    "README.md"
-  ],
-  "engines": {
-    "node": ">=22.12.0"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "npm run clean && tsc && tsc-alias",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:deepl-e2e": "vitest run tests/e2e/deepl.test.ts",
-    "test:libre-e2e": "vitest run tests/e2e/libretranslate.test.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
-    "compat:types": "node tools/compat/check.mjs",
-    "compat:package": "attw --pack . --profile node16 && publint",
-    "smoke": "node tools/smoke/check.mjs",
-    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "audit": "npm audit --audit-level=high",
-    "audit:prod": "npm audit --omit=dev --audit-level=high",
-    "prepublishOnly": "npm run typecheck && npm run build && npm test"
-  },
-  "keywords": [
-    "i18n",
-    "i18next",
-    "i18n-node",
-    "deepl",
-    "libretranslate",
-    "translation",
-    "machine-translation",
-    "auto-translate",
-    "missing-keys",
-    "runtime-translation",
-    "dynamic-content",
-    "localization",
-    "internationalization"
-  ],
-  "author": "Lea Dammers",
-  "license": "MIT",
-  "dependencies": {},
-  "overrides": {
-    "i18next": {
-      "typescript": "$typescript"
+    "homepage": "https://github.com/leadammers/i18n-dynamic-translate#readme",
+    "bugs": {
+        "url": "https://github.com/leadammers/i18n-dynamic-translate/issues"
+    },
+    "type": "commonjs",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "require": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": false,
+    "files": [
+        "dist",
+        "src",
+        "CHANGELOG.md",
+        "LICENSE",
+        "README.md"
+    ],
+    "engines": {
+        "node": ">=22.12.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+        "build": "npm run clean && tsc && tsc-alias",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "test:deepl-e2e": "vitest run tests/e2e/deepl.test.ts",
+        "test:libre-e2e": "vitest run tests/e2e/libretranslate.test.ts",
+        "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+        "compat:types": "node tools/compat/check.mjs",
+        "compat:package": "attw --pack . --profile node16 && publint",
+        "smoke": "node tools/smoke/check.mjs",
+        "format": "prettier --write \"**/*.ts\"",
+        "format:check": "prettier --check \"**/*.ts\"",
+        "audit": "npm audit --audit-level=high",
+        "audit:prod": "npm audit --omit=dev --audit-level=high",
+        "prepublishOnly": "npm run typecheck && npm run build && npm test",
+        "prepare": "husky"
+    },
+    "keywords": [
+        "i18n",
+        "i18next",
+        "i18n-node",
+        "deepl",
+        "libretranslate",
+        "translation",
+        "machine-translation",
+        "auto-translate",
+        "missing-keys",
+        "runtime-translation",
+        "dynamic-content",
+        "localization",
+        "internationalization"
+    ],
+    "author": "Lea Dammers",
+    "license": "MIT",
+    "dependencies": {},
+    "overrides": {
+        "i18next": {
+            "typescript": "$typescript"
+        }
+    },
+    "devDependencies": {
+        "@arethetypeswrong/cli": "^0.18.5",
+        "@types/i18n": "^0.13.12",
+        "@types/js-yaml": "^4.0.9",
+        "@types/node": "^26.6.2",
+        "@vitest/coverage-v8": "^5.0.1",
+        "dotenv": "^18.0.1",
+        "husky": "^9.1.7",
+        "i18n": "^0.15.4",
+        "i18next": "^26.4.2",
+        "js-yaml": "^5.4.2",
+        "lint-staged": "^16.4.0",
+        "prettier": "^3.9.8",
+        "publint": "^0.3.24",
+        "tsc-alias": "^1.9.5",
+        "typescript": "^7.0.2",
+        "vitest": "^5.0.1"
+    },
+    "peerDependencies": {
+        "i18n": "^0.15.0",
+        "i18next": ">=23.0.0",
+        "js-yaml": ">=4.3.2"
+    },
+    "peerDependenciesMeta": {
+        "i18n": {
+            "optional": true
+        },
+        "i18next": {
+            "optional": true
+        },
+        "js-yaml": {
+            "optional": true
+        }
     }
-  },
-  "devDependencies": {
-    "@arethetypeswrong/cli": "^0.18.5",
-    "@types/i18n": "^0.13.12",
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "^26.6.2",
-    "@vitest/coverage-v8": "^5.0.1",
-    "dotenv": "^18.0.1",
-    "i18n": "^0.15.4",
-    "i18next": "^26.4.2",
-    "js-yaml": "^5.4.2",
-    "prettier": "^3.9.8",
-    "publint": "^0.3.24",
-    "tsc-alias": "^1.9.5",
-    "typescript": "^7.0.2",
-    "vitest": "^5.0.1"
-  },
-  "peerDependencies": {
-    "i18n": "^0.15.0",
-    "i18next": ">=23.0.0",
-    "js-yaml": ">=4.3.2"
-  },
-  "peerDependenciesMeta": {
-    "i18n": {
-      "optional": true
-    },
-    "i18next": {
-      "optional": true
-    },
-    "js-yaml": {
-      "optional": true
-    }
-  }
 }
