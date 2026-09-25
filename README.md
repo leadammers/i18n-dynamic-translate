@@ -17,6 +17,19 @@ product attributes, category trees — whose key set is not known at build time.
 > hosted API, LibreTranslate against a self-hosted instance (`tests/e2e/`). DeepL has by far the
 > most mileage; LibreTranslate is the newer of the two paths.
 
+## Features
+
+- 🚀 **Automatic translation** of missing i18n keys
+- 🔌 **Multiple backends** — i18next and i18n-node (the `i18n` package)
+- 🌐 **Multiple providers** — DeepL and LibreTranslate
+- 🧠 **Context-aware** — disambiguate "bank" into "Bank" or "Ufer" with the `context` option
+- 💾 **Auto-save** — writes translations straight into your locale files
+- ⚡ **Caching** — an in-memory cache keeps repeat keys off the provider
+- 🎯 **Type-safe** — full TypeScript declarations and typed error classes
+- 📦 **Batch translation** — whole objects at once with `translateObject()`
+- ⚙️ **Configurable** — concurrency, file format (JSON/YAML), namespaces
+- 🔑 **Nested keys** — deep key structures via the `parentKey` option
+
 ## When to use this
 
 This is a different job from the build-time CLI translators that walk a locale file and fill in
