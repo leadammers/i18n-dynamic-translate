@@ -17,6 +17,8 @@ product attributes, category trees — whose key set is not known at build time.
 > hosted API, LibreTranslate against a self-hosted instance (`tests/e2e/`). DeepL has by far the
 > most mileage; LibreTranslate is the newer of the two paths.
 
+**[Installation](#installation)** · **[Usage](#usage)** · **[API](#api)**
+
 ## Features
 
 - 🚀 **Automatic translation** of missing i18n keys
