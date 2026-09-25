@@ -65,13 +65,15 @@ export class I18nextAdapter implements BackendAdapter {
         // Store the original handler and saveMissing setting, recording whether the host's options
         // object *owned* each key rather than what the key held. The two are different states — a
         // host can own `missingKeyHandler` holding `undefined` — and only the ownership answers the
-        // question `destroy()` has to ask: put the key back, or take it away again?
-        this.hadMissingKeyHandler = 'missingKeyHandler' in this.i18next.options;
+        // question `destroy()` has to ask: put the key back, or take it away again? `hasOwnProperty`
+        // rather than `in`, because `in` also answers true for a key the options object merely
+        // inherits, and writing that one back would leave the host with an own property it never had.
+        this.hadMissingKeyHandler = Object.prototype.hasOwnProperty.call(this.i18next.options, 'missingKeyHandler');
         if (this.hadMissingKeyHandler) {
             this.originalMissingKeyHandler = this.i18next.options.missingKeyHandler;
         }
 
-        this.hadSaveMissing = 'saveMissing' in this.i18next.options;
+        this.hadSaveMissing = Object.prototype.hasOwnProperty.call(this.i18next.options, 'saveMissing');
         if (this.hadSaveMissing) {
             this.originalSaveMissing = this.i18next.options.saveMissing;
         }

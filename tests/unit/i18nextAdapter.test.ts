@@ -224,7 +224,10 @@ describe('I18nextAdapter', () => {
     describe('destroy', () => {
         // Assertions here are on key *presence*, not on the value: writing `undefined` over a key
         // the host never had and removing it again are indistinguishable through `toBeUndefined()`,
-        // and removing it is the behaviour the adapter promises.
+        // and removing it is the behaviour the adapter promises. Only the two "had none" cases can
+        // tell presence tracking apart from the value tracking that came before it — the two
+        // "owned as undefined" cases below pin the other half of the same bookkeeping, and a
+        // value-tracking adapter happens to satisfy them as well.
 
         it('should restore a missingKeyHandler the host already had', () => {
             const originalHandler = vi.fn();
@@ -279,7 +282,8 @@ describe('I18nextAdapter', () => {
             adapter.destroy();
 
             // The host owned the key, so it gets the key back — not the absence the adapter
-            // hands a host that never set it.
+            // hands a host that never set it. This is the arm that must not regress when the
+            // "had none" case above is fixed; it does not by itself prove presence tracking.
             expect('missingKeyHandler' in host.options).toBe(true);
             expect(host.options.missingKeyHandler).toBeUndefined();
         });
@@ -294,6 +298,24 @@ describe('I18nextAdapter', () => {
 
             expect('saveMissing' in host.options).toBe(true);
             expect(host.options.saveMissing).toBeUndefined();
+        });
+
+        it('should not adopt an options key the host merely inherits', () => {
+            const prototype = { saveMissing: false };
+            const options: HostOptions = Object.assign(Object.create(prototype) as HostOptions, {
+                ns: ['translation'],
+            });
+            const host = createLifecycleHost(options);
+
+            expect(Object.prototype.hasOwnProperty.call(host.options, 'saveMissing')).toBe(false);
+
+            adapter.initialize(host, mockConfig);
+            adapter.destroy();
+
+            // The host never *owned* the key, so taking it away has to expose the prototype's
+            // value again rather than pinning an own copy of it onto the options object.
+            expect(Object.prototype.hasOwnProperty.call(host.options, 'saveMissing')).toBe(false);
+            expect(host.options.saveMissing).toBe(false);
         });
 
         it('should keep saveMissing false across an initialize/destroy round trip', () => {
