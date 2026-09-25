@@ -68,6 +68,44 @@ existing synchronous implementation keeps working untouched. It breaks the readi
 `getConfig().cache`, so it waits for the minor bump. Do it in the same release as the
 `AutoTranslate` breakup above — both rewrite the same call sites.
 
+## Packaging and support claims
+
+Both items below came out of asking why a freshly published package gets no traffic
+(2026-09-25). Neither is a defect: each is a supported shape the package does not say it
+supports, and an unstated claim reaches nobody.
+
+### Say that ESM consumers work — next patch
+`README.md`'s prerequisites name CommonJS and Node, and say nothing about ESM, so a reader on
+`"type": "module"` assumes the package is unusable and leaves. It is not. `0.1.2` installed from
+the registry into an ESM project resolves through Node's CJS interop, and `cjs-module-lexer`
+recovers the named exports: `import pkg, { AutoTranslate, Backend, TranslationProvider }` all bind,
+with every enum member intact. Verified against the **published tarball**, not against a local
+`dist/`.
+
+Saying so costs a README line, but a support claim with no gate is exactly what
+`docs/conventions/releasing.md` refuses — every claim there is proven by CI. The cheap home is
+`tools/smoke/`: `consumer.cjs` has no ESM sibling, and an `consumer.mjs` driven by the same
+`check.mjs` would pin the import shape against the packed tarball on every run. Do the test and the
+README line together or neither.
+
+Adding an `"import"` condition to `exports` is a **separate** question and not required for this:
+resolution already works without one, and adding it means shipping a real ESM build or a wrapper,
+which buys the dual-package hazard. Decide that on its own merits, with an ADR, not as a side
+effect of documenting what already works.
+
+### Re-examine the `engines.node` floor — needs an ADR, so 0.2.0
+`>=22.12.0` is a chosen target rather than a demonstrated requirement. `docs/conventions/typescript.md`
+frames it as the target the code is written against, and the newest runtime API in the source is
+global `fetch`, which lands in Node 18. Node 20 went end-of-life in April 2026, but deployments
+stay on it long past that, and this floor is the single widest limit on who can install the package
+at all — `npm` does enforce `engines` for anyone running `engine-strict`.
+
+Not a manifest edit. `engines.node` is a published support claim, so lowering it means adding the
+version to CI's `test` matrix and watching the suite pass there, settling the devDependency-floor
+question below first (a devDependency whose own floor is higher makes the lower claim false for
+contributors), and an ADR recording what the floor is *for* — otherwise the next person raises it
+again. The reach argument has to outweigh that matrix cost; nobody has asked yet.
+
 ## Tooling
 
 ### Check a devDependency's own `engines.node` against ours
