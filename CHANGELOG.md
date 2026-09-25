@@ -11,8 +11,10 @@ While the version stays below 1.0.0 the public API may change in a minor release
 
 ### Added
 
-- A Codecov badge in the README, reporting `main`. The coverage job has uploaded since 0.1.1;
-  the number was only ever visible inside Codecov.
+- Coverage, build-status and supported-Node badges in the README. The coverage job has uploaded to
+  Codecov since 0.1.1 and `engines.node` has always been declared; neither number was visible
+  without going looking. The Node badge reads the published manifest, so it cannot drift from what
+  npm enforces, and the coverage and CI badges both report `main` rather than whatever is on `dev`.
 
 ## [0.1.1] — 2026-09-25
 
