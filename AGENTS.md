@@ -115,5 +115,7 @@ need a `dist/`, so build first. See the releasing conventions for what each one 
 - `TODO.md` — the architecture backlog. `core/AutoTranslate.ts` is over the size guideline and its
   breakup is the main open item.
 - `CHANGELOG.md` — what shipped and what broke.
-- `docs/reviews/` and `docs/superpowers/` are gitignored working notes, present only on the machine
-  that produced them.
+- `docs/reviews/`, `docs/superpowers/` and `docs/planning/` are gitignored working notes, present
+  only on the machine that produced them. A plan that has been agreed lives there while it is being
+  worked; what it changed lands in `CHANGELOG.md` and in the conventions, which is what a reader of
+  this repository needs.
