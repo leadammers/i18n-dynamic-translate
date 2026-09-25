@@ -30,17 +30,7 @@ product attributes, category trees — whose key set is not known at build time.
 - ⚙️ **Configurable** — concurrency, file format (JSON/YAML), namespaces
 - 🔑 **Nested keys** — deep key structures via the `parentKey` option
 
-## Contents
-
-- [When to use this](#when-to-use-this) — what it replaces, the alternatives, the honest limits
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Usage](#usage) — [configuration](#configuration) · [missing keys](#automatic-translation-of-missing-keys) · [API metadata](#translating-api-metadata) · [production mode](#production-mode) · [custom storage](#custom-storage) · [custom cache](#custom-cache)
-- [API](#api) — [`translateObject()`](#translateobjectobj-targetlocale-options) · [`translateKey()`](#translatekeykey-targetlocale-options) · [`clearCache()`](#clearcache) · [`getCacheStats()`](#getcachestats) · [`getConfig()`](#getconfig) · [`isDisposed()`](#isdisposed) · [`dispose()`](#dispose)
-- [Error Handling](#error-handling)
-- [Common Issues](#common-issues)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing) · [License](#license)
+**[Installation](#installation)** · **[Usage](#usage)** · **[API](#api)**
 
 ## When to use this
 
