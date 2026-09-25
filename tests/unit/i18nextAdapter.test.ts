@@ -35,8 +35,10 @@ type HostMissingKeyHandler = (lngs: string[], ns: string, key: string, fallbackV
 
 interface HostOptions {
     ns: string[];
-    missingKeyHandler?: HostMissingKeyHandler;
-    saveMissing?: boolean;
+    // `| undefined` so a test can hand over a host that *owns* the key holding `undefined` —
+    // a different state from leaving the key out, and one the adapter has to preserve.
+    missingKeyHandler?: HostMissingKeyHandler | undefined;
+    saveMissing?: boolean | undefined;
 }
 
 function createLifecycleHost(options: HostOptions) {
@@ -268,6 +270,30 @@ describe('I18nextAdapter', () => {
             adapter.destroy();
 
             expect('saveMissing' in host.options).toBe(false);
+        });
+
+        it('should restore a missingKeyHandler the host owned as undefined', () => {
+            const host = createLifecycleHost({ ns: ['translation'], missingKeyHandler: undefined });
+
+            adapter.initialize(host, mockConfig);
+            adapter.destroy();
+
+            // The host owned the key, so it gets the key back — not the absence the adapter
+            // hands a host that never set it.
+            expect('missingKeyHandler' in host.options).toBe(true);
+            expect(host.options.missingKeyHandler).toBeUndefined();
+        });
+
+        it('should restore a saveMissing the host owned as undefined', () => {
+            const host = createLifecycleHost({ ns: ['translation'], saveMissing: undefined });
+
+            adapter.initialize(host, mockConfig);
+            expect(host.options.saveMissing).toBe(true);
+
+            adapter.destroy();
+
+            expect('saveMissing' in host.options).toBe(true);
+            expect(host.options.saveMissing).toBeUndefined();
         });
 
         it('should keep saveMissing false across an initialize/destroy round trip', () => {

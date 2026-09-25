@@ -11,8 +11,11 @@ interface I18nextInstance {
     language?: string;
     languages?: string[];
     options: {
-        missingKeyHandler?: (lngs: string[], ns: string, key: string, fallbackValue: string) => void;
-        saveMissing?: boolean;
+        // `| undefined` on these two is not the usual eOPT widening: a host app really can own
+        // either key holding `undefined`, and telling that apart from an absent key is what
+        // `setupMissingKeyHandler()` and `destroy()` below are built around.
+        missingKeyHandler?: ((lngs: string[], ns: string, key: string, fallbackValue: string) => void) | undefined;
+        saveMissing?: boolean | undefined;
         ns?: string[];
     };
 
@@ -26,8 +29,11 @@ export class I18nextAdapter implements BackendAdapter {
     private config?: AutoTranslateConfig;
     private missingKeyCallback?: MissingKeyCallback;
     private initialized: boolean = false;
-    private originalMissingKeyHandler?: (lngs: string[], ns: string, key: string, fallbackValue: string) => void;
-    private originalSaveMissing?: boolean;
+    private originalMissingKeyHandler?:
+        ((lngs: string[], ns: string, key: string, fallbackValue: string) => void) | undefined;
+    private hadMissingKeyHandler: boolean = false;
+    private originalSaveMissing?: boolean | undefined;
+    private hadSaveMissing: boolean = false;
 
     /**
      * Initialize the adapter with i18next instance
@@ -56,20 +62,18 @@ export class I18nextAdapter implements BackendAdapter {
     private setupMissingKeyHandler(): void {
         if (!this.i18next) return;
 
-        // Store original handler and saveMissing setting. Each is kept only when the host app
-        // actually had a value, so `destroy()` can tell "restore this" from "there was nothing
-        // here" and hand the options object back without keys the host never set. A host that
-        // owns the key holding an explicit `undefined` is read as "nothing here" and gets the
-        // key removed rather than restored — the two are indistinguishable from the value alone,
-        // and removing it is the reading that leaves i18next's own defaults in charge.
-        const existingMissingKeyHandler = this.i18next.options.missingKeyHandler;
-        if (existingMissingKeyHandler !== undefined) {
-            this.originalMissingKeyHandler = existingMissingKeyHandler;
+        // Store the original handler and saveMissing setting, recording whether the host's options
+        // object *owned* each key rather than what the key held. The two are different states — a
+        // host can own `missingKeyHandler` holding `undefined` — and only the ownership answers the
+        // question `destroy()` has to ask: put the key back, or take it away again?
+        this.hadMissingKeyHandler = 'missingKeyHandler' in this.i18next.options;
+        if (this.hadMissingKeyHandler) {
+            this.originalMissingKeyHandler = this.i18next.options.missingKeyHandler;
         }
 
-        const existingSaveMissing = this.i18next.options.saveMissing;
-        if (existingSaveMissing !== undefined) {
-            this.originalSaveMissing = existingSaveMissing;
+        this.hadSaveMissing = 'saveMissing' in this.i18next.options;
+        if (this.hadSaveMissing) {
+            this.originalSaveMissing = this.i18next.options.saveMissing;
         }
 
         this.i18next.options.missingKeyHandler = (lngs: string[], ns: string, key: string, fallbackValue: string) => {
@@ -172,20 +176,22 @@ export class I18nextAdapter implements BackendAdapter {
         }
 
         // Restore original missingKeyHandler
-        if (this.originalMissingKeyHandler !== undefined) {
+        if (this.hadMissingKeyHandler) {
             this.i18next.options.missingKeyHandler = this.originalMissingKeyHandler;
         } else {
             delete this.i18next.options.missingKeyHandler;
         }
         delete this.originalMissingKeyHandler;
+        this.hadMissingKeyHandler = false;
 
         // Restore original saveMissing setting
-        if (this.originalSaveMissing === undefined) {
-            delete this.i18next.options.saveMissing;
-        } else {
+        if (this.hadSaveMissing) {
             this.i18next.options.saveMissing = this.originalSaveMissing;
+        } else {
+            delete this.i18next.options.saveMissing;
         }
         delete this.originalSaveMissing;
+        this.hadSaveMissing = false;
 
         delete this.missingKeyCallback;
         this.initialized = false;
