@@ -7,18 +7,33 @@ vi.mock('@/utils/fileHandler', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/utils/fileHandler')>();
     return {
         ...actual,
-        getLocaleFilePath: vi.fn().mockResolvedValue('/locales/de/translation.json'),
-        appendTranslationToFile: vi.fn().mockResolvedValue(undefined),
-        readLocaleFile: vi.fn().mockResolvedValue({}),
-        writeLocaleFile: vi.fn().mockResolvedValue(undefined),
+        getLocaleFilePath: vi.fn(),
+        appendTranslationToFile: vi.fn(),
+        readLocaleFile: vi.fn(),
+        writeLocaleFile: vi.fn(),
     };
 });
+
+/**
+ * Re-arm the mocked file handler with the answers the tests that do not override anything
+ * expect. This has to happen per test, not once in the `vi.mock` factory: several tests below
+ * replace an implementation and none of them restores it, and `clearAllMocks` only forgets the
+ * calls — the replacement survives into whatever runs next. With the defaults set once, the
+ * suite therefore passed only in declaration order and went red under `--sequence.shuffle`.
+ */
+function armFileHandlerDefaults(): void {
+    vi.mocked(fileHandler.getLocaleFilePath).mockResolvedValue('/locales/de/translation.json');
+    vi.mocked(fileHandler.appendTranslationToFile).mockResolvedValue(undefined);
+    vi.mocked(fileHandler.readLocaleFile).mockResolvedValue({});
+    vi.mocked(fileHandler.writeLocaleFile).mockResolvedValue(undefined);
+}
 
 describe('FileStorageAdapter', () => {
     let adapter: FileStorageAdapter;
 
     beforeEach(() => {
-        vi.clearAllMocks();
+        vi.resetAllMocks();
+        armFileHandlerDefaults();
         adapter = new FileStorageAdapter({
             localesPath: '/locales',
         });
