@@ -12,6 +12,8 @@ package that has no dependants yet. Every break is listed here with what it cost
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-09-25
+
 ### Added
 
 - Coverage, build-status and supported-Node badges in the README. The coverage job has uploaded to
@@ -33,7 +35,6 @@ package that has no dependants yet. Every break is listed here with what it cost
   to 100%, and the repository-wide `branches` threshold in `vitest.config.ts` rises from 90 to 95.
 
 ### Changed
-
 
 - `exactOptionalPropertyTypes` is on for `src/` and for `tests/`. Optional properties on the
   exported types now spell out the `undefined` they always accepted — `namespace?: string` reads
