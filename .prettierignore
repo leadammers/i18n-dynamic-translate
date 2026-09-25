@@ -1,0 +1,4 @@
+# Build output and generated reports — prettier has no business rewriting either.
+dist/
+coverage/
+node_modules/
