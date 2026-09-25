@@ -65,6 +65,63 @@ dependency**, the way the optional backends already do. Redis first — it answe
 question cleanly and covers the serverless case; S3 second, once the conditional-write shape is
 settled.
 
+### An LLM `TranslationService`
+The premise of this package is *dynamic* keys — `products.meta.carrier` — and `convertKeyToText`
+currently hands a machine translator a decontextualised phrase. An LLM provider takes the `context`
+string the contract already carries (`src/types/index.ts:161`, and both existing providers already
+accept it), so it can be told that a string is a UI label in an e-commerce carrier field rather
+than guessing. That is the one quality gap no MT provider can close, and it is the difference
+against the several `i18n-auto-translate` packages that currently outrank this one in npm search.
+
+Cheap on the axis that usually blocks things here: the API is plain HTTPS over global `fetch`, the
+same shape as `src/translators/deepl.ts`, so **no dependency and no optional peer** — unlike a
+storage adapter. Adding the enum member and the factory branch (`src/translators/index.ts:15`) is
+additive and safe.
+
+What actually needs deciding, none of it about the HTTP call:
+
+- **The response is prose, not a string.** MT returns the translation; a model can return it
+  wrapped in explanation, quoted, or refuse outright. The provider has to constrain the output and
+  validate it before it reaches the cache, or a malformed answer is persisted into a locale file
+  as if it were a translation.
+- **Batch identity.** `translateBatch` must return exactly N entries in input order. DeepL
+  guarantees that; a model does not. The failure modes are already modelled — `tests/unit/errorFlow.test.ts`
+  covers a short batch and a non-string entry — so this is about making the provider detect and
+  fail rather than about inventing new error paths.
+- **Placeholders must survive.** i18next `{{name}}` and ICU `{count}` have to come back intact.
+  This is the actual quality claim, so it is the thing to test, not an afterthought.
+- **Rule 3 gets sharper.** The request body now contains the key text and the context. Nothing of
+  it may reach an error, a log or a fixture; everything keeps going through `describeHttpError()`.
+- Model id and system prompt are configuration, not magic strings in the provider.
+
+Cost and latency are an order of magnitude off MT, which feeds back into how the debounced batch is
+sized — worth a line in the docs rather than a code change.
+
+### Decide whether `next-intl` can be a `BackendAdapter` at all
+Next.js server rendering is the largest audience the two current backends do not reach, and
+`next-intl` is where that ecosystem has settled. But it does **not** fit `BackendAdapter` as
+specified, and writing the adapter is not the task — deciding the shape is.
+
+`BackendAdapter` assumes a mutable live instance: hook the missing-key callback, translate, call
+`setTranslation()`, the host serves the new value. `next-intl` has no such instance. Messages are
+request-scoped, built once per request by `getRequestConfig` and passed down through
+`NextIntlClientProvider`. Its two hooks are `onError` (fires with `MISSING_MESSAGE`) and
+`getMessageFallback` (returns the fallback string) — **both synchronous**, so neither can await a
+translation, and there is no `addResource` equivalent to write into. Verified against the
+`next-intl` configuration documentation on 2026-09-25.
+
+The integration that does fit splits across the two halves the framework already has:
+`onError` enqueues the miss into the existing debounced batch, fire-and-forget; `getRequestConfig`
+reads the catalog the storage adapter has since filled, so the *next* request serves the
+translation. That is not `setTranslation()` into a live host, so the options are to widen
+`BackendAdapter` to describe a write-behind backend, or to ship this as a documented recipe plus a
+small helper rather than as an adapter. Either way it changes or sidesteps a frozen public
+interface, so it needs an **ADR** before code.
+
+It pairs with the Redis/S3 adapter above: Next.js users are disproportionately on serverless, where
+the filesystem store does not work either. Neither item is worth much to that audience without the
+other.
+
 ## Type Safety
 
 `noUncheckedIndexedAccess` was enabled on `feature/cache-contract`, and
