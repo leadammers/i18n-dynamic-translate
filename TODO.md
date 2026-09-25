@@ -22,26 +22,19 @@ Consider extracting:
 Deferred deliberately: it is a large, behaviour-preserving refactor and belongs on its own
 branch rather than mixed into the review fixes.
 
-## Testing
+### Rule on a second `initialize()` against an already-hooked host
+Two `I18nextAdapter` instances attached to one host and destroyed **FIFO** leave the host
+permanently hooked with `saveMissing: true`: the second adapter's `destroy()` restores what it saw,
+which is the first adapter's handler. LIFO teardown is clean. Probed in the pre-merge review of #49.
 
-### Cover the adapter lifecycle paths
-The two backend adapters are the last cluster of untested behaviour: roughly twenty uncovered
-branch outcomes, all of them lifecycle and error handling rather than translation logic. 0.1.2
-closed the `i18nextAdapter` save/restore arms; the rest of the list below still stands.
-
-- The uninitialized guards: `setTranslation` before `initialize` throws `BackendError`, while
-  `getTranslation` answers `null` and `destroy` is a no-op. Three different contracts, none
-  of them asserted.
-- `initialize` called twice — the guard that stops the missing-key hook from being stacked.
-- The missing-key callback rejecting: `reportError` routes to the consumer's `onError` when one
-  is configured and falls back to `console.error` when none is. Both sides are untested, and
-  this is the one place library code is allowed to touch the console.
-- i18n-node only: a catalog the instance reports as `false`, and `addLocale` for an unknown
-  locale.
-
-Do this with the adapter work rather than on its own: the tests are lifecycle assertions against
-the very structure that would change, so writing them first only to rewrite them is wasted.
-Together they are worth roughly 5 points of branch coverage.
+Not fixable as a bug on its own — the fix depends on a decision the `BackendAdapter` contract does
+not currently make: **is a second `initialize()` against a host another adapter has already hooked
+legal at all?** If it is not, `initialize()` has to refuse it, and that is a new throwing path on a
+public method. If it is, each adapter has to detect and unwind out of order, which means the hook
+chain becomes part of the contract rather than an implementation detail. Either answer changes
+`BackendAdapter`, so it needs an **ADR** (`docs/decisions/`) before any code, and a minor release —
+not a coverage or patch pass. Phase 3 of the 0.1.2 plan ruled it out of scope for exactly this
+reason and left it here.
 
 ## Type Safety
 
@@ -75,3 +68,12 @@ existing synchronous implementation keeps working untouched. It breaks the readi
 `getConfig().cache`, so it waits for the minor bump. Do it in the same release as the
 `AutoTranslate` breakup above — both rewrite the same call sites.
 
+## Tooling
+
+### Check a devDependency's own `engines.node` against ours
+A devDependency can declare an `engines.node` floor above this repository's own, and npm reports it
+as an install-time warning and nothing else. Neither `make gate` nor any CI job reads it, so the
+first sign is a contributor on the declared minimum failing to run a tool everyone else has working.
+Noticed in 0.1.2 while adding husky and lint-staged. A check belongs in the gate — walk the
+installed `node_modules/*/package.json` for `engines.node` and compare each against this package's
+own floor.

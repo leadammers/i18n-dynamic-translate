@@ -20,6 +20,13 @@ that is a widening for callers but costs an assignment for a consumer receiving 
 counts as breaking for this purpose; see [ADR 006](../decisions/006-widening-is-not-free.md).
 From 1.0.0 the usual rules apply and this paragraph stops being true.
 
+**A precedent cited in this policy gets checked against `CHANGELOG.md` when it is written**, not
+copied from the sibling document that already states it. The 0.1.1 line above once read "renamed an
+exported adapter" in three shipped files at once; 0.1.1 deleted the enum member `Backend.NODE_I18N`,
+which is a different break with a different remedy for a caller. A claim about a past release is the
+kind that nothing in the gate can check, so it has to be checked by hand, once, by whoever writes
+it.
+
 ## Steps
 
 1. Land everything on `dev` and confirm it is green.

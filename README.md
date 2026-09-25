@@ -17,14 +17,24 @@ product attributes, category trees — whose key set is not known at build time.
 > hosted API, LibreTranslate against a self-hosted instance (`tests/e2e/`). DeepL has by far the
 > most mileage; LibreTranslate is the newer of the two paths.
 
+## Features
+
+- 🚀 **Automatic translation** of missing i18n keys
+- 🔌 **Multiple backends** — i18next and i18n-node (the `i18n` package)
+- 🌐 **Multiple providers** — DeepL and LibreTranslate
+- 🧠 **Context-aware** — disambiguate "bank" into "Bank" or "Ufer" with the `context` option
+- 💾 **Auto-save** — writes translations straight into your locale files
+- ⚡ **Caching** — an in-memory cache keeps repeat keys off the provider
+- 🎯 **Type-safe** — full TypeScript declarations and typed error classes
+- 📦 **Batch translation** — whole objects at once with `translateObject()`
+- ⚙️ **Configurable** — concurrency, file format (JSON/YAML), namespaces
+- 🔑 **Nested keys** — deep key structures via the `parentKey` option
+
 ## When to use this
 
-DynamicTranslate fills keys **at runtime**, inside the process serving the request. That is a
-different job from the build-time CLI translators that walk a locale file and fill in what is
-already listed in it — if your keys are known when you build, use one of those instead.
-
-Reach for this when the set of keys cannot be known ahead of time: API metadata, product
-attributes, category trees, anything data-driven.
+This is a different job from the build-time CLI translators that walk a locale file and fill in
+what is already listed in it. If your keys are known when you build, use one of those instead —
+reach for this one when the set is data-driven and cannot be known ahead of time.
 
 ### What it replaces
 
@@ -73,20 +83,6 @@ in place without a deploy, and into your locale file where a human can correct i
   your side — pin an exact version rather than a `^` range if you would rather not read it.
   From 1.0.0 the usual semver rules apply.
 
-## Features
-
-- 🚀 **Automatic translation** of missing i18n keys
-- 🔌 **Multiple backends** - Works with i18next and i18n-node (the `i18n` package)
-- 🌐 **Multiple providers** - DeepL and LibreTranslate support
-- 🧠 **Context-aware translations** - Disambiguate meanings (e.g., "bank" → "Bank" (financial) vs "Ufer" (river) based on
-  context)
-- 💾 **Auto-save** - Writes translations directly to your locale files
-- ⚡ **Caching** - In-memory cache prevents redundant API calls
-- 🎯 **Type-safe** - Full TypeScript support with comprehensive error types
-- 📦 **Batch translation** - Translate entire objects with `translateObject()`
-- ⚙️ **Configurable** - Control concurrency, file formats (JSON/YAML), and namespaces
-- 🔑 **Nested keys** - Support for deep key structures with `parentKey` option
-
 ## Prerequisites
 
 - Node.js 22.12+, tested on 22.12 and 24 (current LTS) — **server-side only.** The library holds your provider API key and writes locale
@@ -100,13 +96,12 @@ in place without a deploy, and into your locale file where a human can correct i
 - An i18next or i18n-node instance already configured. **i18n-node is the
   [`i18n`](https://www.npmjs.com/package/i18n) package** — mashpie's
   [i18n-node](https://github.com/mashpie/i18n-node), installed with `npm install i18n`, peer range
-  `^0.15.0`. Select it with `Backend.I18N_NODE`. 0.1.0 called it "node-i18n", which is an unrelated
-  npm package last published in 2022; `Backend.NODE_I18N` is gone — see
-  [005](docs/decisions/005-the-i18n-node-name.md). The peer range for i18next is `>=23.0.0`, and
-  every release drives a real instance of majors 23, 24, 25 and 26 end to end from an installed
-  tarball. The range stays open above that: the adapter uses four stable i18next entry points, and
-  pinning an upper bound would make every new major look unsupported until this package released
-  again.
+  `^0.15.0`, selected with `Backend.I18N_NODE`. If you are upgrading from 0.1.0, that enum member
+  was spelled differently — see [005](docs/decisions/005-the-i18n-node-name.md).
+- The peer range for i18next is `>=23.0.0`, and every release drives a real instance of majors 23,
+  24, 25 and 26 end to end from an installed tarball. The range stays open above that: the adapter
+  uses four stable i18next entry points, and pinning an upper bound would make every new major look
+  unsupported until this package released again.
 - DeepL API key (free tier available at [deepl.com](https://www.deepl.com/pro-api)) or a self-hosted LibreTranslate
   instance
 

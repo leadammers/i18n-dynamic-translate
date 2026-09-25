@@ -14,6 +14,15 @@ rules are the ones that would have prevented them.
   entry immortal.
 - After `dispose()`, reject further work explicitly rather than failing obscurely later. Guard with a
   `disposed` flag checked at every entry point.
+- **A `BackendAdapter`'s `destroy()` is that `dispose()`.** It restores the host's hooks and then
+  **releases the host instance reference** — released last, after the restores that still need it.
+  The held reference *is* the guard the entry points check, so a destroyed adapter answers exactly
+  as an un-initialized one: `setTranslation()` throws `BackendError`, `getTranslation()` answers
+  `null`, a second `destroy()` is a no-op. Clearing an `initialized` flag alone is not enough —
+  `I18nextAdapter` and `I18nNodeAdapter` both kept writing into a host they had already released
+  until 0.1.2 fixed it. What `destroy()` does **not** release is `config`: a missing-key callback
+  that was already in flight can still reject after teardown, and that report belongs in the
+  consumer's `onError` hook rather than on the console (AGENTS.md rule 4).
 
 ## Teardown order is part of the design
 
