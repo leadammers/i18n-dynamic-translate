@@ -36,6 +36,35 @@ chain becomes part of the contract rather than an implementation detail. Either 
 not a coverage or patch pass. Phase 3 of the 0.1.2 plan ruled it out of scope for exactly this
 reason and left it here.
 
+### A Redis or S3 `StorageAdapter` — and the two contract questions it raises
+`FileStorageAdapter` is the only implementation, so every deployment without a writable disk is
+shut out: serverless (Vercel, Lambda — read-only except an ephemeral `/tmp`) and anything
+horizontally scaled, where each instance writes its own copy. That is the widest *cannot adopt at
+all* class the package has, wider than any missing backend.
+
+Writing the adapter is the easy half. Two things have to be settled first, and neither is a Redis
+or S3 detail:
+
+- **`StorageAdapter` is write-only.** `save` and `saveBatch`, no load path
+  (`src/types/index.ts:270`). Today that works because the host's own i18next backend reads the
+  same directory `FileStorageAdapter` writes — `i18next-fs-backend` on `localesPath`. Point the
+  writes at Redis and nothing in the pipeline reads them back, so the adapter is only useful paired
+  with a matching i18next backend the consumer supplies. Giving the interface a read side is the
+  alternative, and it is a change to a frozen public interface: ADR first.
+- **The persistence model is read-modify-write over a whole namespace document**, serialised by an
+  in-process `FileLock` (`src/storage/FileStorageAdapter.ts:17,39`). That lock is process-local, so
+  it is already only correct for a single process. Redis can do this properly — atomic ops, `WATCH`,
+  or a Lua script. **S3 cannot**: it has no read-modify-write, so two concurrent writers silently
+  lose keys unless the adapter uses conditional writes or stores one object per key, which is a
+  different shape from what the interface implies. Decide whether the contract *requires*
+  atomicity or merely assumes it, and say so in `docs/conventions/concurrency.md`.
+
+Both clients are third-party (`ioredis` or `redis`, `@aws-sdk/client-s3`), so critical rule 2
+applies: `dependencies` stays empty, each goes behind a lazy `import()` and an **optional peer
+dependency**, the way the optional backends already do. Redis first — it answers the atomicity
+question cleanly and covers the serverless case; S3 second, once the conditional-write shape is
+settled.
+
 ## Type Safety
 
 `noUncheckedIndexedAccess` was enabled on `feature/cache-contract`, and
