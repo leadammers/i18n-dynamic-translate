@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AutoTranslate } from '@/core/AutoTranslate';
 import { Backend, LocaleData, StorageAdapter, TranslationProvider } from '@/types';
 import { I18nNodeAdapter } from '@/adapters/i18nNodeAdapter';
+import { I18nextAdapter } from '@/adapters/i18nextAdapter';
 import { getNestedValue, setNestedValue } from '@/utils/objectPath';
 import { MemoryCache } from '@/utils/cache';
 import { LibreTranslateService } from '@/translators/libreTranslate';
@@ -980,6 +981,131 @@ describe('review regressions', () => {
             await expect(getLocaleFilePath('/locales', 'en', 'translation')).resolves.toBe(
                 path.join('/locales', 'en', 'translation.json')
             );
+        });
+    });
+
+    describe('L-4 setTranslation after destroy', () => {
+        // Pins the teardown contract docs/conventions/concurrency.md (lines 15-16) states:
+        // once an adapter is destroyed, a write through it throws BackendError and never
+        // reaches the host. Both adapters release the held instance in `destroy()`, so the
+        // `if (!this.i18next)` / `if (!this.i18n)` guard on setTranslation() fires. Before
+        // the fix — found in the pre-merge review of #49 — `destroy()` cleared `initialized`
+        // but kept the instance, and a caller writing through a destroyed adapter still
+        // reached the live host.
+        it('throws instead of writing to i18next after destroy()', () => {
+            const i18next = createMockI18next();
+            const adapter = new I18nextAdapter();
+            adapter.initialize(i18next, createConfig(i18next));
+
+            adapter.destroy();
+
+            expect(() => adapter.setTranslation('greeting', 'de', 'Hallo')).toThrow(BackendError);
+            expect(i18next.addResource).not.toHaveBeenCalled();
+        });
+
+        it('throws instead of writing to i18n-node after destroy()', () => {
+            const i18nNode = {
+                __: vi.fn((phrase: string) => phrase),
+                __n: vi.fn((singular: string) => singular),
+                getLocale: vi.fn(() => 'en'),
+                setLocale: vi.fn(),
+                getLocales: vi.fn((): string[] => ['en']),
+                getCatalog: vi.fn((): LocaleData => ({})),
+                addLocale: vi.fn(),
+                configure: vi.fn(),
+            };
+            const adapter = new I18nNodeAdapter();
+            adapter.initialize(i18nNode, createConfig(i18nNode, { backend: Backend.I18N_NODE }));
+
+            adapter.destroy();
+
+            expect(() => adapter.setTranslation('greeting', 'en', 'Hallo')).toThrow(BackendError);
+            expect(i18nNode.getCatalog).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('L-4 config survives destroy()', () => {
+        // The other half of the L-4 fix, and the one with no test until now. `destroy()` releases
+        // the host instance but deliberately keeps `config` — the documented exception in
+        // docs/conventions/concurrency.md, "Every resource has an owner and a teardown". A
+        // missing-key callback that was already in flight when the adapter was destroyed can
+        // still reject afterwards, and `reportError` has to find the consumer's `onError` hook
+        // when it does. Releasing `config` alongside the instance would send that report to
+        // `console.error` instead: the library writing to the host's console about a failure the
+        // host asked to receive on a hook, which AGENTS.md rule 4 exists to prevent.
+        //
+        // Placed here rather than in the adapter suites because it guards the decision taken
+        // while fixing L-4, not an acceptance criterion of the coverage phase — testing.md's
+        // rule is one `describe` per finding ID, and this is the same finding.
+        it('routes a late rejection to onError after i18next destroy()', async () => {
+            const i18next = createMockI18next();
+            const onError = vi.fn();
+            const adapter = new I18nextAdapter();
+            adapter.initialize(i18next, createConfig(i18next, { onError }));
+
+            let rejectInFlight: (reason: Error) => void = (): void => {};
+            const inFlight = new Promise<void>((_resolve: () => void, reject: (reason: Error) => void) => {
+                rejectInFlight = reject;
+            });
+            adapter.onMissingKey((): Promise<void> => inFlight);
+
+            i18next.options.missingKeyHandler?.(['de'], 'translation', 'late.key', 'fallback');
+
+            adapter.destroy();
+
+            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((): void => {});
+            try {
+                const rejection = new Error('callback rejected after teardown');
+                rejectInFlight(rejection);
+
+                await vi.waitFor(() => {
+                    expect(onError).toHaveBeenCalledWith(rejection, 'late.key', 'de');
+                });
+                expect(consoleErrorSpy).not.toHaveBeenCalled();
+            } finally {
+                consoleErrorSpy.mockRestore();
+            }
+        });
+
+        it('routes a late rejection to onError after i18n-node destroy()', async () => {
+            const i18nNode = {
+                __: vi.fn((phrase: string) => phrase),
+                __n: vi.fn((singular: string) => singular),
+                getLocale: vi.fn(() => 'en'),
+                setLocale: vi.fn(),
+                getLocales: vi.fn((): string[] => ['en']),
+                getCatalog: vi.fn((): LocaleData => ({})),
+                addLocale: vi.fn(),
+                configure: vi.fn(),
+            };
+            const onError = vi.fn();
+            const adapter = new I18nNodeAdapter();
+            adapter.initialize(i18nNode, createConfig(i18nNode, { backend: Backend.I18N_NODE, onError }));
+
+            let rejectInFlight: (reason: Error) => void = (): void => {};
+            const inFlight = new Promise<void>((_resolve: () => void, reject: (reason: Error) => void) => {
+                rejectInFlight = reject;
+            });
+            adapter.onMissingKey((): Promise<void> => inFlight);
+
+            // The overridden `__` answers the phrase back, which is i18n-node's way of
+            // reporting a miss — that is what puts the callback in flight.
+            i18nNode.__('late.key');
+
+            adapter.destroy();
+
+            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((): void => {});
+            try {
+                const rejection = new Error('callback rejected after teardown');
+                rejectInFlight(rejection);
+
+                await vi.waitFor(() => {
+                    expect(onError).toHaveBeenCalledWith(rejection, 'late.key', 'en');
+                });
+                expect(consoleErrorSpy).not.toHaveBeenCalled();
+            } finally {
+                consoleErrorSpy.mockRestore();
+            }
         });
     });
 });

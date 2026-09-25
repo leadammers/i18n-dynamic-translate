@@ -98,6 +98,24 @@ npm audit --audit-level=high
 New source and test files must be **committed**, not left untracked — they pass locally because the
 file is on disk and fail in CI because it was never committed.
 
+### Local hooks (husky)
+
+`npm install` wires up two git hooks through husky, so most of the gate above runs on your machine
+before CI ever sees the commit:
+
+- **`pre-commit`** — `prettier --check` through `lint-staged` (staged `.ts` files only) and a
+  whole-project `typecheck`. `lint-staged` matches `*.ts` anywhere in the tree, which is the same
+  scope as the `format:check` script, so a file cannot pass the hook and then fail CI on
+  formatting, or the reverse.
+- **`pre-push`** — `build`, then the test suite with the provider credentials cleared, so a push
+  never spends DeepL quota. It inlines the same clearing `make test-offline` does rather than
+  calling `make`, so the hook works without `make` on PATH.
+
+The hooks are a **local convenience**, not the gate of record — CI still runs the full gate on
+every PR and is what actually blocks a merge. `git commit --no-verify` and `git push --no-verify`
+skip the respective hook for a deliberate work-in-progress commit or a push you know CI will judge
+anyway; use either sparingly and let CI catch what it skipped.
+
 Add tests for new behavior. A bug fix should come with a test that fails before the fix and passes
 after it. See [docs/conventions/testing.md](docs/conventions/testing.md).
 

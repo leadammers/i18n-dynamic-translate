@@ -5,8 +5,27 @@ provenance attestation and the version guard.
 
 ## Versioning
 
-Semantic Versioning. While the version is `0.x`, breaking changes are allowed in a minor bump — say
-so in the changelog entry rather than silently shipping them.
+Semantic Versioning. While the version is `0.x` a breaking change is allowed in **any** bump,
+patch included — semver puts no compatibility promise on a major version of zero. Prefer the
+smallest bump that is honest about the change rather than inflating the minor to look careful:
+0.1.1 deleted a member of the exported `Backend` enum with no alias, and 0.1.2 changes
+exported type declarations, both as patches, because the package had no dependants either time.
+
+What is not optional is the paperwork. A change to anything exported from `src/index.ts` takes an
+ADR in `docs/decisions/` saying why, with a row in that folder's index — below 1.0.0 the version
+number carries no signal, so the ADR is what makes a break deliberate rather than accidental
+([AGENTS.md](../../AGENTS.md), critical rule 1). And a breaking change gets its own call-out in the
+changelog entry — what broke, who it breaks, and the one thing a caller changes on their side. A change
+that is a widening for callers but costs an assignment for a consumer receiving the value
+counts as breaking for this purpose; see [ADR 006](../decisions/006-widening-is-not-free.md).
+From 1.0.0 the usual rules apply and this paragraph stops being true.
+
+**A precedent cited in this policy gets checked against `CHANGELOG.md` when it is written**, not
+copied from the sibling document that already states it. The 0.1.1 line above once read "renamed an
+exported adapter" in three shipped files at once; 0.1.1 deleted the enum member `Backend.NODE_I18N`,
+which is a different break with a different remedy for a caller. A claim about a past release is the
+kind that nothing in the gate can check, so it has to be checked by hand, once, by whoever writes
+it.
 
 ## Steps
 
@@ -53,9 +72,14 @@ just lacks provenance and the tag check.
 
 ## Proving the support claims
 
-`engines.node` is the only support claim npm enforces — it refuses to install on a Node below the
-floor. There is no `engines.typescript`, and a peer range says which versions are *allowed*, not
-which were tried. So the rest is proven by the `compat` job in CI rather than written into a badge:
+`engines.node` is the only support claim npm reads at install time, and even that one it does not
+enforce: `engine-strict` defaults to `false`, so a mismatch prints a warning rather than refusing
+the install. Only a consumer who has turned `engine-strict` on is actually blocked by it. There is
+no `engines.typescript`, and a peer range says which versions are *allowed*, not which were tried.
+So every support claim here is proven by CI rather than left to the manifest, and by three jobs
+rather than one — the `test` matrix runs the suite on each supported Node version, `compat`
+checks the TypeScript range and the package layout, and `smoke` drives the packed tarball
+against each supported i18next:
 
 - `npm run compat:types` type-checks `tools/compat/consumer.ts` — a consumer that imports every
   exported type from the built `dist/` — against each TypeScript version in `SUPPORTED_TYPESCRIPT`

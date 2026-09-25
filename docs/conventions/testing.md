@@ -82,6 +82,22 @@
 - **Cover new behavior with a test.** A bug fix ships with a test that fails before the fix and
   passes after it — write it first and watch it go red, otherwise you have not proven it tests
   the bug.
+- **A coverage number says an arm was executed. It never says anything would notice if that arm
+  vanished.** Before work that exists to raise coverage is called done, delete each line its new
+  tests claim to pin and re-run: a test that still passes is a coverage filler, not a gate. Sharpen
+  it, or say at the assertion that it is coverage-only, so the next reader does not mistake it for
+  one. Two shapes to watch, both of which sat at 100% branch coverage here: `toThrow(BackendError)`
+  passes without the guard too, because the `TypeError` the guard-less path throws gets wrapped into
+  the same class — assert the message instead; and a test that exercises a delegation without ever
+  observing it, which `vi.mock('@/utils/objectPath', { spy: true })` is how to fix.
+- **`vi.clearAllMocks()` clears calls, not implementations.** A `vi.mock` factory that arms default
+  return values once, plus per-test `mockImplementation`/`mockResolvedValue` overrides that nothing
+  restores, gives a suite that passes only in declaration order — the replacement survives into
+  whatever runs next. Arm the defaults *per test* (`vi.resetAllMocks()` in `beforeEach` followed by
+  an explicit `arm…Defaults()` helper), or scope every override with the `…Once` variants. The
+  symptom is invisible in file order, and CI runs the suite in file order, so run
+  `npx vitest run --sequence.shuffle` before trusting a suite that mocks a shared module.
+  `tests/unit/fileStorageAdapter.test.ts` is the worked example.
 - **Never let a unit test reach the network or the real filesystem.** Mock the translation
   service with `vi.mock('@/translators', …)` and stub `http.post` with `vi.spyOn`. A unit test
   that needs a key is an e2e test in the wrong folder.
@@ -133,6 +149,10 @@ updates the existing comment rather than adding one per push.
 **The two gates measure different things and neither replaces the other.** The vitest thresholds
 are an absolute floor for the whole project; Codecov's statuses are relative to the base commit and
 to the diff. A change can pass the floor while dropping coverage, and vice versa.
+
+Neither gate measures whether a test would *fail*. A file can reach 100% and still be pinned by
+assertions nothing could break — see the sensitivity rule under _Rules_ before raising a threshold
+on the strength of a number.
 
 The numbers CI reports are lower than a local run, and the CI ones are the ones the thresholds are
 set against. Both e2e suites call `dotenv.config({ path: '.env.dev' })`

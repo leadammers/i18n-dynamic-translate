@@ -47,9 +47,25 @@ export class DeepLService implements TranslationService {
         const isFreeKey = config.apiKey.endsWith(':fx');
         this.apiUrl = isFreeKey ? 'https://api-free.deepl.com/v2/translate' : 'https://api.deepl.com/v2/translate';
 
-        this.formality = config.deeplOptions?.formality;
-        this.context = config.deeplOptions?.context;
-        this.splitSentences = config.deeplOptions?.splitSentences;
+        // Each option is assigned only when the caller supplied one, so the field stays absent
+        // rather than holding `undefined` — which is what `exactOptionalPropertyTypes` asks of an
+        // optional property. `buildRequestBody` then filters on truthiness, so neither an absent
+        // field nor an empty string reaches DeepL.
+        const formality = config.deeplOptions?.formality;
+        if (formality !== undefined) {
+            this.formality = formality;
+        }
+
+        const context = config.deeplOptions?.context;
+        if (context !== undefined) {
+            this.context = context;
+        }
+
+        const splitSentences = config.deeplOptions?.splitSentences;
+        if (splitSentences !== undefined) {
+            this.splitSentences = splitSentences;
+        }
+
         this.modelType = config.deeplOptions?.modelType || DeepLModelType.LATENCY;
     }
 

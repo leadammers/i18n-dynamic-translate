@@ -5,9 +5,91 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-While the version stays below 1.0.0 the public API may change in a minor release.
+While the version stays below 1.0.0 the public API may change in **any** release, patch
+releases included — a major version of zero carries no compatibility promise under Semantic
+Versioning, and this project uses that room rather than spending version numbers on a
+package that has no dependants yet. Every break is listed here with what it costs a caller.
 
 ## [Unreleased]
+
+## [0.1.2] — 2026-09-25
+
+### Added
+
+- Coverage, build-status and supported-Node badges in the README. The coverage job has uploaded to
+  Codecov since 0.1.1 and `engines.node` has always been declared; neither number was visible
+  without going looking. The Node badge renders the published manifest's `engines.node` range, so it
+  cannot drift from what the package declares, and the coverage and CI badges both report `main`
+  rather than whatever is on `dev`.
+- Local git hooks via husky and lint-staged: `pre-commit` runs `prettier --check` (through
+  `lint-staged`, staged files only) and `typecheck`; `pre-push` runs `build` and the test suite
+  with the provider credentials cleared, so no push can spend DeepL quota. CI stays the gate of
+  record — the hooks are a local convenience, not a replacement.
+- Lifecycle and error-path coverage for both backend adapters: the uninitialized guards asserted as
+  the three different contracts they are (`setTranslation` throws, `getTranslation` answers `null`,
+  `destroy` is a no-op), the double-`initialize` guard that stops the missing-key hook being
+  stacked, `reportError` asserted both ways (the consumer's `onError` hook, and the `console.error`
+  fallback only when no hook is configured), i18next's save/restore arms for options keys the host
+  never owned, and i18n-node's catalog-reports-`false` and nothing-to-restore arms. Branch coverage
+  on `src/adapters/i18nextAdapter.ts` and `src/adapters/i18nNodeAdapter.ts` goes 77.27% and 83.01%
+  to 100%, and the repository-wide `branches` threshold in `vitest.config.ts` rises from 90 to 95.
+
+### Changed
+
+- `exactOptionalPropertyTypes` is on for `src/` and for `tests/`. Optional properties on the
+  exported types now spell out the `undefined` they always accepted — `namespace?: string` reads
+  `namespace?: string | undefined`, and so on across `AutoTranslateConfig`,
+  `TranslationProviderConfig`, `TranslationIdentity`, `StorageSaveEntry`,
+  `FileStorageAdapterConfig` and the option bags of `translateKey`, `translateObject` and
+  `StorageAdapter.save`. Optional
+  *methods* (`TranslationCache.has`, `TranslationCache.getStats`, `StorageAdapter.saveBatch`) keep
+  method syntax and are unchanged.
+
+  **What this widens, and the one place it does not.** Every call that compiles today still
+  compiles, and a consumer who has the flag on can now pass `{ namespace: undefined }` — which the
+  old declaration rejected. That is the input side. On the *output* side the same widening can cost
+  an assignment: a consumer who also runs `exactOptionalPropertyTypes` and assigns a value the
+  library hands back to a narrower hand-written type now gets `TS2375`.
+
+  ```ts
+  interface NarrowConfig {
+      autoSave?: boolean; // add `| undefined` here
+  }
+  const narrow: NarrowConfig = instance.getConfig(); // TS2375 under exactOptionalPropertyTypes
+  ```
+
+  The fix is one token in the consumer's own type — `autoSave?: boolean | undefined` — and nothing
+  changes for a consumer who does not run the flag, or who uses the returned value without
+  re-declaring its shape. It is called out here rather than filed as a widening-only change because
+  a type error in someone else's build is a break whatever the direction.
+- Inside the library the same flag was answered the other way round: a field that has no value is
+  now absent rather than set to `undefined`. `MemoryCache`'s sweeper handle, the adapters' saved
+  i18next/i18n-node handlers, `HttpError`'s `status` and `code`, and the DeepL and LibreTranslate
+  request options all follow that rule. `I18nextAdapter` now records whether the host's options
+  object *owned* `missingKeyHandler` and `saveMissing` rather than what those keys held, so
+  `destroy()` restores a key the host had — including one it deliberately set to `undefined` — and
+  removes a key it never set, instead of leaving both behind holding `undefined`.
+- `format` and `format:check` cover every `.ts` file in the tree rather than only `src/` and
+  `tests/`. `vitest.config.ts` and `tools/compat/consumer.ts` were outside the old globs, so the
+  new `pre-commit` hook would have checked files CI never did. A `.prettierignore` restates the
+  build-output exclusions that `.gitignore` already gives Prettier, so the widened glob cannot
+  reach a generated `.d.ts`.
+
+### Fixed
+
+- A backend adapter no longer writes to its host after `destroy()`. `destroy()` cleared the
+  `initialized` flag but kept the i18next / i18n-node instance it had been handed, so the
+  uninitialized guard in `setTranslation()` never fired after teardown and a write still landed on
+  a host the adapter had already released — the use-after-dispose shape
+  `docs/conventions/concurrency.md` rules out. Both adapters now release the instance reference in
+  `destroy()`, after the restores that need it.
+
+  **What it costs a caller:** a `setTranslation()` through a destroyed adapter now throws
+  `BackendError` where it previously wrote to the host and returned silently. Code that tore an
+  adapter down and kept using it was writing into a backend it no longer owned; it now finds out.
+  A destroyed adapter answers exactly as an un-initialized one — `getTranslation()` `null`, a
+  second `destroy()` a no-op — and nothing changes for an adapter that is still initialized.
+  `BackendAdapter` keeps its shape, so this is a bug fix rather than an API change.
 
 ## [0.1.1] — 2026-09-25
 

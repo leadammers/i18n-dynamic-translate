@@ -11,8 +11,11 @@ interface I18nextInstance {
     language?: string;
     languages?: string[];
     options: {
-        missingKeyHandler?: (lngs: string[], ns: string, key: string, fallbackValue: string) => void;
-        saveMissing?: boolean;
+        // `| undefined` on these two is not the usual eOPT widening: a host app really can own
+        // either key holding `undefined`, and telling that apart from an absent key is what
+        // `setupMissingKeyHandler()` and `destroy()` below are built around.
+        missingKeyHandler?: ((lngs: string[], ns: string, key: string, fallbackValue: string) => void) | undefined;
+        saveMissing?: boolean | undefined;
         ns?: string[];
     };
 
@@ -26,8 +29,11 @@ export class I18nextAdapter implements BackendAdapter {
     private config?: AutoTranslateConfig;
     private missingKeyCallback?: MissingKeyCallback;
     private initialized: boolean = false;
-    private originalMissingKeyHandler?: (lngs: string[], ns: string, key: string, fallbackValue: string) => void;
-    private originalSaveMissing?: boolean;
+    private originalMissingKeyHandler?:
+        ((lngs: string[], ns: string, key: string, fallbackValue: string) => void) | undefined;
+    private hadMissingKeyHandler: boolean = false;
+    private originalSaveMissing?: boolean | undefined;
+    private hadSaveMissing: boolean = false;
 
     /**
      * Initialize the adapter with i18next instance
@@ -56,9 +62,21 @@ export class I18nextAdapter implements BackendAdapter {
     private setupMissingKeyHandler(): void {
         if (!this.i18next) return;
 
-        // Store original handler and saveMissing setting
-        this.originalMissingKeyHandler = this.i18next.options.missingKeyHandler;
-        this.originalSaveMissing = this.i18next.options.saveMissing;
+        // Store the original handler and saveMissing setting, recording whether the host's options
+        // object *owned* each key rather than what the key held. The two are different states — a
+        // host can own `missingKeyHandler` holding `undefined` — and only the ownership answers the
+        // question `destroy()` has to ask: put the key back, or take it away again? `hasOwnProperty`
+        // rather than `in`, because `in` also answers true for a key the options object merely
+        // inherits, and writing that one back would leave the host with an own property it never had.
+        this.hadMissingKeyHandler = Object.prototype.hasOwnProperty.call(this.i18next.options, 'missingKeyHandler');
+        if (this.hadMissingKeyHandler) {
+            this.originalMissingKeyHandler = this.i18next.options.missingKeyHandler;
+        }
+
+        this.hadSaveMissing = Object.prototype.hasOwnProperty.call(this.i18next.options, 'saveMissing');
+        if (this.hadSaveMissing) {
+            this.originalSaveMissing = this.i18next.options.saveMissing;
+        }
 
         this.i18next.options.missingKeyHandler = (lngs: string[], ns: string, key: string, fallbackValue: string) => {
             // Call original handler if it exists
@@ -160,14 +178,33 @@ export class I18nextAdapter implements BackendAdapter {
         }
 
         // Restore original missingKeyHandler
-        this.i18next.options.missingKeyHandler = this.originalMissingKeyHandler;
-        this.originalMissingKeyHandler = undefined;
+        if (this.hadMissingKeyHandler) {
+            this.i18next.options.missingKeyHandler = this.originalMissingKeyHandler;
+        } else {
+            delete this.i18next.options.missingKeyHandler;
+        }
+        delete this.originalMissingKeyHandler;
+        this.hadMissingKeyHandler = false;
 
         // Restore original saveMissing setting
-        this.i18next.options.saveMissing = this.originalSaveMissing;
-        this.originalSaveMissing = undefined;
+        if (this.hadSaveMissing) {
+            this.i18next.options.saveMissing = this.originalSaveMissing;
+        } else {
+            delete this.i18next.options.saveMissing;
+        }
+        delete this.originalSaveMissing;
+        this.hadSaveMissing = false;
 
-        this.missingKeyCallback = undefined;
+        delete this.missingKeyCallback;
+
+        // Released last, after the restores above have used it. A disposed adapter has to answer
+        // exactly as an un-initialized one, and the `!this.i18next` guards in `getTranslation()`
+        // and `setTranslation()` are what say so — they only fire once the reference is gone
+        // (docs/conventions/concurrency.md: after teardown, reject further work explicitly).
+        // `config` deliberately stays: a missing-key callback already in flight can still reject
+        // after teardown, and that failure belongs in the consumer's `onError` hook rather than
+        // on the console.
+        delete this.i18next;
         this.initialized = false;
     }
 }

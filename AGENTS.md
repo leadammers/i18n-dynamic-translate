@@ -65,21 +65,28 @@ replaces any user- or team-level TypeScript convention. Do not apply both.
 
 ## Decisions
 
-[docs/decisions/](docs/decisions/) holds this repo's ADRs — settled decisions on the frozen public
-surface: keys as data (`001-keys-are-data.md`), the open i18next peer range
-(`002-open-peer-range.md`), the cache identity contract (`003-cache-identity.md`), the
-sync-or-promise cache widening scheduled for 0.2.0 (`004-async-cache.md`) and the i18n-node rename
-(`005-the-i18n-node-name.md`).
+[docs/decisions/](docs/decisions/README.md) holds this repo's ADRs, indexed there — settled
+decisions on the frozen public surface: keys as data (`001-keys-are-data.md`), the open i18next
+peer range (`002-open-peer-range.md`), the cache identity contract (`003-cache-identity.md`), the
+sync-or-promise cache widening scheduled for 0.2.0 (`004-async-cache.md`), the i18n-node rename
+(`005-the-i18n-node-name.md`) and why widening a public optional property still costs a consumer
+an assignment (`006-widening-is-not-free.md`). Read the index before settling an architecture
+question — it is cheaper than reopening one.
 
 ## Critical rules
 
-1. **`src/index.ts` is the public API.** Anything exported there is frozen for the rest of the
-   current minor — while the version is below 1.0.0 semver allows a breaking change in a minor
-   bump, and after 1.0.0 it takes a major one. Breaking it sooner takes an ADR that says why;
-   0.1.1 did exactly that once, in [005](docs/decisions/005-the-i18n-node-name.md).
-   Utilities stay internal — do not export one for convenience.
+1. **`src/index.ts` is the public API.** Anything exported there is frozen by default: changing it
+   takes an ADR that says why, and the changelog entry has to say what it costs a caller. Below
+   1.0.0 semver puts no compatibility promise on any bump, so the ADR — not the version number — is
+   what makes a break deliberate; 0.1.1 deleted the exported enum member `Backend.NODE_I18N`
+   with no alias in [005](docs/decisions/005-the-i18n-node-name.md) and 0.1.2 changes exported type
+   declarations in [006](docs/decisions/006-widening-is-not-free.md), both as patches. After 1.0.0 it takes a major.
+   Note that "widening" is not a synonym for "safe" — see 006. Utilities stay internal — do not
+   export one for convenience.
 2. **`dependencies` stays empty.** Optional functionality goes behind a lazy `import()` and an
-   optional peer dependency.
+   optional peer dependency. Note that `npm install --save-dev` **drops an empty `dependencies: {}`**
+   when it rewrites the manifest, so re-add the key after any devDependency change — the rule reads
+   as satisfied either way, but the explicit empty object is what says it is deliberate.
 3. **Never let an API key, request URL or request body into an error, a log or a test fixture.**
    All HTTP error text goes through `describeHttpError()`.
 4. **Library code does not own the console.** Route failures through the consumer's `onError` hook.
@@ -115,5 +122,8 @@ need a `dist/`, so build first. See the releasing conventions for what each one 
 - `TODO.md` — the architecture backlog. `core/AutoTranslate.ts` is over the size guideline and its
   breakup is the main open item.
 - `CHANGELOG.md` — what shipped and what broke.
-- `docs/reviews/` and `docs/superpowers/` are gitignored working notes, present only on the machine
-  that produced them.
+- `docs/reviews/`, `docs/superpowers/`, `docs/planning/`, `docs/archive/` and
+  `docs/improvement-log.md` are gitignored working notes, present only on the machine that produced
+  them. A plan that has been agreed lives there while it is being
+  worked; what it changed lands in `CHANGELOG.md` and in the conventions, which is what a reader of
+  this repository needs.

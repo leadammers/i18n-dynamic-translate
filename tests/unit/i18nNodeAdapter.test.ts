@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { I18nNodeAdapter } from '@/adapters/i18nNodeAdapter';
 import { BackendError } from '@/utils/errors';
+import { getNestedValue, getOwnProperty } from '@/utils/objectPath';
 import { Backend, TranslationProvider, LocaleData } from '@/types';
+
+// Spied, not replaced: `spy: true` keeps every real implementation, so no test below changes
+// behaviour by being here. These two functions are the only ways this adapter reads a catalog,
+// which is what lets a test assert that a guard returned *before* the read — an assertion on the
+// return value alone cannot, because a guard that answers `null` and a read that finds nothing
+// answer the same thing.
+vi.mock('@/utils/objectPath', { spy: true });
 
 // Create mock i18n-node instance
 /**
@@ -153,6 +161,28 @@ describe('I18nNodeAdapter', () => {
             // The __n method should be overridden
             expect(mockI18nNode.__n).not.toBe(original__n);
         });
+
+        it('should not stack the missing-key override on a second initialize call', () => {
+            adapter.initialize(mockI18nNode, mockConfig);
+            const overrideAfterFirstCall = mockI18nNode.__;
+
+            // Guarded by `this.initialized` — a second call must leave __ exactly as the
+            // first call installed it, not wrap it again.
+            adapter.initialize(mockI18nNode, mockConfig);
+
+            expect(mockI18nNode.__).toBe(overrideAfterFirstCall);
+        });
+    });
+
+    describe('setupMissingKeyHandler guard', () => {
+        it('does nothing when called without an i18n-node instance', () => {
+            // Unreachable through the public API: initialize() already validates the instance
+            // before calling this, so the guard never fires on a path a caller can reach. Called
+            // directly, through a cast that drops the private modifier, to prove the guard itself.
+            const uncalledAdapter = new I18nNodeAdapter() as unknown as { setupMissingKeyHandler: () => void };
+
+            expect(() => uncalledAdapter.setupMissingKeyHandler()).not.toThrow();
+        });
     });
 
     describe('getTranslation', () => {
@@ -212,6 +242,27 @@ describe('I18nNodeAdapter', () => {
 
             const result = adapter.getTranslation('hello', 'en');
             expect(result).toBeNull();
+        });
+
+        it('should return null for a locale getLocales lists but getCatalog reports false for', () => {
+            // A state the library never creates on its own — getLocales() and getCatalog()
+            // normally agree — but the guard on the catalog return has to hold regardless of
+            // what put the instance into it.
+            //
+            // `toBeNull()` on its own does not pin that guard, and asserting it alone would be a
+            // test that cannot fail: `getOwnProperty(false, key)` auto-boxes the primitive rather
+            // than throwing, finds no own property, and the `typeof translation === 'string'`
+            // ternary below it answers `null` for the same input. What the guard actually promises
+            // is that a falsy catalog is never *read*, so that is what is asserted.
+            mockI18nNode.getLocales.mockReturnValue(['en', 'zz']);
+            vi.mocked(getOwnProperty).mockClear();
+            vi.mocked(getNestedValue).mockClear();
+
+            const result = adapter.getTranslation('anything', 'zz');
+
+            expect(result).toBeNull();
+            expect(vi.mocked(getOwnProperty)).not.toHaveBeenCalled();
+            expect(vi.mocked(getNestedValue)).not.toHaveBeenCalled();
         });
     });
 
@@ -454,6 +505,176 @@ describe('I18nNodeAdapter', () => {
             mockI18nNode.__n('item', 'items', 5);
 
             expect(callback).toHaveBeenCalledWith('item', 'en');
+        });
+    });
+
+    describe('reportError', () => {
+        beforeEach(() => {
+            adapter.initialize(mockI18nNode, mockConfig);
+        });
+
+        it('should fall back to console.error when no onError hook is configured', async () => {
+            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((): void => {});
+            try {
+                const rejection = new Error('callback failed');
+                adapter.onMissingKey(() => Promise.reject(rejection));
+
+                // Triggers the __ override's catch, which is one of the two call sites
+                // reportError has in this adapter.
+                mockI18nNode.__('missing.key');
+
+                await vi.waitFor(() => {
+                    expect(consoleErrorSpy).toHaveBeenCalled();
+                });
+                expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('missing.key'), rejection);
+            } finally {
+                consoleErrorSpy.mockRestore();
+            }
+        });
+
+        it('should route to the configured onError hook instead of the console', async () => {
+            const onError = vi.fn();
+            const configWithOnError = { ...mockConfig, onError };
+            const routedAdapter = new I18nNodeAdapter();
+            const routedI18nNode = createMockI18nNode();
+            routedAdapter.initialize(routedI18nNode, configWithOnError);
+
+            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((): void => {});
+            try {
+                const rejection = new Error('callback failed');
+                routedAdapter.onMissingKey(() => Promise.reject(rejection));
+
+                // Triggers the __n override's catch, the other reportError call site.
+                routedI18nNode.__n('missing.key', 'missing.keys', 1);
+
+                await vi.waitFor(() => {
+                    expect(onError).toHaveBeenCalledWith(rejection, 'missing.key', 'en');
+                });
+                expect(consoleErrorSpy).not.toHaveBeenCalled();
+            } finally {
+                consoleErrorSpy.mockRestore();
+            }
+        });
+    });
+
+    describe('before initialize', () => {
+        it('disagrees across the three lifecycle methods: setTranslation throws, getTranslation misses, destroy no-ops', () => {
+            const uninitializedAdapter = new I18nNodeAdapter();
+
+            // This asserts the contract, not the lines that implement it. `getTranslation`'s
+            // `if (!this.i18n) return null` is not pinned by any assertion the public API can
+            // make: with the guard gone, `this.i18n.getLocales()` throws inside the method's own
+            // `try` and the `catch` answers `null` too, so every observable is identical. The
+            // guard stays because a miss should not be routed through an exception, but that is
+            // a readability contract, not a testable one. `setTranslation`'s guard and
+            // `destroy`'s are pinned — by the message assertion in `setTranslation` above and by
+            // the `destroy` tests below.
+            expect(() => uninitializedAdapter.setTranslation('key', 'en', 'value')).toThrow(BackendError);
+            expect(uninitializedAdapter.getTranslation('key', 'en')).toBeNull();
+            expect(() => uninitializedAdapter.destroy()).not.toThrow();
+        });
+    });
+
+    describe('destroy', () => {
+        it('should restore the original __ and __n methods', () => {
+            // `original__`/`original__n` are bound copies of the pre-override methods
+            // (`i18n.__.bind(i18n)`), so restoring them leaves a different function
+            // object than the one initialize() found — the observable promise is that
+            // it is no longer *this adapter's* wrapper, and behaves like the original.
+            adapter.initialize(mockI18nNode, mockConfig);
+            const overridden__ = mockI18nNode.__;
+            const overridden__n = mockI18nNode.__n;
+
+            adapter.destroy();
+
+            expect(mockI18nNode.__).not.toBe(overridden__);
+            expect(mockI18nNode.__n).not.toBe(overridden__n);
+
+            const callback = vi.fn();
+            adapter.onMissingKey(callback);
+            mockI18nNode.__('hello');
+            expect(callback).not.toHaveBeenCalled();
+        });
+
+        it('should leave __ untouched when there is nothing to restore', () => {
+            adapter.initialize(mockI18nNode, mockConfig);
+            const overridden__ = mockI18nNode.__;
+
+            // `original__` is unset only when setupMissingKeyHandler's own guard exits
+            // early, which the public contract never allows once initialize() has
+            // validated the instance — forced here to prove destroy()'s own guard,
+            // not to claim this state is reachable through initialize()/destroy() alone.
+            Reflect.deleteProperty(adapter as unknown as Record<string, unknown>, 'original__');
+
+            adapter.destroy();
+
+            expect(mockI18nNode.__).toBe(overridden__);
+        });
+
+        it('should leave __n untouched when there is nothing to restore', () => {
+            adapter.initialize(mockI18nNode, mockConfig);
+            const overridden__n = mockI18nNode.__n;
+
+            Reflect.deleteProperty(adapter as unknown as Record<string, unknown>, 'original__n');
+
+            adapter.destroy();
+
+            expect(mockI18nNode.__n).toBe(overridden__n);
+        });
+
+        it('should treat a second destroy() as a no-op', () => {
+            // `docs/conventions/concurrency.md` states it; nothing asserted it until now.
+            adapter.initialize(mockI18nNode, mockConfig);
+            adapter.destroy();
+            const restored__ = mockI18nNode.__;
+            const restored__n = mockI18nNode.__n;
+
+            expect(() => adapter.destroy()).not.toThrow();
+
+            expect(mockI18nNode.__).toBe(restored__);
+            expect(mockI18nNode.__n).toBe(restored__n);
+        });
+
+        it('should decline to restore once the adapter is no longer initialized', () => {
+            adapter.initialize(mockI18nNode, mockConfig);
+            const overridden__ = mockI18nNode.__;
+            const overridden__n = mockI18nNode.__n;
+
+            // The `!this.initialized` half of destroy()'s own guard. Through the public API the
+            // flag and the instance reference are cleared together, so "flag down, host still
+            // held" is not reachable — forced here through a cast that drops the private
+            // modifier, the same way the two "nothing to restore" cases above are, and for the
+            // same reason: without it the disjunct is executed but nothing can fail on it.
+            (adapter as unknown as { initialized: boolean }).initialized = false;
+
+            adapter.destroy();
+
+            expect(mockI18nNode.__).toBe(overridden__);
+            expect(mockI18nNode.__n).toBe(overridden__n);
+        });
+
+        it('should re-attach when initialize() is called again on the same adapter', () => {
+            // Same adapter instance re-used, which is a different claim from the round trip the
+            // i18next suite makes with a second adapter against one host: this one only passes if
+            // destroy() cleared `initialized`, because otherwise the second initialize() returns
+            // on its own double-init guard and the host is left unhooked.
+            adapter.initialize(mockI18nNode, mockConfig);
+            adapter.destroy();
+
+            adapter.initialize(mockI18nNode, mockConfig);
+
+            const callback = vi.fn();
+            adapter.onMissingKey(callback);
+            mockI18nNode.__('missing.key');
+            expect(callback).toHaveBeenCalledWith('missing.key', 'en');
+
+            // And the re-attached override comes off again on the next destroy().
+            adapter.destroy();
+
+            const callbackAfterSecondDestroy = vi.fn();
+            adapter.onMissingKey(callbackAfterSecondDestroy);
+            mockI18nNode.__('missing.key');
+            expect(callbackAfterSecondDestroy).not.toHaveBeenCalled();
         });
     });
 

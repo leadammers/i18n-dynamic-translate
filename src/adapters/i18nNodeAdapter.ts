@@ -250,16 +250,25 @@ export class I18nNodeAdapter implements BackendAdapter {
         // Restore original __ method
         if (this.original__) {
             this.i18n.__ = this.original__;
-            this.original__ = undefined;
+            delete this.original__;
         }
 
         // Restore original __n method
         if (this.original__n) {
             this.i18n.__n = this.original__n;
-            this.original__n = undefined;
+            delete this.original__n;
         }
 
-        this.missingKeyCallback = undefined;
+        delete this.missingKeyCallback;
+
+        // Released last, after the restores above have used it. A disposed adapter has to answer
+        // exactly as an un-initialized one, and the `!this.i18n` guards in `getTranslation()` and
+        // `setTranslation()` are what say so — they only fire once the reference is gone
+        // (docs/conventions/concurrency.md: after teardown, reject further work explicitly).
+        // `config` deliberately stays: a missing-key callback already in flight can still reject
+        // after teardown, and that failure belongs in the consumer's `onError` hook rather than
+        // on the console.
+        delete this.i18n;
         this.initialized = false;
     }
 }

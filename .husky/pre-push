@@ -1,0 +1,6 @@
+npm run build
+
+# Mirrors `make test-offline`, inlined so the hook does not need make on PATH. The credentials
+# are cleared here rather than inside the test run: both e2e suites self-skip on an empty key,
+# so a push never bills a live provider. Keep in sync with OFFLINE in the Makefile.
+DEEPL_API_KEY="" LIBRETRANSLATE_URL="" npm test
