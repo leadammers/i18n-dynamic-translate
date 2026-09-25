@@ -56,9 +56,18 @@ export class I18nextAdapter implements BackendAdapter {
     private setupMissingKeyHandler(): void {
         if (!this.i18next) return;
 
-        // Store original handler and saveMissing setting
-        this.originalMissingKeyHandler = this.i18next.options.missingKeyHandler;
-        this.originalSaveMissing = this.i18next.options.saveMissing;
+        // Store original handler and saveMissing setting. Each is kept only when the host
+        // app actually had one, so `destroy()` can tell "restore this" from "there was
+        // nothing here" and put the options object back the way it found it.
+        const existingMissingKeyHandler = this.i18next.options.missingKeyHandler;
+        if (existingMissingKeyHandler !== undefined) {
+            this.originalMissingKeyHandler = existingMissingKeyHandler;
+        }
+
+        const existingSaveMissing = this.i18next.options.saveMissing;
+        if (existingSaveMissing !== undefined) {
+            this.originalSaveMissing = existingSaveMissing;
+        }
 
         this.i18next.options.missingKeyHandler = (lngs: string[], ns: string, key: string, fallbackValue: string) => {
             // Call original handler if it exists
@@ -160,14 +169,22 @@ export class I18nextAdapter implements BackendAdapter {
         }
 
         // Restore original missingKeyHandler
-        this.i18next.options.missingKeyHandler = this.originalMissingKeyHandler;
-        this.originalMissingKeyHandler = undefined;
+        if (this.originalMissingKeyHandler !== undefined) {
+            this.i18next.options.missingKeyHandler = this.originalMissingKeyHandler;
+        } else {
+            delete this.i18next.options.missingKeyHandler;
+        }
+        delete this.originalMissingKeyHandler;
 
         // Restore original saveMissing setting
-        this.i18next.options.saveMissing = this.originalSaveMissing;
-        this.originalSaveMissing = undefined;
+        if (this.originalSaveMissing === undefined) {
+            delete this.i18next.options.saveMissing;
+        } else {
+            this.i18next.options.saveMissing = this.originalSaveMissing;
+        }
+        delete this.originalSaveMissing;
 
-        this.missingKeyCallback = undefined;
+        delete this.missingKeyCallback;
         this.initialized = false;
     }
 }

@@ -19,6 +19,7 @@
         "noImplicitOverride": true,
         "noFallthroughCasesInSwitch": true,
         "noUncheckedIndexedAccess": true,
+        "exactOptionalPropertyTypes": true,
         "skipLibCheck": true,
         "resolveJsonModule": true,
         "moduleResolution": "node16",

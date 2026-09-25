@@ -198,7 +198,7 @@ describe('I18nextAdapter', () => {
 
     describe('edge cases', () => {
         it('should handle empty namespace configuration', () => {
-            (mockConfig as { defaultNamespace?: string }).defaultNamespace = undefined;
+            delete (mockConfig as { defaultNamespace?: string }).defaultNamespace;
             adapter.initialize(mockI18next, mockConfig);
 
             adapter.getTranslation('key', 'en');

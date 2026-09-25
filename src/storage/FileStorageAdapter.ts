@@ -10,7 +10,7 @@ import { FileLock } from '@/utils/fileLock';
 
 export interface FileStorageAdapterConfig {
     localesPath: string;
-    fileFormat?: FileFormat;
+    fileFormat?: FileFormat | undefined;
 }
 
 export class FileStorageAdapter implements StorageAdapter {
@@ -20,14 +20,19 @@ export class FileStorageAdapter implements StorageAdapter {
 
     constructor(config: FileStorageAdapterConfig) {
         this.localesPath = config.localesPath;
-        this.fileFormat = config.fileFormat;
+
+        // Left absent when the caller did not pick one, so the field says "auto-detect"
+        // rather than carrying an explicit `undefined`.
+        if (config.fileFormat !== undefined) {
+            this.fileFormat = config.fileFormat;
+        }
     }
 
     async save(
         locale: string,
         key: string,
         value: string,
-        options?: { namespace?: string; parentKey?: string }
+        options?: { namespace?: string | undefined; parentKey?: string | undefined }
     ): Promise<void> {
         const filePath = await getLocaleFilePath(this.localesPath, locale, options?.namespace, this.fileFormat);
 

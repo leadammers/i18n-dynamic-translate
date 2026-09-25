@@ -376,14 +376,19 @@ export class AutoTranslate {
                 return;
             }
 
-            // Create new pending entry
-            this.pendingBatch.set(queueKey, {
+            // Create new pending entry. `namespace` is set only when there is one: a
+            // namespace-less key belongs to an entry that has no namespace, not to one
+            // holding `undefined`.
+            const pending: PendingKey = {
                 key,
                 locale,
-                namespace,
                 sourceText,
                 callbacks: [{ resolve, reject }],
-            });
+            };
+            if (namespace !== undefined) {
+                pending.namespace = namespace;
+            }
+            this.pendingBatch.set(queueKey, pending);
 
             this.scheduleBatch();
         });
@@ -583,9 +588,9 @@ export class AutoTranslate {
         key: string,
         targetLocale: string,
         options?: {
-            namespace?: string;
-            parentKey?: string;
-            context?: string;
+            namespace?: string | undefined;
+            parentKey?: string | undefined;
+            context?: string | undefined;
         }
     ): Promise<string> {
         // Input validation
@@ -665,9 +670,9 @@ export class AutoTranslate {
         obj: Record<string, unknown>,
         targetLocale: string,
         options?: {
-            namespace?: string;
-            parentKey?: string;
-            context?: string;
+            namespace?: string | undefined;
+            parentKey?: string | undefined;
+            context?: string | undefined;
         }
     ): Promise<Record<string, string>> {
         if (!obj || typeof obj !== 'object') {

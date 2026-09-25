@@ -44,11 +44,8 @@ Together they are worth roughly 5 points of branch coverage.
 
 ## Type Safety
 
-### Enable `exactOptionalPropertyTypes`
-Still off; turning it on produces ~50 errors, mostly genuine `undefined` gaps around optional
-config fields. Worth doing, but as a dedicated branch.
-
-`noUncheckedIndexedAccess` is done — enabled on `feature/cache-contract`.
+Nothing open. `noUncheckedIndexedAccess` was enabled on `feature/cache-contract`, and
+`exactOptionalPropertyTypes` followed in 0.1.2.
 
 ## API Design
 

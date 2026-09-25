@@ -3,7 +3,7 @@
 | Layer | Choice |
 |---|---|
 | Framework | none — standalone library, zero runtime dependencies |
-| Lang | TypeScript 7, `strict` + `noUnusedLocals` + `noUnusedParameters` + `noImplicitOverride` + `noFallthroughCasesInSwitch` + `noUncheckedIndexedAccess` |
+| Lang | TypeScript 7, `strict` + `noUnusedLocals` + `noUnusedParameters` + `noImplicitOverride` + `noFallthroughCasesInSwitch` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Styling | n/a |
 | State | plain classes; no state container |
 | Tests | Vitest 4 |
@@ -55,6 +55,17 @@ src/
   exported from `@/types`.
 - Avoid non-null assertions (`value!`). Narrow with a guard instead; reach for the assertion only on a
   provable invariant, with a one-line comment saying why.
+- **`exactOptionalPropertyTypes` is on, and the two honest answers to it are not interchangeable.**
+  On a type reachable from `src/index.ts`, widen: `foo?: T` becomes `foo?: T | undefined`. That is a
+  widening, so the frozen-API rule allows it, and it keeps working the object spreads and `Partial<>`
+  round-trips consumers actually write. Inside the library, do the opposite — leave the property
+  absent (`delete this.timer`, or assign it only inside an `if`) rather than storing an explicit
+  `undefined`, so an internal optional says truthfully whether it holds anything. Neither answer is
+  `as any`, `!` or `@ts-expect-error`; a site that seems to need one has a real `undefined` gap.
+- **Optional *methods* stay in method syntax.** `has?(identity): boolean` must not become
+  `has?: ((identity) => boolean) | undefined` to widen it: method syntax is checked bivariantly and
+  property syntax is not, so that rewrite narrows what a consumer may pass. Widen optional *data*
+  properties only.
 - Prefer `cast<T>(...)` over `as any` when a cast is genuinely unavoidable, and explain it.
 
 ## Control flow

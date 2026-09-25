@@ -48,7 +48,9 @@ export class MemoryCache implements TranslationCache {
     stopAutoCleanup(): void {
         if (this.cleanupTimer) {
             clearInterval(this.cleanupTimer);
-            this.cleanupTimer = undefined;
+            // `delete`, not `= undefined`: the handle exists only while the sweeper runs, so
+            // the field is absent rather than present-and-empty once it has been cleared.
+            delete this.cleanupTimer;
         }
     }
 

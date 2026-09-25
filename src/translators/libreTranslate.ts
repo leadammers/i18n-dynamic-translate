@@ -21,7 +21,10 @@ export class LibreTranslateService implements TranslationService {
 
     constructor(config: TranslationProviderConfig) {
         this.apiUrl = config.apiUrl || 'https://libretranslate.com/translate';
-        this.apiKey = config.apiKey;
+
+        if (config.apiKey !== undefined) {
+            this.apiKey = config.apiKey;
+        }
     }
 
     /**

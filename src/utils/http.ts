@@ -10,8 +10,15 @@ export class HttpError extends Error {
     constructor(message: string, status?: number, code?: string) {
         super(message);
         this.name = 'HttpError';
-        this.status = status;
-        this.code = code;
+
+        // Assigned only when known: an error carrying no transport status or code has no
+        // such property, rather than one holding `undefined`.
+        if (status !== undefined) {
+            this.status = status;
+        }
+        if (code !== undefined) {
+            this.code = code;
+        }
     }
 }
 

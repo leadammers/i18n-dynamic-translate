@@ -17,6 +17,24 @@ While the version stays below 1.0.0 the public API may change in a minor release
   cannot drift from what the package declares, and the coverage and CI badges both report `main`
   rather than whatever is on `dev`.
 
+### Changed
+
+- `exactOptionalPropertyTypes` is on for `src/` and for `tests/`. Optional properties on the
+  exported types now spell out the `undefined` they always accepted — `namespace?: string` reads
+  `namespace?: string | undefined`, and so on across `AutoTranslateConfig`,
+  `TranslationProviderConfig`, `TranslationIdentity`, `StorageSaveEntry`,
+  `FileStorageAdapterConfig` and the option bags of `translateKey` and `translateObject`. This is a
+  **widening, not a break**: every call that compiles today still compiles, and a consumer who has
+  the flag on can now pass `{ namespace: undefined }` — which the old declaration rejected. Optional
+  *methods* (`TranslationCache.has`, `TranslationCache.getStats`, `StorageAdapter.saveBatch`) keep
+  method syntax and are unchanged.
+- Inside the library the same flag was answered the other way round: a field that has no value is
+  now absent rather than set to `undefined`. `MemoryCache`'s sweeper handle, the adapters' saved
+  i18next/i18n-node handlers, `HttpError`'s `status` and `code`, and the DeepL and LibreTranslate
+  request options all follow that rule. `I18nextAdapter.destroy()` now *removes* `missingKeyHandler`
+  and `saveMissing` from the host's options object when the host had none, instead of leaving the
+  keys behind holding `undefined` — a closer restore of what it found.
+
 ## [0.1.1] — 2026-09-25
 
 ### Added
