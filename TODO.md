@@ -75,17 +75,3 @@ existing synchronous implementation keeps working untouched. It breaks the readi
 `getConfig().cache`, so it waits for the minor bump. Do it in the same release as the
 `AutoTranslate` breakup above — both rewrite the same call sites.
 
-## Tooling
-
-### Run the gate locally with husky hooks
-The gate — `format:check`, `typecheck`, `build`, `test` — is only enforced in CI, so a commit that
-fails it is discovered after a push, one CI round-trip later. Add husky with a **pre-commit** hook
-for the fast half (`format:check` and `typecheck`, ideally through lint-staged so it only looks at
-staged files) and a **pre-push** hook for the slow half (`build` and `test`).
-
-Two constraints specific to this repo:
-- `dependencies` must stay empty — husky and lint-staged are `devDependencies`, and `prepare`
-  must not run for a consumer installing the package. `husky` is a no-op outside a git checkout,
-  but the `prepare` script still needs to tolerate that.
-- CI installs with `npm ci --ignore-scripts`, which skips `prepare`; the hooks are a local
-  convenience and must never become the only place a check runs. CI stays the gate of record.
