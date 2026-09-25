@@ -196,6 +196,15 @@ export class I18nextAdapter implements BackendAdapter {
         this.hadSaveMissing = false;
 
         delete this.missingKeyCallback;
+
+        // Released last, after the restores above have used it. A disposed adapter has to answer
+        // exactly as an un-initialized one, and the `!this.i18next` guards in `getTranslation()`
+        // and `setTranslation()` are what say so — they only fire once the reference is gone
+        // (docs/conventions/concurrency.md: after teardown, reject further work explicitly).
+        // `config` deliberately stays: a missing-key callback already in flight can still reject
+        // after teardown, and that failure belongs in the consumer's `onError` hook rather than
+        // on the console.
+        delete this.i18next;
         this.initialized = false;
     }
 }
