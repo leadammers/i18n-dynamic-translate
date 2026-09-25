@@ -68,3 +68,12 @@ existing synchronous implementation keeps working untouched. It breaks the readi
 `getConfig().cache`, so it waits for the minor bump. Do it in the same release as the
 `AutoTranslate` breakup above — both rewrite the same call sites.
 
+## Tooling
+
+### Check a devDependency's own `engines.node` against ours
+A devDependency can declare an `engines.node` floor above this repository's own, and npm reports it
+as an install-time warning and nothing else. Neither `make gate` nor any CI job reads it, so the
+first sign is a contributor on the declared minimum failing to run a tool everyone else has working.
+Noticed in 0.1.2 while adding husky and lint-staged. A check belongs in the gate — walk the
+installed `node_modules/*/package.json` for `engines.node` and compare each against this package's
+own floor.

@@ -84,7 +84,9 @@ question — it is cheaper than reopening one.
    Note that "widening" is not a synonym for "safe" — see 006. Utilities stay internal — do not
    export one for convenience.
 2. **`dependencies` stays empty.** Optional functionality goes behind a lazy `import()` and an
-   optional peer dependency.
+   optional peer dependency. Note that `npm install --save-dev` **drops an empty `dependencies: {}`**
+   when it rewrites the manifest, so re-add the key after any devDependency change — the rule reads
+   as satisfied either way, but the explicit empty object is what says it is deliberate.
 3. **Never let an API key, request URL or request body into an error, a log or a test fixture.**
    All HTTP error text goes through `describeHttpError()`.
 4. **Library code does not own the console.** Route failures through the consumer's `onError` hook.
@@ -120,7 +122,8 @@ need a `dist/`, so build first. See the releasing conventions for what each one 
 - `TODO.md` — the architecture backlog. `core/AutoTranslate.ts` is over the size guideline and its
   breakup is the main open item.
 - `CHANGELOG.md` — what shipped and what broke.
-- `docs/reviews/`, `docs/superpowers/` and `docs/planning/` are gitignored working notes, present
-  only on the machine that produced them. A plan that has been agreed lives there while it is being
+- `docs/reviews/`, `docs/superpowers/`, `docs/planning/`, `docs/archive/` and
+  `docs/improvement-log.md` are gitignored working notes, present only on the machine that produced
+  them. A plan that has been agreed lives there while it is being
   worked; what it changed lands in `CHANGELOG.md` and in the conventions, which is what a reader of
   this repository needs.
