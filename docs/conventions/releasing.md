@@ -76,7 +76,10 @@ just lacks provenance and the tag check.
 enforce: `engine-strict` defaults to `false`, so a mismatch prints a warning rather than refusing
 the install. Only a consumer who has turned `engine-strict` on is actually blocked by it. There is
 no `engines.typescript`, and a peer range says which versions are *allowed*, not which were tried.
-So every support claim here is proven by the `compat` job in CI rather than left to the manifest:
+So every support claim here is proven by CI rather than left to the manifest, and by three jobs
+rather than one — the `test` matrix runs the suite on each supported Node version, `compat`
+checks the TypeScript range and the package layout, and `smoke` drives the packed tarball
+against each supported i18next:
 
 - `npm run compat:types` type-checks `tools/compat/consumer.ts` — a consumer that imports every
   exported type from the built `dist/` — against each TypeScript version in `SUPPORTED_TYPESCRIPT`

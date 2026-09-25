@@ -985,13 +985,13 @@ describe('review regressions', () => {
     });
 
     describe('L-4 setTranslation after destroy', () => {
-        // `destroy()` clears `initialized` but not the held backend instance, so the
-        // `if (!this.i18next)` / `if (!this.i18n)` guard on setTranslation() never fires
-        // after teardown — a caller who writes through a destroyed adapter still reaches
-        // the live host instead of getting the BackendError docs/conventions/concurrency.md
-        // (lines 15-16) requires. Found in the pre-merge review of #49, ruled "fix it in
-        // this phase" in phase-3-adapter-lifecycle-coverage.md. These are expected to FAIL
-        // against the current, unfixed adapters — the Developer makes them pass.
+        // Pins the teardown contract docs/conventions/concurrency.md (lines 15-16) states:
+        // once an adapter is destroyed, a write through it throws BackendError and never
+        // reaches the host. Both adapters release the held instance in `destroy()`, so the
+        // `if (!this.i18next)` / `if (!this.i18n)` guard on setTranslation() fires. Before
+        // the fix — found in the pre-merge review of #49 — `destroy()` cleared `initialized`
+        // but kept the instance, and a caller writing through a destroyed adapter still
+        // reached the live host.
         it('throws instead of writing to i18next after destroy()', () => {
             const i18next = createMockI18next();
             const adapter = new I18nextAdapter();
