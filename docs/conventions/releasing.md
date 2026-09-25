@@ -53,9 +53,11 @@ just lacks provenance and the tag check.
 
 ## Proving the support claims
 
-`engines.node` is the only support claim npm enforces — it refuses to install on a Node below the
-floor. There is no `engines.typescript`, and a peer range says which versions are *allowed*, not
-which were tried. So the rest is proven by the `compat` job in CI rather than written into a badge:
+`engines.node` is the only support claim npm reads at install time, and even that one it does not
+enforce: `engine-strict` defaults to `false`, so a mismatch prints a warning rather than refusing
+the install. Only a consumer who has turned `engine-strict` on is actually blocked by it. There is
+no `engines.typescript`, and a peer range says which versions are *allowed*, not which were tried.
+So every support claim here is proven by the `compat` job in CI rather than left to the manifest:
 
 - `npm run compat:types` type-checks `tools/compat/consumer.ts` — a consumer that imports every
   exported type from the built `dist/` — against each TypeScript version in `SUPPORTED_TYPESCRIPT`
