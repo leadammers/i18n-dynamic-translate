@@ -1,6 +1,8 @@
 # DynamicTranslate
 
+[![CI](https://github.com/leadammers/i18n-dynamic-translate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/leadammers/i18n-dynamic-translate/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/i18n-dynamic-translate.svg)](https://www.npmjs.com/package/i18n-dynamic-translate)
+[![node-current](https://img.shields.io/node/v/i18n-dynamic-translate)](https://nodejs.org)
 [![codecov](https://codecov.io/gh/leadammers/i18n-dynamic-translate/branch/main/graph/badge.svg)](https://codecov.io/gh/leadammers/i18n-dynamic-translate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
