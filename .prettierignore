@@ -1,4 +1,7 @@
-# Build output and generated reports — prettier has no business rewriting either.
+# Prettier 3 already reads .gitignore, which covers all three of these. They are repeated here so
+# the exclusion does not quietly depend on an entry in .gitignore staying put, or on that default
+# surviving a major Prettier bump — `format:check` matching a generated .d.ts would fail CI on a
+# file nobody wrote.
 dist/
 coverage/
 node_modules/

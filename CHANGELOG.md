@@ -28,8 +28,9 @@ package that has no dependants yet. Every break is listed here with what it cost
 
 - `format` and `format:check` cover every `.ts` file in the tree rather than only `src/` and
   `tests/`. `vitest.config.ts` and `tools/compat/consumer.ts` were outside the old globs, so the
-  new `pre-commit` hook would have checked files CI never did. A `.prettierignore` keeps `dist/`
-  and `coverage/` out.
+  new `pre-commit` hook would have checked files CI never did. A `.prettierignore` restates the
+  build-output exclusions that `.gitignore` already gives Prettier, so the widened glob cannot
+  reach a generated `.d.ts`.
 
 ### Changed
 
