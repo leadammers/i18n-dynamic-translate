@@ -1,6 +1,6 @@
 {
     "name": "i18n-dynamic-translate",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "Translates missing i18n keys at runtime with DeepL or LibreTranslate and writes them back into i18next or i18n-node.",
     "repository": {
         "type": "git",
