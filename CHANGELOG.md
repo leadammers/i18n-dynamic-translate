@@ -5,7 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-While the version stays below 1.0.0 the public API may change in a minor release.
+While the version stays below 1.0.0 the public API may change in **any** release, patch
+releases included — a major version of zero carries no compatibility promise under Semantic
+Versioning, and this project uses that room rather than spending version numbers on a
+package that has no dependants yet. Every break is listed here with what it costs a caller.
 
 ## [Unreleased]
 
@@ -47,9 +50,10 @@ While the version stays below 1.0.0 the public API may change in a minor release
 - Inside the library the same flag was answered the other way round: a field that has no value is
   now absent rather than set to `undefined`. `MemoryCache`'s sweeper handle, the adapters' saved
   i18next/i18n-node handlers, `HttpError`'s `status` and `code`, and the DeepL and LibreTranslate
-  request options all follow that rule. `I18nextAdapter.destroy()` now *removes* `missingKeyHandler`
-  and `saveMissing` from the host's options object when the host had none, instead of leaving the
-  keys behind holding `undefined` — a closer restore of what it found.
+  request options all follow that rule. `I18nextAdapter` now records whether the host's options
+  object *owned* `missingKeyHandler` and `saveMissing` rather than what those keys held, so
+  `destroy()` restores a key the host had — including one it deliberately set to `undefined` — and
+  removes a key it never set, instead of leaving both behind holding `undefined`.
 
 ## [0.1.1] — 2026-09-25
 
