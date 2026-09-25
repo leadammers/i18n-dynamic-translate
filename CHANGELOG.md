@@ -23,11 +23,27 @@ While the version stays below 1.0.0 the public API may change in a minor release
   exported types now spell out the `undefined` they always accepted — `namespace?: string` reads
   `namespace?: string | undefined`, and so on across `AutoTranslateConfig`,
   `TranslationProviderConfig`, `TranslationIdentity`, `StorageSaveEntry`,
-  `FileStorageAdapterConfig` and the option bags of `translateKey` and `translateObject`. This is a
-  **widening, not a break**: every call that compiles today still compiles, and a consumer who has
-  the flag on can now pass `{ namespace: undefined }` — which the old declaration rejected. Optional
+  `FileStorageAdapterConfig` and the option bags of `translateKey` and `translateObject`. Optional
   *methods* (`TranslationCache.has`, `TranslationCache.getStats`, `StorageAdapter.saveBatch`) keep
   method syntax and are unchanged.
+
+  **What this widens, and the one place it does not.** Every call that compiles today still
+  compiles, and a consumer who has the flag on can now pass `{ namespace: undefined }` — which the
+  old declaration rejected. That is the input side. On the *output* side the same widening can cost
+  an assignment: a consumer who also runs `exactOptionalPropertyTypes` and assigns a value the
+  library hands back to a narrower hand-written type now gets `TS2375`.
+
+  ```ts
+  interface NarrowConfig {
+      autoSave?: boolean; // add `| undefined` here
+  }
+  const narrow: NarrowConfig = instance.getConfig(); // TS2375 under exactOptionalPropertyTypes
+  ```
+
+  The fix is one token in the consumer's own type — `autoSave?: boolean | undefined` — and nothing
+  changes for a consumer who does not run the flag, or who uses the returned value without
+  re-declaring its shape. It is called out here rather than filed as a widening-only change because
+  a type error in someone else's build is a break whatever the direction.
 - Inside the library the same flag was answered the other way round: a field that has no value is
   now absent rather than set to `undefined`. `MemoryCache`'s sweeper handle, the adapters' saved
   i18next/i18n-node handlers, `HttpError`'s `status` and `code`, and the DeepL and LibreTranslate

@@ -56,9 +56,12 @@ export class I18nextAdapter implements BackendAdapter {
     private setupMissingKeyHandler(): void {
         if (!this.i18next) return;
 
-        // Store original handler and saveMissing setting. Each is kept only when the host
-        // app actually had one, so `destroy()` can tell "restore this" from "there was
-        // nothing here" and put the options object back the way it found it.
+        // Store original handler and saveMissing setting. Each is kept only when the host app
+        // actually had a value, so `destroy()` can tell "restore this" from "there was nothing
+        // here" and hand the options object back without keys the host never set. A host that
+        // owns the key holding an explicit `undefined` is read as "nothing here" and gets the
+        // key removed rather than restored — the two are indistinguishable from the value alone,
+        // and removing it is the reading that leaves i18next's own defaults in charge.
         const existingMissingKeyHandler = this.i18next.options.missingKeyHandler;
         if (existingMissingKeyHandler !== undefined) {
             this.originalMissingKeyHandler = existingMissingKeyHandler;

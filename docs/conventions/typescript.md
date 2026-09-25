@@ -56,9 +56,13 @@ src/
 - Avoid non-null assertions (`value!`). Narrow with a guard instead; reach for the assertion only on a
   provable invariant, with a one-line comment saying why.
 - **`exactOptionalPropertyTypes` is on, and the two honest answers to it are not interchangeable.**
-  On a type reachable from `src/index.ts`, widen: `foo?: T` becomes `foo?: T | undefined`. That is a
-  widening, so the frozen-API rule allows it, and it keeps working the object spreads and `Partial<>`
-  round-trips consumers actually write. Inside the library, do the opposite — leave the property
+  On a type reachable from `src/index.ts`, widen: `foo?: T` becomes `foo?: T | undefined`. That
+  widens every **input** position, which is what the frozen-API rule is protecting and what keeps
+  working the object spreads and `Partial<>` round-trips consumers actually write. It is not free in
+  **output** positions: a consumer who also runs the flag and assigns something the library returns
+  to a narrower `foo?: T` of their own gets `TS2375` and has to add the `| undefined` on their side.
+  Widen anyway — the alternative is refusing explicit `undefined` forever — but say so in the
+  changelog rather than filing it as a pure widening. Inside the library, do the opposite — leave the property
   absent (`delete this.timer`, or assign it only inside an `if`) rather than storing an explicit
   `undefined`, so an internal optional says truthfully whether it holds anything. Neither answer is
   `as any`, `!` or `@ts-expect-error`; a site that seems to need one has a real `undefined` gap.
