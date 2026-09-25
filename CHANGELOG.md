@@ -23,6 +23,14 @@ package that has no dependants yet. Every break is listed here with what it cost
   `lint-staged`, staged files only) and `typecheck`; `pre-push` runs `build` and the test suite
   with the provider credentials cleared, so no push can spend DeepL quota. CI stays the gate of
   record — the hooks are a local convenience, not a replacement.
+- Lifecycle and error-path coverage for both backend adapters: the uninitialized guards asserted as
+  the three different contracts they are (`setTranslation` throws, `getTranslation` answers `null`,
+  `destroy` is a no-op), the double-`initialize` guard that stops the missing-key hook being
+  stacked, `reportError` asserted both ways (the consumer's `onError` hook, and the `console.error`
+  fallback only when no hook is configured), i18next's save/restore arms for options keys the host
+  never owned, and i18n-node's catalog-reports-`false` and nothing-to-restore arms. Branch coverage
+  on `src/adapters/i18nextAdapter.ts` and `src/adapters/i18nNodeAdapter.ts` goes 77.27% and 83.01%
+  to 100%, and the repository-wide `branches` threshold in `vitest.config.ts` rises from 90 to 95.
 
 ### Changed
 
@@ -65,6 +73,22 @@ package that has no dependants yet. Every break is listed here with what it cost
   new `pre-commit` hook would have checked files CI never did. A `.prettierignore` restates the
   build-output exclusions that `.gitignore` already gives Prettier, so the widened glob cannot
   reach a generated `.d.ts`.
+
+### Fixed
+
+- A backend adapter no longer writes to its host after `destroy()`. `destroy()` cleared the
+  `initialized` flag but kept the i18next / i18n-node instance it had been handed, so the
+  uninitialized guard in `setTranslation()` never fired after teardown and a write still landed on
+  a host the adapter had already released — the use-after-dispose shape
+  `docs/conventions/concurrency.md` rules out. Both adapters now release the instance reference in
+  `destroy()`, after the restores that need it.
+
+  **What it costs a caller:** a `setTranslation()` through a destroyed adapter now throws
+  `BackendError` where it previously wrote to the host and returned silently. Code that tore an
+  adapter down and kept using it was writing into a backend it no longer owned; it now finds out.
+  A destroyed adapter answers exactly as an un-initialized one — `getTranslation()` `null`, a
+  second `destroy()` a no-op — and nothing changes for an adapter that is still initialized.
+  `BackendAdapter` keeps its shape, so this is a bug fix rather than an API change.
 
 ## [0.1.1] — 2026-09-25
 
