@@ -68,8 +68,8 @@ in place without a deploy, and into your locale file where a human can correct i
 - **Server-side only** — see [Prerequisites](#prerequisites).
 - **The API can break in any `0.x` release, patch releases included.** Semantic Versioning
   puts no compatibility promise on a major version of zero, and this package uses that room:
-  0.1.1 renamed an exported adapter and 0.1.2 changed exported type declarations, both in
-  patches. Every break is called out in [CHANGELOG.md](CHANGELOG.md) with what to change on
+  0.1.1 deleted a member of the exported `Backend` enum with no alias, and 0.1.2 changes
+  exported type declarations, both in patches. Every break is called out in [CHANGELOG.md](CHANGELOG.md) with what to change on
   your side — pin an exact version rather than a `^` range if you would rather not read it.
   From 1.0.0 the usual semver rules apply.
 

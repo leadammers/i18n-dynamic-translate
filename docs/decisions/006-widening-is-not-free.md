@@ -73,12 +73,15 @@ than being filed as a pure widening.
 Optional *methods* are a separate matter and are unaffected: `has?(identity): boolean` must keep
 method syntax, because rewriting it to `has?: ((identity) => boolean) | undefined` swaps bivariant
 parameter checking for contravariant and genuinely narrows what a consumer may assign. That is
-recorded in the conventions and rides along with [ADR 004](004-async-cache.md) in 0.2.0.
+recorded in the conventions and listed in `TODO.md`. It is scheduled for 0.2.0, where
+[ADR 004](004-async-cache.md) reopens `TranslationCache` anyway — that ADR predates this finding
+and does not mention it, so the backlog entry is what carries it, not 004.
 
 ## Consequences
 
-The frozen-API rule in `AGENTS.md` keeps its wording, but "widening" can no longer be read as a
-synonym for "safe". A change that widens a public optional property is safe for callers and may
+The frozen-API rule in `AGENTS.md` was rewritten alongside this record: it now says that the ADR,
+not the version number, is what makes a break deliberate, and that "widening" is not a synonym for
+"safe". A change that widens a public optional property is safe for callers and may
 cost an assignment for a consumer who receives the value into a narrower type, and that second
 half now has to be stated in the changelog every time it applies. The 0.1.2 plan's acceptance
 criterion 2 was true as written and still insufficient; a future plan that reuses the phrasing

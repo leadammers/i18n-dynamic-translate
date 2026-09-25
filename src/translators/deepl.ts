@@ -47,8 +47,10 @@ export class DeepLService implements TranslationService {
         const isFreeKey = config.apiKey.endsWith(':fx');
         this.apiUrl = isFreeKey ? 'https://api-free.deepl.com/v2/translate' : 'https://api.deepl.com/v2/translate';
 
-        // Each option is stored only when the caller supplied one, so `buildRequestBody`
-        // can keep asking whether the field is there instead of whether it is defined.
+        // Each option is assigned only when the caller supplied one, so the field stays absent
+        // rather than holding `undefined` — which is what `exactOptionalPropertyTypes` asks of an
+        // optional property. `buildRequestBody` then filters on truthiness, so neither an absent
+        // field nor an empty string reaches DeepL.
         const formality = config.deeplOptions?.formality;
         if (formality !== undefined) {
             this.formality = formality;

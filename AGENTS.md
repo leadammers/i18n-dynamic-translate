@@ -78,9 +78,9 @@ question — it is cheaper than reopening one.
 1. **`src/index.ts` is the public API.** Anything exported there is frozen by default: changing it
    takes an ADR that says why, and the changelog entry has to say what it costs a caller. Below
    1.0.0 semver puts no compatibility promise on any bump, so the ADR — not the version number — is
-   what makes a break deliberate; 0.1.1 renamed an exported adapter in
-   [005](docs/decisions/005-the-i18n-node-name.md) and 0.1.2 changed exported type declarations in
-   [006](docs/decisions/006-widening-is-not-free.md), both as patches. After 1.0.0 it takes a major.
+   what makes a break deliberate; 0.1.1 deleted the exported enum member `Backend.NODE_I18N`
+   with no alias in [005](docs/decisions/005-the-i18n-node-name.md) and 0.1.2 changes exported type
+   declarations in [006](docs/decisions/006-widening-is-not-free.md), both as patches. After 1.0.0 it takes a major.
    Note that "widening" is not a synonym for "safe" — see 006. Utilities stay internal — do not
    export one for convenience.
 2. **`dependencies` stays empty.** Optional functionality goes behind a lazy `import()` and an

@@ -26,7 +26,8 @@ package that has no dependants yet. Every break is listed here with what it cost
   exported types now spell out the `undefined` they always accepted — `namespace?: string` reads
   `namespace?: string | undefined`, and so on across `AutoTranslateConfig`,
   `TranslationProviderConfig`, `TranslationIdentity`, `StorageSaveEntry`,
-  `FileStorageAdapterConfig` and the option bags of `translateKey` and `translateObject`. Optional
+  `FileStorageAdapterConfig` and the option bags of `translateKey`, `translateObject` and
+  `StorageAdapter.save`. Optional
   *methods* (`TranslationCache.has`, `TranslationCache.getStats`, `StorageAdapter.saveBatch`) keep
   method syntax and are unchanged.
 
