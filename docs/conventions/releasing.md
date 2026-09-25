@@ -5,8 +5,20 @@ provenance attestation and the version guard.
 
 ## Versioning
 
-Semantic Versioning. While the version is `0.x`, breaking changes are allowed in a minor bump — say
-so in the changelog entry rather than silently shipping them.
+Semantic Versioning. While the version is `0.x` a breaking change is allowed in **any** bump,
+patch included — semver puts no compatibility promise on a major version of zero. Prefer the
+smallest bump that is honest about the change rather than inflating the minor to look careful:
+0.1.1 deleted a member of the exported `Backend` enum with no alias, and 0.1.2 changes
+exported type declarations, both as patches, because the package had no dependants either time.
+
+What is not optional is the paperwork. A change to anything exported from `src/index.ts` takes an
+ADR in `docs/decisions/` saying why, with a row in that folder's index — below 1.0.0 the version
+number carries no signal, so the ADR is what makes a break deliberate rather than accidental
+([AGENTS.md](../../AGENTS.md), critical rule 1). And a breaking change gets its own call-out in the
+changelog entry — what broke, who it breaks, and the one thing a caller changes on their side. A change
+that is a widening for callers but costs an assignment for a consumer receiving the value
+counts as breaking for this purpose; see [ADR 006](../decisions/006-widening-is-not-free.md).
+From 1.0.0 the usual rules apply and this paragraph stops being true.
 
 ## Steps
 

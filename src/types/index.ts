@@ -44,28 +44,28 @@ export interface AutoTranslateConfig {
     translationProvider: TranslationProviderConfig;
 
     /** Auto-save translated keys to files */
-    autoSave?: boolean;
+    autoSave?: boolean | undefined;
 
     /** File format for locale files (auto-detected if not specified) */
-    fileFormat?: FileFormat;
+    fileFormat?: FileFormat | undefined;
 
     /** Default namespace for i18next (optional) */
-    defaultNamespace?: string;
+    defaultNamespace?: string | undefined;
 
     /** Use object notation for nested keys (for i18n-node). Default: false */
-    objectNotation?: boolean;
+    objectNotation?: boolean | undefined;
 
     /** Enable caching of translations */
-    enableCache?: boolean;
+    enableCache?: boolean | undefined;
 
     /** Maximum concurrent translations */
-    maxConcurrency?: number;
+    maxConcurrency?: number | undefined;
 
     /** Cache time-to-live in milliseconds (default: 24 hours) */
-    cacheTTL?: number;
+    cacheTTL?: number | undefined;
 
     /** Maximum cache entries (default: 1000) */
-    maxCacheSize?: number;
+    maxCacheSize?: number | undefined;
 
     /**
      * Custom translation cache. Defaults to an in-memory cache honouring
@@ -74,24 +74,24 @@ export interface AutoTranslateConfig {
      * The instance is owned by the caller: `dispose()` clears it but does not
      * tear down any resources it holds.
      */
-    cache?: TranslationCache;
+    cache?: TranslationCache | undefined;
 
     /** Custom storage adapter. Defaults to FileStorageAdapter when autoSave is true. */
-    storageAdapter?: StorageAdapter;
+    storageAdapter?: StorageAdapter | undefined;
 
     /**
      * Operating mode. Default: 'development'.
      * - 'development': auto-translate all missing keys across all namespaces
      * - 'production': only auto-translate missing keys within allowedNamespaces
      */
-    mode?: AutoTranslateMode;
+    mode?: AutoTranslateMode | undefined;
 
     /**
      * Namespaces (or parentKey prefixes for i18n-node) that are allowed to be
      * auto-translated in production mode. Ignored in development mode.
      * Missing keys outside these namespaces are silently skipped.
      */
-    allowedNamespaces?: string[];
+    allowedNamespaces?: string[] | undefined;
 
     /**
      * Custom function to convert translation keys to human-readable text
@@ -99,14 +99,14 @@ export interface AutoTranslateConfig {
      * @param key - The translation key (last segment only, not the full path)
      * @returns Human-readable text to send to the translation provider
      */
-    keyToText?: (key: string) => string;
+    keyToText?: ((key: string) => string) | undefined;
 
     /**
      * Error callback for the automatic missing-key translation handler.
      * Called when a translation fails in the fire-and-forget path.
      * Defaults to console.error.
      */
-    onError?: (error: Error, key: string, locale: string) => void;
+    onError?: ((error: Error, key: string, locale: string) => void) | undefined;
 }
 
 /**
@@ -117,18 +117,20 @@ export interface TranslationProviderConfig {
     provider: TranslationProvider;
 
     /** API key (if required) */
-    apiKey?: string;
+    apiKey?: string | undefined;
 
     /** Custom API URL (for LibreTranslate) */
-    apiUrl?: string;
+    apiUrl?: string | undefined;
 
     /** DeepL-specific options */
-    deeplOptions?: {
-        formality?: 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less';
-        context?: string;
-        splitSentences?: '0' | '1' | 'nonewlines';
-        modelType?: DeepLModelType;
-    };
+    deeplOptions?:
+        | {
+              formality?: 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less' | undefined;
+              context?: string | undefined;
+              splitSentences?: '0' | '1' | 'nonewlines' | undefined;
+              modelType?: DeepLModelType | undefined;
+          }
+        | undefined;
 }
 
 /**
@@ -204,10 +206,10 @@ export interface TranslationIdentity {
     locale: string;
 
     /** Backend namespace, where the backend has namespaces. */
-    namespace?: string;
+    namespace?: string | undefined;
 
     /** Provider context hint. DeepL only; changes the translation, so it is part of the identity. */
-    context?: string;
+    context?: string | undefined;
 }
 
 /**
@@ -257,8 +259,8 @@ export interface StorageSaveEntry {
     locale: string;
     key: string;
     value: string;
-    namespace?: string;
-    parentKey?: string;
+    namespace?: string | undefined;
+    parentKey?: string | undefined;
 }
 
 /**
@@ -272,8 +274,8 @@ export interface StorageAdapter {
         key: string,
         value: string,
         options?: {
-            namespace?: string;
-            parentKey?: string;
+            namespace?: string | undefined;
+            parentKey?: string | undefined;
         }
     ): Promise<void>;
 

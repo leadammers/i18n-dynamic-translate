@@ -5,7 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-While the version stays below 1.0.0 the public API may change in a minor release.
+While the version stays below 1.0.0 the public API may change in **any** release, patch
+releases included — a major version of zero carries no compatibility promise under Semantic
+Versioning, and this project uses that room rather than spending version numbers on a
+package that has no dependants yet. Every break is listed here with what it costs a caller.
 
 ## [Unreleased]
 
@@ -16,6 +19,42 @@ While the version stays below 1.0.0 the public API may change in a minor release
   without going looking. The Node badge renders the published manifest's `engines.node` range, so it
   cannot drift from what the package declares, and the coverage and CI badges both report `main`
   rather than whatever is on `dev`.
+
+### Changed
+
+- `exactOptionalPropertyTypes` is on for `src/` and for `tests/`. Optional properties on the
+  exported types now spell out the `undefined` they always accepted — `namespace?: string` reads
+  `namespace?: string | undefined`, and so on across `AutoTranslateConfig`,
+  `TranslationProviderConfig`, `TranslationIdentity`, `StorageSaveEntry`,
+  `FileStorageAdapterConfig` and the option bags of `translateKey`, `translateObject` and
+  `StorageAdapter.save`. Optional
+  *methods* (`TranslationCache.has`, `TranslationCache.getStats`, `StorageAdapter.saveBatch`) keep
+  method syntax and are unchanged.
+
+  **What this widens, and the one place it does not.** Every call that compiles today still
+  compiles, and a consumer who has the flag on can now pass `{ namespace: undefined }` — which the
+  old declaration rejected. That is the input side. On the *output* side the same widening can cost
+  an assignment: a consumer who also runs `exactOptionalPropertyTypes` and assigns a value the
+  library hands back to a narrower hand-written type now gets `TS2375`.
+
+  ```ts
+  interface NarrowConfig {
+      autoSave?: boolean; // add `| undefined` here
+  }
+  const narrow: NarrowConfig = instance.getConfig(); // TS2375 under exactOptionalPropertyTypes
+  ```
+
+  The fix is one token in the consumer's own type — `autoSave?: boolean | undefined` — and nothing
+  changes for a consumer who does not run the flag, or who uses the returned value without
+  re-declaring its shape. It is called out here rather than filed as a widening-only change because
+  a type error in someone else's build is a break whatever the direction.
+- Inside the library the same flag was answered the other way round: a field that has no value is
+  now absent rather than set to `undefined`. `MemoryCache`'s sweeper handle, the adapters' saved
+  i18next/i18n-node handlers, `HttpError`'s `status` and `code`, and the DeepL and LibreTranslate
+  request options all follow that rule. `I18nextAdapter` now records whether the host's options
+  object *owned* `missingKeyHandler` and `saveMissing` rather than what those keys held, so
+  `destroy()` restores a key the host had — including one it deliberately set to `undefined` — and
+  removes a key it never set, instead of leaving both behind holding `undefined`.
 
 ## [0.1.1] — 2026-09-25
 

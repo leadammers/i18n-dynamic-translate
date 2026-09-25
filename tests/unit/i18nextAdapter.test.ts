@@ -28,6 +28,31 @@ function createMockI18next(overrides = {}) {
     };
 }
 
+// The subset of an i18next options object the adapter saves and restores. Built with the
+// keys genuinely absent — not set to `undefined` — because "the host had none" and "the host
+// had `undefined`" are the two states `setupMissingKeyHandler`/`destroy` must tell apart.
+type HostMissingKeyHandler = (lngs: string[], ns: string, key: string, fallbackValue: string) => void;
+
+interface HostOptions {
+    ns: string[];
+    // `| undefined` so a test can hand over a host that *owns* the key holding `undefined` —
+    // a different state from leaving the key out, and one the adapter has to preserve.
+    missingKeyHandler?: HostMissingKeyHandler | undefined;
+    saveMissing?: boolean | undefined;
+}
+
+function createLifecycleHost(options: HostOptions) {
+    return {
+        language: 'en',
+        languages: ['en', 'de'],
+        options,
+        getFixedT: vi.fn((_locale: string, _ns: string) => {
+            return (key: string): string => key;
+        }),
+        addResource: vi.fn(),
+    };
+}
+
 function createMockConfig() {
     return {
         backend: Backend.I18NEXT,
@@ -196,9 +221,123 @@ describe('I18nextAdapter', () => {
         });
     });
 
+    describe('destroy', () => {
+        // Assertions here are on key *presence*, not on the value: writing `undefined` over a key
+        // the host never had and removing it again are indistinguishable through `toBeUndefined()`,
+        // and removing it is the behaviour the adapter promises. Only the two "had none" cases can
+        // tell presence tracking apart from the value tracking that came before it — the two
+        // "owned as undefined" cases below pin the other half of the same bookkeeping, and a
+        // value-tracking adapter happens to satisfy them as well.
+
+        it('should restore a missingKeyHandler the host already had', () => {
+            const originalHandler = vi.fn();
+            const host = createLifecycleHost({ ns: ['translation'], missingKeyHandler: originalHandler });
+
+            adapter.initialize(host, mockConfig);
+            expect(host.options.missingKeyHandler).not.toBe(originalHandler);
+
+            adapter.destroy();
+
+            expect(host.options.missingKeyHandler).toBe(originalHandler);
+        });
+
+        it('should leave missingKeyHandler absent when the host had none', () => {
+            const host = createLifecycleHost({ ns: ['translation'] });
+
+            adapter.initialize(host, mockConfig);
+            expect('missingKeyHandler' in host.options).toBe(true);
+
+            adapter.destroy();
+
+            expect('missingKeyHandler' in host.options).toBe(false);
+        });
+
+        it('should restore a saveMissing the host already had', () => {
+            const host = createLifecycleHost({ ns: ['translation'], saveMissing: false });
+
+            adapter.initialize(host, mockConfig);
+            expect(host.options.saveMissing).toBe(true);
+
+            adapter.destroy();
+
+            expect('saveMissing' in host.options).toBe(true);
+            expect(host.options.saveMissing).toBe(false);
+        });
+
+        it('should leave saveMissing absent when the host had none', () => {
+            const host = createLifecycleHost({ ns: ['translation'] });
+
+            adapter.initialize(host, mockConfig);
+            expect(host.options.saveMissing).toBe(true);
+
+            adapter.destroy();
+
+            expect('saveMissing' in host.options).toBe(false);
+        });
+
+        it('should restore a missingKeyHandler the host owned as undefined', () => {
+            const host = createLifecycleHost({ ns: ['translation'], missingKeyHandler: undefined });
+
+            adapter.initialize(host, mockConfig);
+            adapter.destroy();
+
+            // The host owned the key, so it gets the key back — not the absence the adapter
+            // hands a host that never set it. This is the arm that must not regress when the
+            // "had none" case above is fixed; it does not by itself prove presence tracking.
+            expect('missingKeyHandler' in host.options).toBe(true);
+            expect(host.options.missingKeyHandler).toBeUndefined();
+        });
+
+        it('should restore a saveMissing the host owned as undefined', () => {
+            const host = createLifecycleHost({ ns: ['translation'], saveMissing: undefined });
+
+            adapter.initialize(host, mockConfig);
+            expect(host.options.saveMissing).toBe(true);
+
+            adapter.destroy();
+
+            expect('saveMissing' in host.options).toBe(true);
+            expect(host.options.saveMissing).toBeUndefined();
+        });
+
+        it('should not adopt an options key the host merely inherits', () => {
+            const prototype = { saveMissing: false };
+            const options: HostOptions = Object.assign(Object.create(prototype) as HostOptions, {
+                ns: ['translation'],
+            });
+            const host = createLifecycleHost(options);
+
+            expect(Object.prototype.hasOwnProperty.call(host.options, 'saveMissing')).toBe(false);
+
+            adapter.initialize(host, mockConfig);
+            adapter.destroy();
+
+            // The host never *owned* the key, so taking it away has to expose the prototype's
+            // value again rather than pinning an own copy of it onto the options object.
+            expect(Object.prototype.hasOwnProperty.call(host.options, 'saveMissing')).toBe(false);
+            expect(host.options.saveMissing).toBe(false);
+        });
+
+        it('should keep saveMissing false across an initialize/destroy round trip', () => {
+            const host = createLifecycleHost({ ns: ['translation'], saveMissing: false });
+
+            adapter.initialize(host, mockConfig);
+            adapter.destroy();
+
+            const secondAdapter = new I18nextAdapter();
+            secondAdapter.initialize(host, mockConfig);
+            expect(host.options.saveMissing).toBe(true);
+
+            secondAdapter.destroy();
+
+            expect('saveMissing' in host.options).toBe(true);
+            expect(host.options.saveMissing).toBe(false);
+        });
+    });
+
     describe('edge cases', () => {
         it('should handle empty namespace configuration', () => {
-            (mockConfig as { defaultNamespace?: string }).defaultNamespace = undefined;
+            delete (mockConfig as { defaultNamespace?: string }).defaultNamespace;
             adapter.initialize(mockI18next, mockConfig);
 
             adapter.getTranslation('key', 'en');

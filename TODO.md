@@ -25,8 +25,9 @@ branch rather than mixed into the review fixes.
 ## Testing
 
 ### Cover the adapter lifecycle paths
-The two backend adapters are the last cluster of untested behaviour: 24 uncovered branch
-outcomes, all of them lifecycle and error handling rather than translation logic.
+The two backend adapters are the last cluster of untested behaviour: roughly twenty uncovered
+branch outcomes, all of them lifecycle and error handling rather than translation logic. 0.1.2
+closed the `i18nextAdapter` save/restore arms; the rest of the list below still stands.
 
 - The uninitialized guards: `setTranslation` before `initialize` throws `BackendError`, while
   `getTranslation` answers `null` and `destroy` is a no-op. Three different contracts, none
@@ -44,11 +45,18 @@ Together they are worth roughly 5 points of branch coverage.
 
 ## Type Safety
 
-### Enable `exactOptionalPropertyTypes`
-Still off; turning it on produces ~50 errors, mostly genuine `undefined` gaps around optional
-config fields. Worth doing, but as a dedicated branch.
+`noUncheckedIndexedAccess` was enabled on `feature/cache-contract`, and
+`exactOptionalPropertyTypes` followed in 0.1.2.
 
-`noUncheckedIndexedAccess` is done — enabled on `feature/cache-contract`.
+### Widen the three optional methods on exported interfaces
+`TranslationCache.has`, `TranslationCache.getStats` and `StorageAdapter.saveBatch` kept method
+syntax when the surrounding optional *properties* were widened in 0.1.2, so a consumer running
+`exactOptionalPropertyTypes` who spells `{ get, set, has: undefined, clear }` still gets `TS2375`.
+Rewriting `has?(identity): boolean` into `has?: ((identity) => boolean) | undefined` fixes that but
+swaps bivariant parameter checking for contravariant, which narrows what a consumer may assign —
+the opposite of what the widening rule wants. Both halves are a break, so it waits for 0.2.0, where
+[ADR 004](docs/decisions/004-async-cache.md) reopens `TranslationCache` anyway. Background:
+[ADR 006](docs/decisions/006-widening-is-not-free.md).
 
 ## API Design
 
