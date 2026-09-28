@@ -175,9 +175,10 @@ Saying so costs a README line, but a support claim with no gate is exactly what
 README line together or neither.
 
 Adding an `"import"` condition to `exports` is a **separate** question and not required for this:
-resolution already works without one, and adding it means shipping a real ESM build or a wrapper,
-which buys the dual-package hazard. Decide that on its own merits, with an ADR, not as a side
-effect of documenting what already works.
+resolution already works without one. The condition itself is harmless — it may point at the
+existing CommonJS entry — but the reason to add one is usually a separate ESM target, and a second
+build or wrapper is what buys the dual-package hazard. Decide that on its own merits, with an ADR,
+not as a side effect of documenting what already works.
 
 ### Re-examine the `engines.node` floor — needs an ADR, so 0.2.0
 `>=22.12.0` is a chosen target rather than a demonstrated requirement. `docs/conventions/typescript.md`
