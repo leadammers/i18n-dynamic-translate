@@ -1,4 +1,8 @@
-# DynamicTranslate
+<div align="center">
+
+# i18n-dynamic-translate
+
+**Fill missing i18n keys at runtime with a provider of your choice**
 
 [![CI](https://github.com/leadammers/i18n-dynamic-translate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/leadammers/i18n-dynamic-translate/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/i18n-dynamic-translate.svg)](https://www.npmjs.com/package/i18n-dynamic-translate)
@@ -6,6 +10,12 @@
 [![codecov](https://codecov.io/gh/leadammers/i18n-dynamic-translate/branch/main/graph/badge.svg)](https://codecov.io/gh/leadammers/i18n-dynamic-translate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+
+**[Installation](#installation)** · **[Usage](#usage)** · **[API](#api)**
+
+</div>
+
+---
 
 **DynamicTranslate** (`i18n-dynamic-translate`) fills missing i18n keys **at runtime** — the moment
 your application asks for a key that is not in the locale file. It hooks the missing-key handler of
@@ -16,8 +26,6 @@ product attributes, category trees — whose key set is not known at build time.
 > **Note:** Both providers are verified end to end against a live server — DeepL against the
 > hosted API, LibreTranslate against a self-hosted instance (`tests/e2e/`). DeepL has by far the
 > most mileage; LibreTranslate is the newer of the two paths.
-
-**[Installation](#installation)** · **[Usage](#usage)** · **[API](#api)**
 
 ## Features
 
