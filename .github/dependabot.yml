@@ -42,3 +42,9 @@ updates:
       - ci
     commit-message:
       prefix: ci
+    groups:
+      # CodeQL refuses to run when init and analyze are on different versions,
+      # so bumping them in separate PRs fails both.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
