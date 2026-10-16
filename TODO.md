@@ -8,11 +8,13 @@
 ## Architecture
 
 ### Break up AutoTranslate
+
 `AutoTranslate` handles batch collection, debouncing, translation, persistence, caching,
 key-to-text conversion and adapter orchestration in one class. This makes individual
 concerns hard to test or modify in isolation.
 
 Consider extracting:
+
 - **BatchCollector** — debounce logic and queue management
 - **TranslationExecutor** — calls the translation service, handles retries
 - **PersistenceManager** — writes via the storage adapter, manages file locks
@@ -23,6 +25,7 @@ Deferred deliberately: it is a large, behaviour-preserving refactor and belongs 
 branch rather than mixed into the review fixes.
 
 ### Rule on a second `initialize()` against an already-hooked host
+
 Two `I18nextAdapter` instances attached to one host and destroyed **FIFO** leave the host
 permanently hooked with `saveMissing: true`: the second adapter's `destroy()` restores what it saw,
 which is the first adapter's handler. LIFO teardown is clean. Probed in the pre-merge review of #49.
@@ -37,10 +40,11 @@ not a coverage or patch pass. Phase 3 of the 0.1.2 plan ruled it out of scope fo
 reason and left it here.
 
 ### A Redis or S3 `StorageAdapter` — and the two contract questions it raises
+
 `FileStorageAdapter` is the only implementation, so every deployment without a writable disk is
 shut out: serverless (Vercel, Lambda — read-only except an ephemeral `/tmp`) and anything
-horizontally scaled, where each instance writes its own copy. That is the widest *cannot adopt at
-all* class the package has, wider than any missing backend.
+horizontally scaled, where each instance writes its own copy. That is the widest _cannot adopt at
+all_ class the package has, wider than any missing backend.
 
 Writing the adapter is the easy half. Two things have to be settled first, and neither is a Redis
 or S3 detail:
@@ -56,7 +60,7 @@ or S3 detail:
   it is already only correct for a single process. Redis can do this properly — atomic ops, `WATCH`,
   or a Lua script. **S3 cannot**: it has no read-modify-write, so two concurrent writers silently
   lose keys unless the adapter uses conditional writes or stores one object per key, which is a
-  different shape from what the interface implies. Decide whether the contract *requires*
+  different shape from what the interface implies. Decide whether the contract _requires_
   atomicity or merely assumes it, and say so in `docs/conventions/concurrency.md`.
 
 Both clients are third-party (`ioredis` or `redis`, `@aws-sdk/client-s3`), so critical rule 2
@@ -66,7 +70,8 @@ question cleanly and covers the serverless case; S3 second, once the conditional
 settled.
 
 ### An LLM `TranslationService`
-The premise of this package is *dynamic* keys — `products.meta.carrier` — and `convertKeyToText`
+
+The premise of this package is _dynamic_ keys — `products.meta.carrier` — and `convertKeyToText`
 currently hands a machine translator a decontextualised phrase. An LLM provider takes the `context`
 string the contract already carries (`src/types/index.ts:161`, and both existing providers already
 accept it), so it can be told that a string is a UI label in an e-commerce carrier field rather
@@ -98,6 +103,7 @@ Cost and latency are an order of magnitude off MT, which feeds back into how the
 sized — worth a line in the docs rather than a code change.
 
 ### Decide whether `next-intl` can be a `BackendAdapter` at all
+
 Next.js server rendering is the largest audience the two current backends do not reach, and
 `next-intl` is where that ecosystem has settled. But it does **not** fit `BackendAdapter` as
 specified, and writing the adapter is not the task — deciding the shape is.
@@ -112,7 +118,7 @@ translation, and there is no `addResource` equivalent to write into. Verified ag
 
 The integration that does fit splits across the two halves the framework already has:
 `onError` enqueues the miss into the existing debounced batch, fire-and-forget; `getRequestConfig`
-reads the catalog the storage adapter has since filled, so the *next* request serves the
+reads the catalog the storage adapter has since filled, so the _next_ request serves the
 translation. That is not `setTranslation()` into a live host, so the options are to widen
 `BackendAdapter` to describe a write-behind backend, or to ship this as a documented recipe plus a
 small helper rather than as an adapter. Either way it changes or sidesteps a frozen public
@@ -128,8 +134,9 @@ other.
 `exactOptionalPropertyTypes` followed in 0.1.2.
 
 ### Widen the three optional methods on exported interfaces
+
 `TranslationCache.has`, `TranslationCache.getStats` and `StorageAdapter.saveBatch` kept method
-syntax when the surrounding optional *properties* were widened in 0.1.2, so a consumer running
+syntax when the surrounding optional _properties_ were widened in 0.1.2, so a consumer running
 `exactOptionalPropertyTypes` who spells `{ get, set, has: undefined, clear }` still gets `TS2375`.
 Rewriting `has?(identity): boolean` into `has?: ((identity) => boolean) | undefined` fixes that but
 swaps bivariant parameter checking for contravariant, which narrows what a consumer may assign —
@@ -140,6 +147,7 @@ the opposite of what the widening rule wants. Both halves are a break, so it wai
 ## API Design
 
 ### Improve convertKeyToText robustness
+
 One known rough edge, left as is: the acronym rule preserves any word containing a run of two or
 more capitals, so a contrived key can now keep a lowercase first letter (`"vATRate"` → `"vAT
 Rate"`, where the old code gave `"V AT Rate"`). Telling that apart from `"iOS"` needs a
@@ -147,6 +155,7 @@ dictionary, and every real-world shape checked — `apiURL`, `XMLHttpRequest`, `
 `deliveryETA`, `is2FAEnabled` — is unchanged. Supply `keyToText` if your keys look like this.
 
 ### Widen `TranslationCache` to sync-or-promise — scheduled for 0.2.0
+
 Decided in [docs/decisions/004-async-cache.md](docs/decisions/004-async-cache.md): `get` widens to
 `string | null | Promise<string | null>` and `set` to `void | Promise<void>`, awaited at the call
 sites; `has`, `clear` and `getStats` stay synchronous. A union rather than a promise, so every
@@ -161,6 +170,7 @@ Both items below came out of asking why a freshly published package gets no traf
 supports, and an unstated claim reaches nobody.
 
 ### Say that ESM consumers work — next patch
+
 `README.md`'s prerequisites name CommonJS and Node, and say nothing about ESM, so a reader on
 `"type": "module"` assumes the package is unusable and leaves. It is not. `0.1.2` installed from
 the registry into an ESM project resolves through Node's CJS interop, and `cjs-module-lexer`
@@ -181,6 +191,7 @@ build or wrapper is what buys the dual-package hazard. Decide that on its own me
 not as a side effect of documenting what already works.
 
 ### Re-examine the `engines.node` floor — needs an ADR, so 0.2.0
+
 `>=22.12.0` is a chosen target rather than a demonstrated requirement. `docs/conventions/typescript.md`
 frames it as the target the code is written against, and the newest runtime API in the source is
 global `fetch`, which lands in Node 18. Node 20 went end-of-life in April 2026, but deployments
@@ -190,15 +201,25 @@ at all — `npm` does enforce `engines` for anyone running `engine-strict`.
 Not a manifest edit. `engines.node` is a published support claim, so lowering it means adding the
 version to CI's `test` matrix and watching the suite pass there, settling the devDependency-floor
 question below first (a devDependency whose own floor is higher makes the lower claim false for
-contributors), and an ADR recording what the floor is *for* — otherwise the next person raises it
+contributors), and an ADR recording what the floor is _for_ — otherwise the next person raises it
 again. The reach argument has to outweigh that matrix cost; nobody has asked yet.
 
 ## Tooling
 
 ### Check a devDependency's own `engines.node` against ours
+
 A devDependency can declare an `engines.node` floor above this repository's own, and npm reports it
 as an install-time warning and nothing else. Neither `make gate` nor any CI job reads it, so the
 first sign is a contributor on the declared minimum failing to run a tool everyone else has working.
 Noticed in 0.1.2 while adding husky and lint-staged. A check belongs in the gate — walk the
 installed `node_modules/*/package.json` for `engines.node` and compare each against this package's
 own floor.
+
+### Drop `tsc-alias` or wait out the `braces` advisory
+
+GHSA-vfj7-8cjw-p6xm (braces <= 3.0.3, stack-exhaustion DoS) has no patched release, and `tsc-alias`
+— latest 1.9.7 — still pulls `braces` in through chokidar 3 and globby 11. It is excused in
+`tools/audit/gate.mjs` so it stops blocking every pull request. Two ways out: braces ships a fix (the
+gate then warns and the entry is deleted), or the `@/` rewrite stops needing `tsc-alias` — a small
+script under `tools/`, or Node `#/` subpath imports, which needs no rewrite step at all but touches
+every import and critical rule 5 in AGENTS.md.
