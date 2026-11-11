@@ -52,9 +52,11 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      # Full tree including devDependencies (build/test tooling).
+      # Full tree including devDependencies (build/test tooling). Same threshold,
+      # minus the advisories in tools/audit/gate.mjs that have no fix to take —
+      # npm has no ignore flag, and the production audit above excuses nothing.
       - name: Audit all dependencies
-        run: npm audit --audit-level=high
+        run: node tools/audit/gate.mjs
 
       # `npm audit` only consults the advisory database. This verifies the
       # registry's signatures and provenance attestations, catching tampered or

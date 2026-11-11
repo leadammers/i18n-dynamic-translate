@@ -92,7 +92,7 @@ npm run format:check   # Prettier — CI fails on any formatting diff
 npm run typecheck      # tsc over src/ AND tests/
 npm run build          # tsc + tsc-alias into a cleaned dist/
 npm test               # Vitest; e2e tests self-skip without DEEPL_API_KEY
-npm audit --audit-level=high
+npm run audit          # full tree, minus the unfixable advisories in tools/audit/gate.mjs
 ```
 
 New source and test files must be **committed**, not left untracked — they pass locally because the
