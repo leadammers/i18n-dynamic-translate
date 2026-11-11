@@ -51,7 +51,7 @@ consumer input for the same reason. All of them are **data, never a path into th
   non-configurable property, `Object.defineProperty` throws where an assignment succeeds.
 - A key that collides with an object built-in is kept, not rejected. Dropping it would silently
   lose a translation the application asked for — which is what a plain `target['__proto__'] =
-  'text'` does — and the point is to store it as an ordinary own property.
+'text'` does — and the point is to store it as an ordinary own property.
 - Any new dot-path walk or dynamic property write goes through that module rather than
   re-deriving the loop — the hardening only holds if there is one implementation of it.
 
@@ -65,6 +65,11 @@ consumer input for the same reason. All of them are **data, never a path into th
   lockfile, which consumers do not inherit.
 - `npm audit --omit=dev` must stay clean — that is the surface consumers actually install. Dev-only
   advisories are fixed promptly but do not block a release on their own.
+- The full-tree audit (`npm run audit`, CI's "Audit all dependencies") runs through
+  `tools/audit/gate.mjs`, which excuses the advisories listed in its `IGNORED_ADVISORIES`. An entry
+  goes there only when there is **no patched version to take** and the advisory is dev-only; it
+  carries a comment saying why the exposure is nil and when it comes off. The gate warns once an
+  entry stops matching, and that is the cue to delete it. The production audit excuses nothing.
 
 ## Input from providers
 
