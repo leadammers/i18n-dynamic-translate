@@ -17,16 +17,7 @@ import { fileURLToPath } from 'node:url';
  * condition under which it comes off — see "Dependencies" in
  * docs/conventions/security.md.
  */
-export const IGNORED_ADVISORIES = [
-    {
-        // braces <= 3.0.3, no patched release. Reached only through tsc-alias
-        // (chokidar 3, globby 11 → micromatch), which expands this repository's own
-        // tsconfig globs at build time; no untrusted pattern ever reaches it.
-        // Remove when braces ships a fix or tsc-alias stops depending on it.
-        id: 'GHSA-vfj7-8cjw-p6xm',
-        package: 'braces',
-    },
-];
+export const IGNORED_ADVISORIES = [];
 
 const BLOCKING_SEVERITIES = new Set(['high', 'critical']);
 
