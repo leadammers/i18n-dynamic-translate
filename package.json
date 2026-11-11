@@ -49,7 +49,7 @@
         "smoke": "node tools/smoke/check.mjs",
         "format": "prettier --write \"**/*.ts\"",
         "format:check": "prettier --check \"**/*.ts\"",
-        "audit": "npm audit --audit-level=high",
+        "audit": "node tools/audit/gate.mjs",
         "audit:prod": "npm audit --omit=dev --audit-level=high",
         "prepublishOnly": "npm run typecheck && npm run build && npm test",
         "prepare": "husky"
