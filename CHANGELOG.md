@@ -12,6 +12,22 @@ package that has no dependants yet. Every break is listed here with what it cost
 
 ## [Unreleased]
 
+Docs and package metadata only. No runtime or API change.
+
+### Added
+
+- `llms.txt`, a short summary of the package with links to the docs, for coding agents and other
+  LLM tools. It ships in the tarball together with `AGENTS.md`.
+- A Quickstart section in the README: i18next with DeepL in about ten lines.
+- A test that pins the description, the keyword count and the top-level files of the tarball, so a
+  new file cannot start shipping by accident.
+
+### Changed
+
+- The package description and the README intro now say what the package does in the words people
+  search for: auto-translate missing i18next keys with DeepL or LibreTranslate.
+- Keywords: added `translate`, `missing-translations` and `l10n`; dropped `dynamic-content`.
+
 ## [0.1.2] — 2026-09-25
 
 ### Added

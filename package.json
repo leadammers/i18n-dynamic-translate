@@ -1,7 +1,7 @@
 {
     "name": "i18n-dynamic-translate",
     "version": "0.1.2",
-    "description": "Translates missing i18n keys at runtime with DeepL or LibreTranslate and writes them back into i18next or i18n-node.",
+    "description": "Auto-translate missing i18next and i18n-node keys at runtime with DeepL or LibreTranslate, and write them back into your locale files.",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/leadammers/i18n-dynamic-translate.git"
@@ -25,9 +25,11 @@
     "files": [
         "dist",
         "src",
+        "AGENTS.md",
         "CHANGELOG.md",
         "LICENSE",
-        "README.md"
+        "README.md",
+        "llms.txt"
     ],
     "engines": {
         "node": ">=22.12.0"
@@ -60,14 +62,16 @@
         "i18n-node",
         "deepl",
         "libretranslate",
+        "translate",
         "translation",
         "machine-translation",
         "auto-translate",
         "missing-keys",
+        "missing-translations",
         "runtime-translation",
-        "dynamic-content",
         "localization",
-        "internationalization"
+        "internationalization",
+        "l10n"
     ],
     "author": "Lea Dammers",
     "license": "MIT",
