@@ -1,0 +1,23 @@
+# i18n-dynamic-translate
+
+> Auto-translate missing i18next and i18n-node keys at runtime with DeepL or LibreTranslate. When the app asks for a key that is not in the locale file, the library hooks the missing-key handler, translates the text, adds it to the live i18n instance and writes it to the locale file. Server-side Node.js (>= 22.12) only, zero runtime dependencies, TypeScript declarations included.
+
+Use it for keys that are not known at build time (API metadata, product attributes, category trees). For keys that are already listed in a locale file, a build-time translation CLI is the better fit.
+
+Key facts:
+
+- Entry point: `import { AutoTranslate, Backend, TranslationProvider } from 'i18n-dynamic-translate'`
+- Backends: `Backend.I18NEXT` (i18next >= 23, needs `saveMissing: true`) and `Backend.I18N_NODE` (the `i18n` package)
+- Providers: `TranslationProvider.DEEPL` (API key) and `TranslationProvider.LIBRE_TRANSLATE` (self-hosted, `apiUrl`)
+- Keep the provider API key on the server; the library is not meant for browsers or edge runtimes
+
+## Docs
+
+- [README](https://github.com/leadammers/i18n-dynamic-translate/blob/main/README.md): installation, quickstart, configuration options, API reference, error handling
+- [CHANGELOG](https://github.com/leadammers/i18n-dynamic-translate/blob/main/CHANGELOG.md): changes per release, including what each break costs a caller
+- [AGENTS.md](https://github.com/leadammers/i18n-dynamic-translate/blob/main/AGENTS.md): architecture and conventions for agents working on this repository
+
+## Optional
+
+- [Architecture decisions](https://github.com/leadammers/i18n-dynamic-translate/blob/main/docs/decisions/README.md): why the public API looks the way it does
+- [npm package](https://www.npmjs.com/package/i18n-dynamic-translate)
