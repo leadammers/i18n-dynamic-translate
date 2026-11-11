@@ -214,12 +214,3 @@ first sign is a contributor on the declared minimum failing to run a tool everyo
 Noticed in 0.1.2 while adding husky and lint-staged. A check belongs in the gate — walk the
 installed `node_modules/*/package.json` for `engines.node` and compare each against this package's
 own floor.
-
-### Drop `tsc-alias` or wait out the `braces` advisory
-
-GHSA-vfj7-8cjw-p6xm (braces <= 3.0.3, stack-exhaustion DoS) has no patched release, and `tsc-alias`
-— latest 1.9.7 — still pulls `braces` in through chokidar 3 and globby 11. It is excused in
-`tools/audit/gate.mjs` so it stops blocking every pull request. Two ways out: braces ships a fix (the
-gate then warns and the entry is deleted), or the `@/` rewrite stops needing `tsc-alias` — a small
-script under `tools/`, or Node `#/` subpath imports, which needs no rewrite step at all but touches
-every import and critical rule 5 in AGENTS.md.
